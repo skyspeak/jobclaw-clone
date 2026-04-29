@@ -1,0 +1,38 @@
+{
+  "name": "jobclaw",
+  "version": "1.0.0",
+  "description": "AI job-search agent for new graduates — built by [New Work Foundation](https://dearcc.org), a nonprofit committed to keeping this free, forever.",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NewWorkFoundation/jobclaw.git"
+  },
+  "keywords": [],
+  "author": "New Work Foundation",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/NewWorkFoundation/jobclaw/issues"
+  },
+  "homepage": "https://github.com/NewWorkFoundation/jobclaw#readme",
+  "dependencies": {
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.4",
+    "typescript": "^6.0.3"
+  }
+}
