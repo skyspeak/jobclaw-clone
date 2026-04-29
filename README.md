@@ -15,9 +15,9 @@ JobClaw reads a short intake questionnaire and derives a structured job search r
 - [OpenClaw](https://openclaw.ai) installed
 - A compatible browser agent for executing job searches
 
-## Hosted SaaS MVP
+## JobClaw Hosted
 
-This repo also includes a Next.js MVP that wraps the intake in a chat UI and
+This repo also includes JobClaw Hosted, a Next.js app that wraps the intake in a chat UI and
 generates the same structured search request contract from `SKILL.md`.
 
 ```bash
@@ -25,7 +25,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000` to use the chat intake. The MVP stores progress in
+Open `http://localhost:3000` to use the chat intake. JobClaw Hosted stores progress in
 browser local storage and does not run live job-board searches yet. See
 `docs/SAAS.md` for the hosting plan, accounts needed, environment variables, and
 search-runner options.

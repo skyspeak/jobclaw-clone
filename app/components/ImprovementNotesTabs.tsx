@@ -10,7 +10,7 @@ export function ImprovementNotesTabs() {
   const [activeTab, setActiveTab] = useState<Tab>("search");
 
   return (
-    <aside className="card side-card" aria-label="SaaS implementation notes">
+    <aside className="card side-card" aria-label="JobClaw Hosted implementation notes">
       <div>
         <p className="eyebrow">Build Notes</p>
         <h2>Implementation notes</h2>
@@ -55,7 +55,7 @@ export function ImprovementNotesTabs() {
         <section role="tabpanel">
           <h3>Accounts needed</h3>
           <p className="muted">
-            SaaS service checklist for turning the intake into a production platform.
+            Service checklist for turning the intake into a production platform.
           </p>
           <ul className="list">
             {mvpServiceChoices.map((choice) => (
