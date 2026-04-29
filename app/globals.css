@@ -143,6 +143,16 @@ h3 {
   align-items: start;
 }
 
+.hosted-home {
+  width: min(1180px, 100%);
+  min-height: calc(100dvh - 32px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 16px;
+  align-items: stretch;
+}
+
 .fullscreen-intake {
   width: min(980px, 100%);
   min-height: calc(100dvh - 32px);
@@ -166,6 +176,27 @@ h3 {
   min-height: calc(100dvh - 32px);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+}
+
+.side-callouts {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.callout-card {
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  box-shadow: none;
+}
+
+.callout-card h2 {
+  margin-bottom: 0;
+}
+
+.back-link {
+  width: fit-content;
 }
 
 .crossword-card {
@@ -713,6 +744,7 @@ pre {
 
 @media (max-width: 900px) {
   .hero,
+  .hosted-home,
   .main-grid,
   .crossword-layout,
   .share-panel,
