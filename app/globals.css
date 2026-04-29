@@ -53,6 +53,31 @@ a.button {
   margin: 0 auto;
   padding: 16px;
   display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.home-nav {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.home-nav a {
+  color: var(--foreground);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.home-nav a:last-child {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: white;
+  padding: 8px 12px;
 }
 
 .card {
@@ -209,6 +234,107 @@ h3 {
   display: grid;
   gap: 24px;
   padding: 32px;
+}
+
+.adoption-card {
+  display: grid;
+  gap: 26px;
+  padding: 32px;
+}
+
+.adoption-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 20px;
+  align-items: end;
+}
+
+.adoption-hero h1 {
+  max-width: 780px;
+  font-size: clamp(2.2rem, 5.8vw, 5rem);
+}
+
+.adoption-stat {
+  display: grid;
+  justify-items: end;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.adoption-stat span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.adoption-stat strong {
+  font-size: clamp(3rem, 8vw, 6rem);
+  line-height: 0.9;
+  letter-spacing: -0.08em;
+}
+
+.chart-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: white;
+  padding: 12px;
+}
+
+.adoption-chart {
+  display: block;
+  min-width: 760px;
+  width: 100%;
+}
+
+.axis {
+  stroke: var(--foreground);
+  stroke-width: 1.5;
+}
+
+.grid-line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.axis-label {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.legend-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.legend-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 12px;
+}
+
+.legend-card span {
+  display: block;
+  width: 28px;
+  height: 4px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+
+.legend-card strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.legend-card p,
+.source-note {
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 0;
 }
 
 .quiz-header {
@@ -748,6 +874,7 @@ pre {
   .main-grid,
   .crossword-layout,
   .share-panel,
+  .adoption-hero,
   .quiz-header,
   .quiz-footer {
     grid-template-columns: 1fr;
@@ -759,6 +886,10 @@ pre {
 
   .quiz-options {
     grid-template-columns: 1fr;
+  }
+
+  .legend-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
   .hero-copy {
@@ -779,7 +910,8 @@ pre {
   .chat-card,
   .side-card,
   .crossword-card,
-  .quiz-card {
+  .quiz-card,
+  .adoption-card {
     padding: 22px;
   }
 
