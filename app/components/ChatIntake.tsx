@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   defaultSearchDefaults,
@@ -20,6 +20,13 @@ const emptyAnswers: IntakeAnswers = {
   q3: "",
   q4: "",
   q5: "",
+};
+
+const emptyContact: ContactInfo = {
+  raw: "",
+  name: "",
+  email: "",
+  phone: "",
 };
 
 type ChatRole = "assistant" | "user" | "system";
@@ -47,20 +54,66 @@ type ChatStep =
       required?: false;
       placeholder?: string;
       options?: string[];
+    }
+  | {
+      id: "contact";
+      label: string;
+      prompt: string;
+      type: "contact";
+      required?: false;
+      placeholder?: string;
     };
 
 type StoredSession = {
+  submissionId: string;
   answers: IntakeAnswers;
+  contact: ContactInfo;
   defaults: SearchDefaults;
   currentStep: number;
   messages: ChatMessage[];
   result: JobClawResponse | null;
+  profileDraft: LinkedInProfileDraft | null;
+};
+
+type ContactInfo = {
+  raw: string;
+  name: string;
+  email: string;
+  phone: string;
 };
 
 type SearchLink = {
   label: string;
   description: string;
   url: string;
+};
+
+type LinkedInProfileDraft = {
+  archetype: {
+    name: string;
+    summary: string;
+  };
+  workStyle: {
+    kindOfWork: string[];
+    motivatingProblems: string[];
+    avoid: string[];
+  };
+  idealJob: {
+    title: string;
+    why: string;
+    adjacentTitles: string[];
+  };
+  linkedInProfile: {
+    headline: string;
+    about: string;
+    featured: string[];
+    experiencePositioning: Array<{
+      title: string;
+      bullets: string[];
+    }>;
+    skills: string[];
+  };
+  error?: string;
 };
 
 const intakeSteps: ChatStep[] = [
@@ -133,6 +186,14 @@ const intakeSteps: ChatStep[] = [
     type: "text",
     placeholder: "Prioritize onboarding, workforce development, LMS administration...",
   },
+  {
+    id: "contact",
+    label: "Contact details",
+    prompt:
+      "Optional: leave your name, email, and phone number if you want us to contact you with matching results.",
+    type: "contact",
+    placeholder: "Jane Doe, jane@example.com, (555) 123-4567",
+  },
 ];
 
 function createAssistantMessage(stepIndex: number): ChatMessage {
@@ -157,7 +218,9 @@ function createAssistantMessage(stepIndex: number): ChatMessage {
 
 function readStoredSession(): StoredSession {
   const fallback: StoredSession = {
+    submissionId: "",
     answers: emptyAnswers,
+    contact: emptyContact,
     defaults: defaultSearchDefaults,
     currentStep: 0,
     messages: [
@@ -169,6 +232,7 @@ function readStoredSession(): StoredSession {
       createAssistantMessage(0),
     ],
     result: null,
+    profileDraft: null,
   };
 
   if (typeof window === "undefined") {
@@ -186,11 +250,14 @@ function readStoredSession(): StoredSession {
     const currentStep = Math.min(parsed.currentStep ?? 0, intakeSteps.length);
 
     return {
+      submissionId: parsed.submissionId ?? "",
       answers: { ...emptyAnswers, ...parsed.answers },
+      contact: { ...emptyContact, ...parsed.contact },
       defaults: { ...defaultSearchDefaults, ...parsed.defaults },
       currentStep,
       messages: parsed.messages?.length ? parsed.messages : fallback.messages,
       result: parsed.result ?? null,
+      profileDraft: parsed.profileDraft ?? null,
     };
   } catch {
     window.localStorage.removeItem(storageKey);
@@ -200,12 +267,19 @@ function readStoredSession(): StoredSession {
 
 export function ChatIntake() {
   const [storedSession] = useState(readStoredSession);
+  const [submissionId, setSubmissionId] = useState(storedSession.submissionId);
   const [answers, setAnswers] = useState<IntakeAnswers>(storedSession.answers);
+  const [contact, setContact] = useState<ContactInfo>(storedSession.contact);
   const [defaults, setDefaults] = useState<SearchDefaults>(storedSession.defaults);
   const [currentStep, setCurrentStep] = useState(storedSession.currentStep);
   const [messages, setMessages] = useState<ChatMessage[]>(storedSession.messages);
   const [draft, setDraft] = useState("");
   const [result, setResult] = useState<JobClawResponse | null>(storedSession.result);
+  const [profileDraft, setProfileDraft] = useState<LinkedInProfileDraft | null>(
+    storedSession.profileDraft,
+  );
+  const [isGeneratingProfile, setIsGeneratingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -231,15 +305,18 @@ export function ChatIntake() {
     }
 
     const session: StoredSession = {
+      submissionId,
       answers,
+      contact,
       defaults,
       currentStep,
       messages,
       result,
+      profileDraft,
     };
 
     window.localStorage.setItem(storageKey, JSON.stringify(session));
-  }, [answers, currentStep, defaults, messages, result]);
+  }, [answers, contact, currentStep, defaults, messages, profileDraft, result, submissionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -255,15 +332,30 @@ export function ChatIntake() {
     await acceptTurn(draft.trim());
   }
 
+  async function submitTurnFromKeyboard(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (!currentQuestion || !draft.trim() || isGenerating) {
+      return;
+    }
+
+    await acceptTurn(draft.trim());
+  }
+
   async function acceptTurn(rawValue: string, displayValue = rawValue) {
     if (!currentQuestion) {
       return;
     }
 
-    const { nextAnswers, nextDefaults } = applyStepValue(
+    const { nextAnswers, nextContact, nextDefaults } = applyStepValue(
       currentQuestion,
       rawValue,
       answers,
+      contact,
       defaults,
     );
     const nextStep = currentStep + 1;
@@ -284,6 +376,7 @@ export function ChatIntake() {
     }
 
     setAnswers(nextAnswers);
+    setContact(nextContact);
     setDefaults(nextDefaults);
     setCurrentStep(nextStep);
     setMessages(nextMessages);
@@ -291,7 +384,7 @@ export function ChatIntake() {
     setError("");
 
     if (nextStep === intakeSteps.length) {
-      await generateSearchRequest(nextAnswers, nextDefaults, nextMessages);
+      await generateSearchRequest(nextAnswers, nextDefaults, nextMessages, nextContact);
     }
   }
 
@@ -307,6 +400,7 @@ export function ChatIntake() {
     nextAnswers = answers,
     nextDefaults = defaults,
     nextMessages = messages,
+    nextContact = contact,
   ) {
     setIsGenerating(true);
     setError("");
@@ -327,6 +421,8 @@ export function ChatIntake() {
       }
 
       setResult(payload);
+      setProfileDraft(null);
+      setProfileError("");
       setMessages([
         ...nextMessages,
         {
@@ -336,6 +432,16 @@ export function ChatIntake() {
           content: payload.summary,
         },
       ]);
+
+      await submitIntakeSubmission({
+        nextAnswers,
+        nextContact,
+        nextDefaults,
+        nextResult: payload,
+        nextProfileDraft: null,
+      });
+
+      await generateProfileDraft(nextAnswers, nextDefaults, payload, nextContact);
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : "Unable to generate a search request.";
@@ -348,14 +454,125 @@ export function ChatIntake() {
   function resetSession() {
     const freshSession = readFreshSession();
 
+    setSubmissionId(freshSession.submissionId);
     setAnswers(freshSession.answers);
+    setContact(freshSession.contact);
     setDefaults(freshSession.defaults);
     setCurrentStep(freshSession.currentStep);
     setMessages(freshSession.messages);
     setDraft("");
     setResult(null);
+    setProfileDraft(null);
+    setProfileError("");
     setError("");
     window.localStorage.removeItem(storageKey);
+  }
+
+  async function generateProfileDraft(
+    nextAnswers = answers,
+    nextDefaults = defaults,
+    nextResult = result,
+    nextContact = contact,
+  ) {
+    if (!nextResult?.searchRequest || isGeneratingProfile) {
+      return;
+    }
+
+    setIsGeneratingProfile(true);
+    setProfileError("");
+
+    try {
+      const response = await fetch("/api/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          answers: nextAnswers,
+          defaults: nextDefaults,
+          searchSummary: nextResult.summary,
+        }),
+      });
+      const payload = (await response.json()) as LinkedInProfileDraft;
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to generate profile draft.");
+      }
+
+      setProfileDraft(payload);
+      await submitIntakeSubmission({
+        nextAnswers,
+        nextContact,
+        nextDefaults,
+        nextResult,
+        nextProfileDraft: payload,
+      });
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        {
+          id: nextMessageId("assistant-profile"),
+          role: "assistant",
+          label: "Archetype",
+          content: `${payload.archetype.name}: ${payload.idealJob.title}`,
+        },
+      ]);
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Unable to generate profile draft.";
+      setProfileError(message);
+    } finally {
+      setIsGeneratingProfile(false);
+    }
+  }
+
+  async function submitIntakeSubmission({
+    nextAnswers,
+    nextContact,
+    nextDefaults,
+    nextResult,
+    nextProfileDraft,
+  }: {
+    nextAnswers: IntakeAnswers;
+    nextContact: ContactInfo;
+    nextDefaults: SearchDefaults;
+    nextResult: JobClawResponse;
+    nextProfileDraft: LinkedInProfileDraft | null;
+  }) {
+    const clientSubmissionId = getSubmissionId();
+
+    try {
+      const response = await fetch("/api/submissions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          clientSubmissionId,
+          contact: nextContact,
+          answers: nextAnswers,
+          defaults: nextDefaults,
+          result: nextResult,
+          profileDraft: nextProfileDraft,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to save the completed intake.");
+      }
+    } catch {
+      setError("The assessment was generated, but the admin dashboard save failed.");
+    }
+  }
+
+  function getSubmissionId() {
+    if (submissionId) {
+      return submissionId;
+    }
+
+    const nextSubmissionId = crypto.randomUUID();
+    setSubmissionId(nextSubmissionId);
+
+    return nextSubmissionId;
   }
 
   return (
@@ -426,6 +643,7 @@ export function ChatIntake() {
                 : currentQuestion.placeholder ?? "Type your answer here..."
             }
             value={draft}
+            onKeyDown={submitTurnFromKeyboard}
             onChange={(event) => setDraft(event.target.value)}
           />
           <div className="actions">
@@ -446,11 +664,21 @@ export function ChatIntake() {
         <div className="actions">
           <button
             className="button"
-            disabled={isGenerating}
+            disabled={isGenerating || isGeneratingProfile}
             onClick={() => generateSearchRequest()}
           >
             {isGenerating ? "Regenerating..." : "Regenerate"}
           </button>
+          {result?.searchRequest ? (
+            <button
+              className="button secondary"
+              disabled={isGeneratingProfile}
+              type="button"
+              onClick={() => generateProfileDraft()}
+            >
+              {isGeneratingProfile ? "Drafting profile..." : "Draft profile"}
+            </button>
+          ) : null}
           <button className="button secondary" type="button" onClick={resetSession}>
             New intake
           </button>
@@ -458,6 +686,38 @@ export function ChatIntake() {
       )}
 
       {error ? <p className="warning">{error}</p> : null}
+      {profileError ? <p className="warning">{profileError}</p> : null}
+
+      {contact.raw ? (
+        <div className="contact-confirmation" aria-live="polite">
+          <div>
+            <span className="pill">Contact saved</span>
+            <p className="muted">
+              These follow-up details are saved with this chat session for matching results.
+            </p>
+          </div>
+          <dl>
+            {contact.name ? (
+              <>
+                <dt>Name</dt>
+                <dd>{contact.name}</dd>
+              </>
+            ) : null}
+            {contact.email ? (
+              <>
+                <dt>Email</dt>
+                <dd>{contact.email}</dd>
+              </>
+            ) : null}
+            {contact.phone ? (
+              <>
+                <dt>Phone</dt>
+                <dd>{contact.phone}</dd>
+              </>
+            ) : null}
+          </dl>
+        </div>
+      ) : null}
 
       {result ? (
         <div className="result" aria-live="polite">
@@ -466,6 +726,17 @@ export function ChatIntake() {
           <pre>{JSON.stringify(result, null, 2)}</pre>
         </div>
       ) : null}
+
+      {isGeneratingProfile ? (
+        <div className="profile-draft" aria-live="polite">
+          <span className="pill">Drafting archetype</span>
+          <p className="muted">
+            Reading the completed intake and preparing a realistic LinkedIn-style profile.
+          </p>
+        </div>
+      ) : null}
+
+      {profileDraft ? <ProfileDraftView profile={profileDraft} /> : null}
 
       {freeSearchLinks.length > 0 ? (
         <div className="search-results" aria-live="polite">
@@ -499,7 +770,9 @@ export function ChatIntake() {
 
 function readFreshSession(): StoredSession {
   return {
+    submissionId: "",
     answers: emptyAnswers,
+    contact: emptyContact,
     defaults: defaultSearchDefaults,
     currentStep: 0,
     messages: [
@@ -511,13 +784,85 @@ function readFreshSession(): StoredSession {
       createAssistantMessage(0),
     ],
     result: null,
+    profileDraft: null,
   };
+}
+
+function ProfileDraftView({ profile }: { profile: LinkedInProfileDraft }) {
+  return (
+    <div className="profile-draft" aria-live="polite">
+      <div>
+        <span className="pill">Archetype</span>
+        <h3>{profile.archetype.name}</h3>
+        <p>{profile.archetype.summary}</p>
+      </div>
+
+      <div className="profile-grid">
+        <section>
+          <h3>Ideal job</h3>
+          <p>
+            <strong>{profile.idealJob.title}</strong>
+          </p>
+          <p className="muted">{profile.idealJob.why}</p>
+          <div className="tag-list">
+            {profile.idealJob.adjacentTitles.map((title) => (
+              <span key={title}>{title}</span>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h3>Kind of work</h3>
+          <ul>
+            {profile.workStyle.kindOfWork.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      <section className="linkedin-card">
+        <p className="eyebrow">LinkedIn draft</p>
+        <h3>{profile.linkedInProfile.headline}</h3>
+        <p>{profile.linkedInProfile.about}</p>
+
+        <h4>Featured ideas</h4>
+        <ul>
+          {profile.linkedInProfile.featured.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+
+        <h4>Experience positioning</h4>
+        {profile.linkedInProfile.experiencePositioning.map((section) => (
+          <div key={section.title}>
+            <p>
+              <strong>{section.title}</strong>
+            </p>
+            <ul>
+              {section.bullets.map((bullet) => (
+                <li key={bullet}>{bullet}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+
+        <h4>Skills</h4>
+        <div className="tag-list">
+          {profile.linkedInProfile.skills.map((skill) => (
+            <span key={skill}>{skill}</span>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function applyStepValue(
   step: ChatStep,
   rawValue: string,
   answers: IntakeAnswers,
+  contact: ContactInfo,
   defaults: SearchDefaults,
 ) {
   if (step.type === "answer") {
@@ -526,12 +871,22 @@ function applyStepValue(
         ...answers,
         [step.id]: rawValue,
       },
+      nextContact: contact,
+      nextDefaults: defaults,
+    };
+  }
+
+  if (step.type === "contact") {
+    return {
+      nextAnswers: answers,
+      nextContact: parseContactInfo(rawValue),
       nextDefaults: defaults,
     };
   }
 
   return {
     nextAnswers: answers,
+    nextContact: contact,
     nextDefaults: {
       ...defaults,
       [step.id]: normalizeDefaultValue(step, rawValue),
@@ -539,7 +894,10 @@ function applyStepValue(
   };
 }
 
-function normalizeDefaultValue(step: Exclude<ChatStep, { type: "answer" }>, rawValue: string) {
+function normalizeDefaultValue(
+  step: Exclude<ChatStep, { type: "answer" } | { type: "contact" }>,
+  rawValue: string,
+) {
   if (!rawValue) {
     return defaultSearchDefaults[step.id];
   }
@@ -554,6 +912,27 @@ function normalizeDefaultValue(step: Exclude<ChatStep, { type: "answer" }>, rawV
   }
 
   return rawValue;
+}
+
+function parseContactInfo(rawValue: string): ContactInfo {
+  const email = rawValue.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? "";
+  const phone =
+    rawValue.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/)?.[0] ??
+    "";
+  const name =
+    rawValue
+      .replace(email, "")
+      .replace(phone, "")
+      .split(/,|\n/)
+      .map((part) => part.trim())
+      .find(Boolean) ?? "";
+
+  return {
+    raw: rawValue,
+    name,
+    email,
+    phone,
+  };
 }
 
 function buildFreeSearchLinks(searchRequest: SearchRequest): SearchLink[] {

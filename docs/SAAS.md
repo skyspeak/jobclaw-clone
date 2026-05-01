@@ -9,8 +9,8 @@ and cost decisions are made.
 
 - App framework: Next.js and TypeScript
 - Hosting target: Vercel
-- Current persistence: browser `localStorage`
-- Production database recommendation: Supabase Postgres or Neon
+- Current browser persistence: `localStorage` for in-progress chat sessions
+- Production submission storage: Postgres through `DATABASE_URL`
 - Auth recommendation: Clerk or Supabase Auth
 - Search recommendation: free outbound search links first; API-backed search later
 - Email recommendation: Resend
@@ -33,8 +33,28 @@ it. To operate JobClaw Hosted as a full platform, add these in roughly this orde
 ## Environment Variables
 
 See `.env.example`. The intake generator and free outbound search links work
-without environment variables because the first pass uses deterministic inference
-and browser-side persistence.
+without environment variables because the first pass uses deterministic inference.
+
+Completed intake submissions use Postgres when `DATABASE_URL` or `POSTGRES_URL`
+is configured. Neon, Supabase Postgres, Vercel Postgres, and other
+Postgres-compatible providers should work. Without a database URL, local
+development falls back to `data/intake-submissions.json`; do not rely on that
+fallback for production hosting.
+
+The submissions table is created automatically on first read/write:
+
+```sql
+create table if not exists intake_submissions (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  contact jsonb not null,
+  answers jsonb not null,
+  defaults jsonb not null,
+  result jsonb not null,
+  profile_draft jsonb
+);
+```
 
 ## Search Execution Plan
 

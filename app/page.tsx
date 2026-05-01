@@ -7,7 +7,10 @@ export default function Home() {
     <main className="page">
       <nav className="home-nav" aria-label="Main links">
         <Link href="/">JobClaw Hosted</Link>
-        <Link href="/ai-adoption">Ramp AI adoption chart</Link>
+        <div className="home-nav-links">
+          <Link href="/admin">Admin</Link>
+          <Link href="/ai-adoption">Ramp AI adoption chart</Link>
+        </div>
       </nav>
       <section className="hosted-home">
         <ChatIntake />
