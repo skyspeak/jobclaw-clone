@@ -559,12 +559,22 @@ export function ChatIntake() {
           profileDraft: nextProfileDraft,
         }),
       });
+      const payload = await readJsonResponse(response);
 
       if (!response.ok) {
-        throw new Error("Unable to save the completed intake.");
+        throw new Error(
+          payload?.error ||
+            `Unable to save the completed intake. API returned ${response.status} ${response.statusText}.`,
+        );
       }
-    } catch {
-      setError("The assessment was generated, but the admin dashboard save failed.");
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Unable to save the completed intake.";
+
+      console.error("Admin dashboard save failed after assessment generation.", {
+        error: message,
+      });
+      setError(`The assessment was generated, but the admin dashboard save failed: ${message}`);
     }
   }
 
@@ -793,6 +803,20 @@ function readFreshSession(): StoredSession {
     result: null,
     profileDraft: null,
   };
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as { error?: string };
+  } catch {
+    return { error: text };
+  }
 }
 
 function removeSearchRequestMessages(messages: ChatMessage[]) {
