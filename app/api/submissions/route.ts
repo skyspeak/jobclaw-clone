@@ -5,6 +5,7 @@ import {
   listSubmissions,
   submissionRequestSchema,
 } from "@/lib/submissions";
+import { ADMIN_COOKIE_NAME, isValidAdminPassword, readCookieValue } from "@/lib/admin";
 
 export const runtime = "nodejs";
 
@@ -50,15 +51,14 @@ export async function POST(request: Request) {
 }
 
 function isAuthorized(request: Request) {
-  const adminToken = process.env.ADMIN_DASHBOARD_TOKEN;
-
-  if (!adminToken) {
-    return true;
-  }
-
   const authorization = request.headers.get("authorization");
   const bearerToken = authorization?.match(/^Bearer (.+)$/i)?.[1];
   const queryToken = new URL(request.url).searchParams.get("token");
+  const cookieToken = readCookieValue(request.headers.get("cookie"), ADMIN_COOKIE_NAME);
 
-  return bearerToken === adminToken || queryToken === adminToken;
+  return (
+    isValidAdminPassword(bearerToken) ||
+    isValidAdminPassword(queryToken) ||
+    isValidAdminPassword(cookieToken)
+  );
 }

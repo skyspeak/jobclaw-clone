@@ -53,43 +53,70 @@ export async function POST(request: Request) {
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
+  const logContext = buildOpenRouterLogContext(parsed.data);
 
   if (!apiKey) {
+    console.warn("OpenRouter profile generation skipped: OPENROUTER_API_KEY is not configured.", logContext);
     return NextResponse.json(buildFallbackProfile(parsed.data));
   }
 
   const model = process.env.OPENROUTER_MODEL ?? "openai/gpt-4o-mini";
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-      "X-Title": "DearCC presents JobClaw",
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a career strategist. Convert a reflective job-search intake into a realistic, useful career archetype and LinkedIn-style profile draft. Do not invent specific employers, degrees, dates, certifications, or credentials. Use placeholders or positioning language where facts are unknown. Return only valid JSON.",
-        },
-        {
-          role: "user",
-          content: buildPrompt(parsed.data),
-        },
-      ],
-      temperature: 0.4,
-      response_format: { type: "json_object" },
-    }),
-    cache: "no-store",
-  });
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const requestStartedAt = Date.now();
+  let response: Response;
 
-  const payload = await response.json();
+  try {
+    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": siteUrl,
+        "X-Title": "DearCC presents JobClaw",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a career strategist. Convert a reflective job-search intake into a realistic, useful career archetype and LinkedIn-style profile draft. Do not invent specific employers, degrees, dates, certifications, or credentials. Use placeholders or positioning language where facts are unknown. Return only valid JSON.",
+          },
+          {
+            role: "user",
+            content: buildPrompt(parsed.data),
+          },
+        ],
+        temperature: 0.4,
+        response_format: { type: "json_object" },
+      }),
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error("OpenRouter profile generation request failed before receiving a response.", {
+      ...logContext,
+      model,
+      siteUrl,
+      durationMs: Date.now() - requestStartedAt,
+      error: serializeError(error),
+    });
+    return NextResponse.json(buildFallbackProfile(parsed.data));
+  }
+
+  const rawPayload = await response.text();
+  const payload = parseOpenRouterPayload(rawPayload);
 
   if (!response.ok) {
-    console.warn("OpenRouter profile generation failed.", payload);
+    console.warn("OpenRouter profile generation returned a non-OK response.", {
+      ...logContext,
+      model,
+      siteUrl,
+      status: response.status,
+      statusText: response.statusText,
+      durationMs: Date.now() - requestStartedAt,
+      payload,
+      rawPayloadPreview: previewText(rawPayload),
+    });
     return NextResponse.json(buildFallbackProfile(parsed.data));
   }
 
@@ -97,11 +124,79 @@ export async function POST(request: Request) {
   const profile = linkedInProfileSchema.safeParse(parseJsonText(text));
 
   if (!profile.success) {
-    console.warn("OpenRouter returned an unreadable profile draft.", text);
+    console.warn("OpenRouter returned an unreadable profile draft.", {
+      ...logContext,
+      model,
+      siteUrl,
+      status: response.status,
+      durationMs: Date.now() - requestStartedAt,
+      schemaErrors: profile.error.flatten(),
+      contentPreview: previewText(text),
+      payloadPreview: previewText(rawPayload),
+    });
     return NextResponse.json(buildFallbackProfile(parsed.data));
   }
 
   return NextResponse.json(profile.data);
+}
+
+function buildOpenRouterLogContext(request: z.infer<typeof profileRequestSchema>) {
+  const defaults = request.defaults ?? {};
+
+  return {
+    searchSummaryPresent: Boolean(request.searchSummary),
+    answeredQuestionIds: Object.entries(request.answers)
+      .filter(([, answer]) => Boolean(answer?.trim()))
+      .map(([questionId]) => questionId),
+    defaults: {
+      provider: defaults.provider,
+      location: defaults.location,
+      workMode: defaults.workMode,
+      seniority: defaults.seniority,
+      minSalary: defaults.minSalary,
+      maxResults: defaults.maxResults,
+      requireVisaSponsorship: defaults.requireVisaSponsorship,
+      preferVolunteerRoles: defaults.preferVolunteerRoles,
+      hasRiasecOverride: Boolean(defaults.riasecOverride),
+      hasNotes: Boolean(defaults.notes),
+    },
+  };
+}
+
+function parseOpenRouterPayload(rawPayload: string) {
+  if (!rawPayload) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawPayload);
+  } catch (error) {
+    console.warn("OpenRouter returned a response body that was not valid JSON.", {
+      error: serializeError(error),
+      rawPayloadPreview: previewText(rawPayload),
+    });
+    return null;
+  }
+}
+
+function serializeError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return { message: String(error) };
+}
+
+function previewText(text: unknown, maxLength = 1000) {
+  if (typeof text !== "string") {
+    return text;
+  }
+
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
 }
 
 function buildFallbackProfile(request: z.infer<typeof profileRequestSchema>): LinkedInProfileDraft {

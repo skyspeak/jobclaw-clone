@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
+import { ADMIN_COOKIE_NAME, isValidAdminPassword } from "@/lib/admin";
 import { intakeQuestions } from "@/lib/jobclaw";
 import { getSubmissionStoreLabel, listSubmissions } from "@/lib/submissions";
 
@@ -7,29 +10,69 @@ export const dynamic = "force-dynamic";
 
 type AdminDashboardPageProps = {
   searchParams: Promise<{
+    error?: string | string[];
+    password?: string | string[];
     token?: string | string[];
   }>;
 };
 
+async function signInAdmin(formData: FormData) {
+  "use server";
+
+  const password = String(formData.get("password") ?? "");
+
+  if (!isValidAdminPassword(password)) {
+    redirect("/admin?error=1");
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(ADMIN_COOKIE_NAME, password, {
+    httpOnly: true,
+    maxAge: 60 * 60 * 8,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  redirect("/admin");
+}
+
 export default async function AdminDashboardPage({ searchParams }: AdminDashboardPageProps) {
   const params = await searchParams;
-  const token = Array.isArray(params.token) ? params.token[0] : params.token;
-  const adminToken = process.env.ADMIN_DASHBOARD_TOKEN;
+  const queryPassword = getFirstParam(params.password) ?? getFirstParam(params.token);
+  const cookieStore = await cookies();
+  const cookiePassword = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
 
-  if (adminToken && token !== adminToken) {
+  if (!isValidAdminPassword(queryPassword) && !isValidAdminPassword(cookiePassword)) {
     return (
       <main className="page">
         <nav className="home-nav" aria-label="Main links">
           <Link href="/">DearCC presents JobClaw</Link>
         </nav>
         <section className="admin-shell">
-          <div className="card empty-admin">
+          <div className="card empty-admin admin-login">
             <p className="eyebrow">Administrator dashboard</p>
             <h1>Admin access required.</h1>
             <p className="muted">
-              Add the admin token to the URL to view people, assessments, and contact
-              information.
+              Enter the admin password to view people, assessments, and contact
+              information at this URL.
             </p>
+            <form action={signInAdmin} className="admin-login-form">
+              <label htmlFor="admin-password">Password</label>
+              <input
+                autoComplete="current-password"
+                id="admin-password"
+                name="password"
+                placeholder="Enter admin password"
+                type="password"
+              />
+              {getFirstParam(params.error) ? (
+                <p className="form-error">That password did not match.</p>
+              ) : null}
+              <button className="button" type="submit">
+                Open admin page
+              </button>
+            </form>
           </div>
         </section>
       </main>
@@ -166,4 +209,8 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       </section>
     </main>
   );
+}
+
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }
