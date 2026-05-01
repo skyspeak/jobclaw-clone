@@ -10,7 +10,7 @@ export function ImprovementNotesTabs() {
   const [activeTab, setActiveTab] = useState<Tab>("search");
 
   return (
-    <aside className="card side-card" aria-label="JobClaw Hosted implementation notes">
+    <aside className="card side-card" aria-label="DearCC presents JobClaw implementation notes">
       <div>
         <p className="eyebrow">Build Notes</p>
         <h2>Implementation notes</h2>

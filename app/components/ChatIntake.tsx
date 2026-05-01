@@ -227,7 +227,8 @@ function readStoredSession(): StoredSession {
       {
         id: "system-start",
         role: "system",
-        content: "JobClaw intake started. Answer naturally; short or messy answers are fine.",
+        content:
+          "Help us understand a little bit about you so we can guide you to the right jobs",
       },
       createAssistantMessage(0),
     ],
@@ -582,8 +583,8 @@ export function ChatIntake() {
           <p className="eyebrow">Turn-taking intake</p>
           <h2 id="chat-title">One question at a time.</h2>
           <p className="muted">
-            JobClaw listens, stores the answer, and asks the next question only when
-            you are done with the current turn.
+            Help us understand a little bit about you so we can guide you to the
+            right jobs
           </p>
         </div>
         <span className="step-count">
@@ -779,7 +780,8 @@ function readFreshSession(): StoredSession {
       {
         id: "system-start",
         role: "system",
-        content: "JobClaw intake started. Answer naturally; short or messy answers are fine.",
+        content:
+          "Help us understand a little bit about you so we can guide you to the right jobs",
       },
       createAssistantMessage(0),
     ],

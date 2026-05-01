@@ -624,7 +624,7 @@ h3 {
   overflow: auto;
   padding: 22px 6px 18px;
   scroll-behavior: smooth;
-  align-content: end;
+  align-content: start;
 }
 
 .bubble {
@@ -1224,5 +1224,461 @@ pre {
   .fullscreen-intake,
   .chat-card {
     min-height: calc(100dvh - 20px);
+  }
+}
+
+/* Compact dark interface, inspired by shadcn's neutral system. */
+:root {
+  --background: #030712;
+  --foreground: #f8fafc;
+  --muted: #94a3b8;
+  --panel: #09090b;
+  --panel-strong: #111827;
+  --border: #1f2937;
+  --brand: #f8fafc;
+  --brand-dark: #dbeafe;
+  --success: #86efac;
+  --warning: #fbbf24;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.38);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 34rem),
+    radial-gradient(circle at bottom right, rgba(168, 85, 247, 0.1), transparent 34rem),
+    var(--background);
+}
+
+.page {
+  padding: 12px;
+  gap: 10px;
+}
+
+.home-nav {
+  width: min(1240px, 100%);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  background: rgba(3, 7, 18, 0.72);
+  padding: 8px 10px;
+  backdrop-filter: blur(16px);
+}
+
+.home-nav a {
+  font-size: 0.82rem;
+  letter-spacing: -0.01em;
+}
+
+.home-nav-links {
+  gap: 6px;
+}
+
+.home-nav-links a,
+.back-link {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.72);
+  color: var(--foreground);
+  padding: 7px 10px;
+}
+
+.card {
+  border-color: rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  background: rgba(9, 9, 11, 0.82);
+  box-shadow: var(--shadow);
+}
+
+.hosted-home {
+  width: min(1240px, 100%);
+  min-height: calc(100dvh - 76px);
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 280px);
+  gap: 10px;
+}
+
+.main-stack,
+.admin-shell {
+  width: min(1120px, 100%);
+  gap: 10px;
+}
+
+.chat-card,
+.side-card {
+  padding: 16px;
+}
+
+.chat-card {
+  min-height: calc(100dvh - 76px);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(3, 7, 18, 0.88)),
+    var(--panel);
+}
+
+.side-callouts {
+  gap: 10px;
+}
+
+.callout-card,
+.admin-submission,
+.admin-header,
+.empty-admin {
+  padding: 16px;
+}
+
+.callout-card {
+  gap: 10px;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 4.8rem);
+  letter-spacing: -0.06em;
+  margin-bottom: 14px;
+}
+
+h2 {
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+h3 {
+  font-size: 0.9rem;
+}
+
+p,
+.lead,
+.muted,
+.source-note,
+.legend-card p,
+.result-list p,
+.profile-draft p,
+.profile-draft li {
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.eyebrow {
+  margin-bottom: 7px;
+  color: #94a3b8;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+}
+
+.chat-header {
+  margin: -16px -16px 0;
+  padding: 10px 14px;
+  background: rgba(3, 7, 18, 0.68);
+}
+
+.chat-header h2 {
+  margin-bottom: 2px;
+}
+
+.chat-header .muted {
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.step-count,
+.pill {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.9);
+  color: #cbd5e1;
+  font-size: 0.72rem;
+  padding: 5px 8px;
+}
+
+.progress {
+  margin: 0 -16px;
+  height: 2px;
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.progress span {
+  background: #60a5fa;
+}
+
+.turn-log {
+  padding: 6px 2px 10px;
+}
+
+.messages {
+  gap: 6px;
+}
+
+.bubble {
+  max-width: min(78%, 520px);
+  border-radius: 16px;
+  padding: 8px 11px;
+  font-size: 0.86rem;
+  line-height: 1.38;
+  box-shadow: none;
+}
+
+.bubble strong {
+  font-size: 0.7rem;
+}
+
+.assistant {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: #111827;
+  color: #e5e7eb;
+  border-bottom-left-radius: 5px;
+}
+
+.user {
+  background: #2563eb;
+  border-bottom-right-radius: 5px;
+}
+
+.system {
+  background: rgba(148, 163, 184, 0.1);
+  font-size: 0.72rem;
+}
+
+.composer {
+  margin: 0 -16px -16px;
+  padding: 10px 12px 12px;
+  background: rgba(3, 7, 18, 0.78);
+}
+
+.answer-form,
+.field-grid,
+.section-stack {
+  gap: 10px;
+}
+
+textarea,
+input,
+select {
+  border-color: rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.88);
+  color: var(--foreground);
+  padding: 10px 11px;
+}
+
+textarea:focus,
+input:focus,
+select:focus,
+.crossword-cell input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+}
+
+.composer textarea {
+  min-height: 42px;
+  border-radius: 18px;
+  padding: 10px 12px;
+}
+
+textarea::placeholder,
+input::placeholder {
+  color: #64748b;
+}
+
+.quick-replies {
+  gap: 6px;
+}
+
+.quick-reply {
+  border-color: rgba(96, 165, 250, 0.22);
+  background: rgba(37, 99, 235, 0.14);
+  color: #bfdbfe;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+}
+
+.quick-reply:hover {
+  background: rgba(37, 99, 235, 0.22);
+}
+
+.actions {
+  gap: 6px;
+}
+
+.button {
+  border: 1px solid rgba(248, 250, 252, 0.12);
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #020617;
+  font-size: 0.84rem;
+  padding: 9px 12px;
+}
+
+.button:hover {
+  background: #dbeafe;
+  transform: translateY(-1px);
+}
+
+.button.secondary,
+.tab[aria-selected="true"] {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.86);
+  color: var(--foreground);
+}
+
+.button.secondary:hover {
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.result,
+.search-results,
+.contact-confirmation,
+.profile-draft,
+.section-stack,
+.admin-answers,
+.quiz-footer,
+.share-panel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
+.result {
+  gap: 8px;
+}
+
+.contact-confirmation dl,
+.profile-grid section,
+.linkedin-card,
+.result-list li,
+.legend-card,
+.quiz-question,
+.quiz-options label,
+.admin-grid section,
+.admin-contact-card,
+.admin-metrics div,
+.admin-answers div,
+.status-item {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.contact-confirmation dl,
+.result-list li,
+.admin-contact-card,
+.admin-answers div {
+  border-radius: 14px;
+  padding: 11px;
+}
+
+.profile-grid,
+.admin-grid {
+  gap: 10px;
+}
+
+.tag-list {
+  gap: 6px;
+}
+
+.tag-list span {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(30, 41, 59, 0.72);
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  padding: 5px 8px;
+}
+
+pre {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: #020617;
+  color: #dbeafe;
+  padding: 12px;
+  font-size: 0.78rem;
+}
+
+.crossword-card,
+.quiz-card,
+.adoption-card {
+  gap: 18px;
+  padding: 20px;
+}
+
+.chart-wrap,
+.crossword-cell {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.axis {
+  stroke: #cbd5e1;
+}
+
+.grid-line {
+  stroke: #1e293b;
+}
+
+.axis-label {
+  fill: #94a3b8;
+}
+
+.quiz-options label.selected {
+  border-color: #60a5fa;
+  background: rgba(37, 99, 235, 0.16);
+}
+
+.quiz-options input,
+input[type="checkbox"] {
+  accent-color: #60a5fa;
+}
+
+.crossword-cell.wrong {
+  border-color: #f87171;
+  background: rgba(127, 29, 29, 0.35);
+}
+
+.crossword-cell input {
+  color: var(--foreground);
+}
+
+.tabs {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(2, 6, 23, 0.72);
+  border-radius: 12px;
+}
+
+.tab {
+  border-radius: 10px;
+  padding: 7px 9px;
+  font-size: 0.8rem;
+}
+
+.admin-metrics strong {
+  font-size: 1.55rem;
+}
+
+.admin-submission {
+  gap: 14px;
+}
+
+.admin-submission-header {
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 8px;
+  }
+
+  .chat-card,
+  .side-card,
+  .crossword-card,
+  .quiz-card,
+  .adoption-card,
+  .admin-header,
+  .admin-submission {
+    padding: 14px;
+  }
+
+  .chat-header {
+    margin: -14px -14px 0;
+  }
+
+  .composer {
+    margin: 0 -14px -14px;
   }
 }

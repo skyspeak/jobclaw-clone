@@ -1,6 +1,6 @@
-# JobClaw Hosted Notes
+# DearCC presents JobClaw Notes
 
-This repo now includes JobClaw Hosted, a small hosted app around the original
+This repo now includes DearCC presents JobClaw, a small hosted app around the original
 OpenClaw skill. The app intentionally ships chat-to-search-request first. Live job
 search execution should be added only after provider, compliance, reliability,
 and cost decisions are made.
@@ -19,7 +19,7 @@ and cost decisions are made.
 ## Accounts Needed
 
 For the current app, you only need a GitHub account and a Vercel account to host
-it. To operate JobClaw Hosted as a full platform, add these in roughly this order:
+it. To operate DearCC presents JobClaw as a full platform, add these in roughly this order:
 
 1. Vercel for hosting and preview deployments.
 2. Supabase or Neon for Postgres.

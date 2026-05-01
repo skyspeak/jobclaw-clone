@@ -20,7 +20,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     return (
       <main className="page">
         <nav className="home-nav" aria-label="Main links">
-          <Link href="/">JobClaw Hosted</Link>
+          <Link href="/">DearCC presents JobClaw</Link>
         </nav>
         <section className="admin-shell">
           <div className="card empty-admin">
@@ -46,10 +46,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   return (
     <main className="page">
       <nav className="home-nav" aria-label="Main links">
-        <Link href="/">JobClaw Hosted</Link>
-        <div className="home-nav-links">
-          <Link href="/admin">Admin dashboard</Link>
-        </div>
+        <Link href="/">DearCC presents JobClaw</Link>
       </nav>
 
       <section className="admin-shell">

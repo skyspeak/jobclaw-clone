@@ -10,7 +10,7 @@ export const mvpServiceChoices: ServiceChoice[] = [
     category: "Hosting",
     recommendation: "Vercel",
     accountNeeded: "Vercel account connected to GitHub",
-    why: "Fastest path for JobClaw Hosted with preview deploys and environment variables.",
+    why: "Fastest path for DearCC presents JobClaw with preview deploys and environment variables.",
   },
   {
     category: "Database",
