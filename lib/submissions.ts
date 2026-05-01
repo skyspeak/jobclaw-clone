@@ -67,6 +67,7 @@ export const submissionRequestSchema = z.object({
 
 const submissionsFilePath = path.join(process.cwd(), "data", "intake-submissions.json");
 const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+const isHostedRuntime = Boolean(process.env.VERCEL);
 let sqlClient: ReturnType<typeof postgres> | null = null;
 
 type SubmissionRow = {
@@ -81,6 +82,10 @@ type SubmissionRow = {
 };
 
 export function getSubmissionStoreLabel() {
+  if (isHostedRuntime && !databaseUrl) {
+    return "Not configured";
+  }
+
   return databaseUrl ? "Postgres database" : "Local JSON fallback";
 }
 
@@ -114,6 +119,10 @@ export async function createSubmission(
 
   if (databaseUrl) {
     return upsertDatabaseSubmission(submission);
+  }
+
+  if (isHostedRuntime) {
+    return submission;
   }
 
   const submissions = await readSubmissions();

@@ -29,6 +29,17 @@ const emptyContact: ContactInfo = {
   phone: "",
 };
 
+const workModes = ["Any", "Remote", "Hybrid", "On-site"] as const;
+const seniorityLevels = [
+  "Any",
+  "Internship",
+  "Entry level",
+  "Associate",
+  "Mid-Senior level",
+  "Director",
+  "Executive",
+] as const;
+
 type ChatRole = "assistant" | "user" | "system";
 
 type ChatMessage = {
@@ -254,9 +265,9 @@ function readStoredSession(): StoredSession {
       submissionId: parsed.submissionId ?? "",
       answers: { ...emptyAnswers, ...parsed.answers },
       contact: { ...emptyContact, ...parsed.contact },
-      defaults: { ...defaultSearchDefaults, ...parsed.defaults },
+      defaults: normalizeStoredDefaults(parsed.defaults),
       currentStep,
-      messages: parsed.messages?.length ? parsed.messages : fallback.messages,
+      messages: parsed.messages?.length ? removeSearchRequestMessages(parsed.messages) : fallback.messages,
       result: parsed.result ?? null,
       profileDraft: parsed.profileDraft ?? null,
     };
@@ -424,15 +435,7 @@ export function ChatIntake() {
       setResult(payload);
       setProfileDraft(null);
       setProfileError("");
-      setMessages([
-        ...nextMessages,
-        {
-          id: nextMessageId("assistant-result"),
-          role: "assistant",
-          label: "Search request",
-          content: payload.summary,
-        },
-      ]);
+      setMessages(nextMessages);
 
       await submitIntakeSubmission({
         nextAnswers,
@@ -671,6 +674,16 @@ export function ChatIntake() {
             {isGenerating ? "Regenerating..." : "Regenerate"}
           </button>
           {result?.searchRequest ? (
+            <a
+              className="button"
+              href={buildGoogleAiModeUrl(result.searchRequest)}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Search Google AI Mode
+            </a>
+          ) : null}
+          {result?.searchRequest ? (
             <button
               className="button secondary"
               disabled={isGeneratingProfile}
@@ -717,14 +730,6 @@ export function ChatIntake() {
               </>
             ) : null}
           </dl>
-        </div>
-      ) : null}
-
-      {result ? (
-        <div className="result" aria-live="polite">
-          <span className="pill">{result.searchRequest ? "Ready for handoff" : "Needs answers"}</span>
-          <p>{result.summary}</p>
-          <pre>{JSON.stringify(result, null, 2)}</pre>
         </div>
       ) : null}
 
@@ -787,6 +792,29 @@ function readFreshSession(): StoredSession {
     ],
     result: null,
     profileDraft: null,
+  };
+}
+
+function removeSearchRequestMessages(messages: ChatMessage[]) {
+  return messages.filter(
+    (message) => message.label !== "Search request" && !message.id.startsWith("assistant-result"),
+  );
+}
+
+function normalizeStoredDefaults(defaults: Partial<SearchDefaults> | undefined): SearchDefaults {
+  const nextDefaults = { ...defaultSearchDefaults, ...defaults };
+  const maxResults =
+    typeof nextDefaults.maxResults === "number"
+      ? nextDefaults.maxResults
+      : Number.parseInt(String(nextDefaults.maxResults), 10);
+
+  return {
+    ...nextDefaults,
+    workMode: workModes.includes(nextDefaults.workMode) ? nextDefaults.workMode : "Any",
+    seniority: seniorityLevels.includes(nextDefaults.seniority) ? nextDefaults.seniority : "Any",
+    requireVisaSponsorship: nextDefaults.requireVisaSponsorship === true,
+    preferVolunteerRoles: nextDefaults.preferVolunteerRoles === true,
+    maxResults: Number.isFinite(maxResults) ? Math.min(Math.max(maxResults, 1), 50) : 5,
   };
 }
 
@@ -957,9 +985,9 @@ function buildFreeSearchLinks(searchRequest: SearchRequest): SearchLink[] {
 
   return [
     {
-      label: "Open Google search",
-      description: "Broad web search for public job posts matching this request.",
-      url: `https://www.google.com/search?q=${encodeURIComponent(`${query} job posting`)}`,
+      label: "Search Google AI Mode",
+      description: "Open Chrome's Google AI Mode for job posts matching this request.",
+      url: buildGoogleAiModeUrl(searchRequest),
     },
     {
       label: "Search company career pages",
@@ -984,6 +1012,18 @@ function buildFreeSearchLinks(searchRequest: SearchRequest): SearchLink[] {
       url: `https://www.idealist.org/en/jobs?${idealistParams.toString()}`,
     },
   ];
+}
+
+function buildGoogleAiModeUrl(searchRequest: SearchRequest) {
+  const params = new URLSearchParams({
+    q: `${buildSearchQuery(searchRequest)} job posting`,
+    udm: "50",
+    sourceid: "chrome",
+    cs: "1",
+    hl: "en-US",
+  });
+
+  return `https://www.google.com/search?${params.toString()}`;
 }
 
 function buildSearchQuery(searchRequest: SearchRequest) {

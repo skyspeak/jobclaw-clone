@@ -32,9 +32,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const submission = await createSubmission(parsed.data);
+  try {
+    const submission = await createSubmission(parsed.data);
 
-  return NextResponse.json({ submission }, { status: 201 });
+    return NextResponse.json({ submission }, { status: 201 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to save the completed intake.";
+
+    return NextResponse.json(
+      {
+        error: message,
+      },
+      { status: 500 },
+    );
+  }
 }
 
 function isAuthorized(request: Request) {

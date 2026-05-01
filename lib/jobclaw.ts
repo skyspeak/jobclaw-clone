@@ -125,7 +125,7 @@ export const generateRequestSchema = z.object({
       minSalary: z.string().optional(),
       requireVisaSponsorship: z.boolean().optional(),
       preferVolunteerRoles: z.boolean().optional(),
-      maxResults: z.number().int().min(1).max(50).optional(),
+      maxResults: z.coerce.number().int().min(1).max(50).optional(),
       riasecOverride: z.string().optional(),
       notes: z.string().optional(),
     })

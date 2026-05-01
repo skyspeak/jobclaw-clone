@@ -39,18 +39,6 @@ const linkedInProfileSchema = z.object({
 export type LinkedInProfileDraft = z.infer<typeof linkedInProfileSchema>;
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-
-  if (!apiKey) {
-    return NextResponse.json(
-      {
-        error:
-          "Missing OPENROUTER_API_KEY. Add it to your environment to generate an archetype and LinkedIn profile draft.",
-      },
-      { status: 500 },
-    );
-  }
-
   const body = await request.json().catch(() => null);
   const parsed = profileRequestSchema.safeParse(body);
 
@@ -62,6 +50,12 @@ export async function POST(request: Request) {
       },
       { status: 400 },
     );
+  }
+
+  const apiKey = process.env.OPENROUTER_API_KEY;
+
+  if (!apiKey) {
+    return NextResponse.json(buildFallbackProfile(parsed.data));
   }
 
   const model = process.env.OPENROUTER_MODEL ?? "openai/gpt-4o-mini";
@@ -95,29 +89,98 @@ export async function POST(request: Request) {
   const payload = await response.json();
 
   if (!response.ok) {
-    return NextResponse.json(
-      {
-        error: "OpenRouter profile generation failed.",
-        details: payload,
-      },
-      { status: response.status },
-    );
+    console.warn("OpenRouter profile generation failed.", payload);
+    return NextResponse.json(buildFallbackProfile(parsed.data));
   }
 
   const text = payload?.choices?.[0]?.message?.content;
   const profile = linkedInProfileSchema.safeParse(parseJsonText(text));
 
   if (!profile.success) {
-    return NextResponse.json(
-      {
-        error: "OpenRouter returned an unreadable profile draft.",
-        rawText: text,
-      },
-      { status: 502 },
-    );
+    console.warn("OpenRouter returned an unreadable profile draft.", text);
+    return NextResponse.json(buildFallbackProfile(parsed.data));
   }
 
   return NextResponse.json(profile.data);
+}
+
+function buildFallbackProfile(request: z.infer<typeof profileRequestSchema>): LinkedInProfileDraft {
+  const answers = request.answers;
+  const summary = request.searchSummary ?? "Generated a JobClaw search request.";
+  const targetTitle = inferTargetTitle(summary);
+
+  return {
+    archetype: {
+      name: "Reflective Career Builder",
+      summary:
+        "This candidate is clarifying the kind of work that fits their strengths, motivations, and constraints. Their answers point toward practical early-career roles with room to learn, contribute, and build confidence.",
+    },
+    workStyle: {
+      kindOfWork: [
+        answers.q1 || "Day-to-day work aligned with their stated interests",
+        answers.q2 || "Applying under-recognized strengths",
+        answers.q3 || "Solving motivating problems",
+      ],
+      motivatingProblems: [
+        answers.q3 || "Work with a clear purpose and visible progress",
+        "Learning through hands-on contribution",
+        "Turning broad goals into concrete next steps",
+      ],
+      avoid: [
+        answers.q4 || "Poor-fit environments",
+        "Roles with unclear expectations",
+        "Work that does not connect to their growth goals",
+      ],
+    },
+    idealJob: {
+      title: targetTitle,
+      why: "This target comes from the structured JobClaw search request and the candidate's intake answers.",
+      adjacentTitles: [
+        "Program Coordinator",
+        "Operations Assistant",
+        "Customer Success Associate",
+        "Research Assistant",
+      ],
+    },
+    linkedInProfile: {
+      headline: `Early-career candidate exploring ${targetTitle} roles`,
+      about:
+        "I am exploring roles that match the way I like to work, learn, and contribute. I am especially interested in environments where I can build practical skills, solve real problems, and grow through clear feedback and responsibility. I bring curiosity, follow-through, and a thoughtful approach to choosing work that fits.",
+      featured: [
+        "A short portfolio project showing how I approach a real workplace problem",
+        "A reflection on the kind of role and environment where I do my best work",
+        "A simple case study connecting my strengths to a target job family",
+      ],
+      experiencePositioning: [
+        {
+          title: "Career Direction and Strengths",
+          bullets: [
+            "Clarified target roles through a structured intake focused on strengths, interests, and constraints.",
+            "Identified motivating problems and work environments that support long-term growth.",
+            "Translated personal goals into a concrete early-career search direction.",
+          ],
+        },
+      ],
+      skills: [
+        "Communication",
+        "Problem Solving",
+        "Research",
+        "Organization",
+        "Learning Agility",
+        "Collaboration",
+        "Customer Support",
+        "Operations",
+        "Project Coordination",
+        "Career Planning",
+      ],
+    },
+  };
+}
+
+function inferTargetTitle(summary: string) {
+  const match = summary.match(/search for ([^,]+?)(?: near|, emphasizing| while|$)/i);
+
+  return match?.[1]?.trim() || "Entry Level Program Coordinator";
 }
 
 function buildPrompt(request: z.infer<typeof profileRequestSchema>) {
