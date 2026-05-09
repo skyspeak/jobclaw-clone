@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 import {
   defaultSearchDefaults,
@@ -11,6 +12,7 @@ import {
   SearchRequest,
   SearchDefaults,
 } from "@/lib/jobclaw";
+import type { GeneratedResume } from "@/lib/resume";
 
 const storageKey = "jobclaw.turn-taking-session.v1";
 
@@ -120,6 +122,7 @@ type StoredSession = {
   messages: ChatMessage[];
   result: JobClawResponse | null;
   profileDraft: LinkedInProfileDraft | null;
+  generatedResume: GeneratedResume | null;
 };
 
 type ContactInfo = {
@@ -281,6 +284,7 @@ function readStoredSession(): StoredSession {
     ],
     result: null,
     profileDraft: null,
+    generatedResume: null,
   };
 
   if (typeof window === "undefined") {
@@ -306,6 +310,7 @@ function readStoredSession(): StoredSession {
       messages: parsed.messages?.length ? removeSearchRequestMessages(parsed.messages) : fallback.messages,
       result: parsed.result ?? null,
       profileDraft: parsed.profileDraft ?? null,
+      generatedResume: parsed.generatedResume ?? null,
     };
   } catch {
     window.localStorage.removeItem(storageKey);
@@ -326,6 +331,7 @@ export function ChatIntake() {
   const [profileDraft, setProfileDraft] = useState<LinkedInProfileDraft | null>(
     storedSession.profileDraft,
   );
+  const [generatedResume] = useState<GeneratedResume | null>(storedSession.generatedResume);
   const [isGeneratingProfile, setIsGeneratingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -368,10 +374,21 @@ export function ChatIntake() {
       messages,
       result,
       profileDraft,
+      generatedResume,
     };
 
     window.localStorage.setItem(storageKey, JSON.stringify(session));
-  }, [answers, contact, currentStep, defaults, messages, profileDraft, result, submissionId]);
+  }, [
+    answers,
+    contact,
+    currentStep,
+    defaults,
+    generatedResume,
+    messages,
+    profileDraft,
+    result,
+    submissionId,
+  ]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -894,6 +911,11 @@ export function ChatIntake() {
               {isGeneratingProfile ? "Drafting profile..." : "Draft profile"}
             </button>
           ) : null}
+          {result?.searchRequest ? (
+            <Link className="button secondary" href="/tailor-resume">
+              Tailor resume
+            </Link>
+          ) : null}
           <button className="button secondary" type="button" onClick={resetSession}>
             New intake
           </button>
@@ -993,6 +1015,7 @@ function readFreshSession(): StoredSession {
     ],
     result: null,
     profileDraft: null,
+    generatedResume: null,
   };
 }
 
