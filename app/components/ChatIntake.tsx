@@ -14,6 +14,42 @@ import {
 
 const storageKey = "jobclaw.turn-taking-session.v1";
 
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onend: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onresult: ((event: SpeechRecognitionResultEventLike) => void) | null;
+};
+
+type SpeechRecognitionErrorEventLike = {
+  error: string;
+};
+
+type SpeechRecognitionResultEventLike = {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+};
+
+type WindowWithSpeechRecognition = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+};
+
 const emptyAnswers: IntakeAnswers = {
   q1: "",
   q2: "",
@@ -294,8 +330,15 @@ export function ChatIntake() {
   const [profileError, setProfileError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceAvailabilityChecked, setVoiceAvailabilityChecked] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState("");
+  const [voiceError, setVoiceError] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageIdRef = useRef(storedSession.messages.length);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceBaseDraftRef = useRef("");
 
   const currentQuestion = intakeSteps[currentStep];
   const isComplete = currentStep >= intakeSteps.length;
@@ -334,6 +377,26 @@ export function ChatIntake() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, result]);
 
+  useEffect(() => {
+    const supportCheckId = window.setTimeout(() => {
+      setVoiceSupported(Boolean(getSpeechRecognitionConstructor()));
+      setVoiceAvailabilityChecked(true);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(supportCheckId);
+      const recognition = recognitionRef.current;
+
+      if (recognition) {
+        recognition.onend = null;
+        recognition.onerror = null;
+        recognition.onresult = null;
+        recognition.abort();
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
+
   async function submitTurn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -362,6 +425,8 @@ export function ChatIntake() {
     if (!currentQuestion) {
       return;
     }
+
+    clearVoiceInput();
 
     const { nextAnswers, nextContact, nextDefaults } = applyStepValue(
       currentQuestion,
@@ -406,6 +471,91 @@ export function ChatIntake() {
     }
 
     await acceptTurn("", "Skip");
+  }
+
+  function toggleVoiceInput() {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setVoiceStatus("Adding your voice answer...");
+      return;
+    }
+
+    const SpeechRecognition = getSpeechRecognitionConstructor();
+
+    if (!SpeechRecognition) {
+      setVoiceError("Voice input is not available in this browser. Try Chrome or Edge.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    const isMobileVoiceInput = isLikelyMobileDevice();
+    const listeningStatus = isMobileVoiceInput
+      ? "Listening... speak your answer. Mobile browsers may stop automatically after a pause."
+      : "Listening... speak your answer, then tap Stop.";
+
+    recognition.continuous = !isMobileVoiceInput;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    voiceBaseDraftRef.current = draft;
+    recognitionRef.current = recognition;
+    setVoiceError("");
+    setVoiceStatus(listeningStatus);
+    setIsListening(true);
+
+    recognition.onresult = (event) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = result[0]?.transcript ?? "";
+
+        if (result.isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      const nextDraft = [voiceBaseDraftRef.current, finalTranscript, interimTranscript]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(" ");
+
+      setDraft(nextDraft);
+
+      if (finalTranscript.trim()) {
+        voiceBaseDraftRef.current = [voiceBaseDraftRef.current, finalTranscript.trim()]
+          .filter(Boolean)
+          .join(" ");
+      }
+    };
+
+    recognition.onerror = (event) => {
+      setVoiceError(getVoiceErrorMessage(event.error));
+      setVoiceStatus("");
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      setVoiceStatus((currentStatus) =>
+        currentStatus === listeningStatus
+          ? "Voice input stopped. Review your answer, then send it."
+          : currentStatus,
+      );
+      recognitionRef.current = null;
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      setVoiceError("Voice input could not start. Check microphone permissions and try again.");
+      setVoiceStatus("");
+      setIsListening(false);
+      recognitionRef.current = null;
+    }
   }
 
   async function generateSearchRequest(
@@ -458,6 +608,7 @@ export function ChatIntake() {
   function resetSession() {
     const freshSession = readFreshSession();
 
+    clearVoiceInput();
     setSubmissionId(freshSession.submissionId);
     setAnswers(freshSession.answers);
     setContact(freshSession.contact);
@@ -470,6 +621,27 @@ export function ChatIntake() {
     setProfileError("");
     setError("");
     window.localStorage.removeItem(storageKey);
+  }
+
+  function clearVoiceInput() {
+    abortVoiceRecognition();
+    setIsListening(false);
+    setVoiceStatus("");
+    setVoiceError("");
+  }
+
+  function abortVoiceRecognition() {
+    const recognition = recognitionRef.current;
+
+    if (!recognition) {
+      return;
+    }
+
+    recognition.onend = null;
+    recognition.onerror = null;
+    recognition.onresult = null;
+    recognition.abort();
+    recognitionRef.current = null;
   }
 
   async function generateProfileDraft(
@@ -660,9 +832,28 @@ export function ChatIntake() {
             onKeyDown={submitTurnFromKeyboard}
             onChange={(event) => setDraft(event.target.value)}
           />
+          {voiceStatus || voiceError ? (
+            <p className={voiceError ? "voice-status warning" : "voice-status"} aria-live="polite">
+              {voiceError || voiceStatus}
+            </p>
+          ) : voiceAvailabilityChecked && !voiceSupported ? (
+            <p className="voice-status" aria-live="polite">
+              Voice input is not available in this browser. Typing, including your phone keyboard&apos;s
+              microphone, still works.
+            </p>
+          ) : null}
           <div className="actions">
             <button className="button" disabled={!draft.trim() || isGenerating}>
               Send
+            </button>
+            <button
+              className={`button secondary voice-button${isListening ? " listening" : ""}`}
+              disabled={isGenerating || !voiceSupported}
+              type="button"
+              aria-pressed={isListening}
+              onClick={toggleVoiceInput}
+            >
+              {isListening ? "Stop voice" : voiceSupported ? "Use voice" : "Voice unavailable"}
             </button>
             {canSkip ? (
               <button className="button secondary" type="button" onClick={skipTurn}>
@@ -803,6 +994,40 @@ function readFreshSession(): StoredSession {
     result: null,
     profileDraft: null,
   };
+}
+
+function getSpeechRecognitionConstructor() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const speechWindow = window as WindowWithSpeechRecognition;
+
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
+}
+
+function isLikelyMobileDevice() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.matchMedia("(pointer: coarse)").matches || window.navigator.maxTouchPoints > 0;
+}
+
+function getVoiceErrorMessage(error: string) {
+  if (error === "not-allowed" || error === "service-not-allowed") {
+    return "Microphone access was blocked. Allow microphone access, then try voice input again.";
+  }
+
+  if (error === "no-speech") {
+    return "I did not hear anything. Tap Use voice and try speaking again.";
+  }
+
+  if (error === "audio-capture") {
+    return "No microphone was found. Connect a microphone and try again.";
+  }
+
+  return "Voice input stopped unexpectedly. You can keep typing or try again.";
 }
 
 async function readJsonResponse(response: Response) {
