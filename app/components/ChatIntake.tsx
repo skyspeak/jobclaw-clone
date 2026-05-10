@@ -3,6 +3,10 @@
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import {
   defaultSearchDefaults,
   IntakeAnswers,
@@ -778,217 +782,286 @@ export function ChatIntake() {
     return nextSubmissionId;
   }
 
+  function bubbleClasses(role: ChatRole) {
+    return cn(
+      "text-[0.96rem] leading-snug shadow-sm",
+      role === "assistant" &&
+        "max-w-[min(92%,620px)] self-start rounded-[22px] rounded-bl-[7px] border border-border/55 bg-muted/90 px-3.5 py-2.5 text-card-foreground",
+      role === "user" &&
+        "max-w-[min(76%,560px)] self-end rounded-[22px] rounded-br-[7px] border-transparent bg-primary px-3.5 py-2.5 text-primary-foreground",
+      role === "system" &&
+        "mx-auto max-w-[min(70%,480px)] self-center rounded-full border-0 bg-muted px-[14px] py-2 text-center text-[0.78rem] text-muted-foreground shadow-none",
+    );
+  }
+
   return (
-    <section className="card chat-card" aria-labelledby="chat-title">
-      <div className="chat-header">
-        <div>
-          <p className="eyebrow">Turn-taking intake</p>
-          <h2 id="chat-title">One question at a time.</h2>
-          <p className="muted">
-            Help us understand a little bit about you so we can guide you to the
-            right jobs
-          </p>
-        </div>
-        <span className="step-count">
-          {Math.min(currentStep + 1, intakeSteps.length)} / {intakeSteps.length}
-        </span>
-      </div>
+    <div className="flex min-h-[100dvh] flex-col brand-bg selection:bg-primary selection:text-primary-foreground">
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-10 pt-5 sm:px-8 md:px-14 md:pb-16 md:pt-10">
+        <header className="mb-4 flex flex-col gap-4 sm:mb-6">
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:text-sm">
+            <Link className="text-foreground underline-offset-4 hover:underline" href="/">
+              JOBCLAW
+            </Link>
+            <span>
+              {Math.min(currentStep + 1, intakeSteps.length)} / {intakeSteps.length}
+            </span>
+          </div>
+          <Progress aria-label={`${progress}% complete`} className="h-2" value={progress} />
+          <Link
+            href="/"
+            className="w-fit text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            ← Back to home
+          </Link>
+        </header>
 
-      <div className="progress" aria-label={`${progress}% complete`}>
-        <span style={{ width: `${progress}%` }} />
-      </div>
+        <section
+          className="flex min-h-[min(85dvh,52rem)] flex-1 flex-col overflow-hidden rounded-3xl border border-border/70 bg-card shadow-md"
+          aria-labelledby="chat-title"
+        >
+          <div className="border-b border-border/60 px-6 py-5 md:px-8">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Turn-taking intake
+            </p>
+            <h2 id="chat-title" className="text-xl font-semibold tracking-tight text-foreground">
+              One question at a time.
+            </h2>
+            <p className="mt-1 max-w-xl text-sm text-muted-foreground sm:text-base">
+              Help us understand a little bit about you so we can guide you to the right jobs
+            </p>
+          </div>
 
-      <div className="messages turn-log" aria-live="polite">
-        {transcriptPreview.map((message) => (
-          <div key={message.id} className={`bubble ${message.role}`}>
-            {message.label ? (
-              <>
-                <strong>{message.label}</strong>
-                <br />
-              </>
+          <div
+            className="scrollbar-thin flex min-h-[12rem] flex-1 flex-col gap-3 overflow-y-auto px-6 py-5 md:px-8"
+            aria-live="polite"
+          >
+            {transcriptPreview.map((message) => (
+              <div key={message.id} className={bubbleClasses(message.role)}>
+                {message.label ? (
+                  <strong className="mb-1 block text-[11px] font-semibold uppercase tracking-wide opacity-65">
+                    {message.label}
+                  </strong>
+                ) : null}
+                <span className="bubble-body inline-block whitespace-pre-wrap">{message.content}</span>
+              </div>
+            ))}
+            {isGenerating ? (
+              <div className={bubbleClasses("assistant")}>
+                <strong className="mb-1 block text-[11px] font-semibold uppercase tracking-wide opacity-65">
+                  Generating
+                </strong>
+                <span className="inline-block whitespace-pre-wrap">Creating your structured search request...</span>
+              </div>
             ) : null}
-            {message.content}
+            <div ref={messagesEndRef} />
           </div>
-        ))}
-        {isGenerating ? (
-          <div className="bubble assistant typing">
-            <strong>Generating</strong>
-            <br />
-            Creating your structured search request...
-          </div>
-        ) : null}
-        <div ref={messagesEndRef} />
-      </div>
 
-      {!isComplete && currentQuestion ? (
-        <form className="answer-form composer" onSubmit={submitTurn}>
-          {currentQuestion.type === "select" || currentQuestion.type === "boolean" ? (
-            <div className="quick-replies">
-              {currentQuestion.options?.map((option) => (
-                <button
-                  className="quick-reply"
-                  key={option}
-                  type="button"
-                  onClick={() => acceptTurn(option)}
+          {!isComplete && currentQuestion ? (
+            <form
+              className="sticky bottom-0 z-10 border-t border-border/60 bg-card/95 px-5 pb-6 pt-4 backdrop-blur-md md:static md:z-0 md:border-t md:bg-transparent md:p-6 md:pt-6"
+              onSubmit={submitTurn}
+            >
+              {currentQuestion.type === "select" || currentQuestion.type === "boolean" ? (
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {currentQuestion.options?.map((option) => (
+                    <button
+                      className={cn(
+                        "rounded-full border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm text-foreground shadow-none transition-colors",
+                        "hover:bg-primary/[0.17]",
+                      )}
+                      key={option}
+                      type="button"
+                      onClick={() => acceptTurn(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <Textarea
+                aria-label={currentQuestion.prompt}
+                inputMode={currentQuestion.type === "number" ? "numeric" : "text"}
+                placeholder={
+                  currentQuestion.type === "answer"
+                    ? "Type your answer here..."
+                    : currentQuestion.placeholder ?? "Type your answer here..."
+                }
+                value={draft}
+                onKeyDown={submitTurnFromKeyboard}
+                onChange={(event) => setDraft(event.target.value)}
+                className="focus-visible:border-primary/40 mb-4 min-h-[48px] max-h-32 resize-none rounded-3xl bg-card px-5 py-3.5 text-base leading-relaxed focus-visible:ring-2 focus-visible:ring-primary/50"
+              />
+              {voiceStatus || voiceError ? (
+                <p
+                  className={cn(
+                    "-mt-3 mb-3 text-sm text-muted-foreground",
+                    voiceError && "text-destructive",
+                  )}
+                  aria-live="polite"
                 >
-                  {option}
-                </button>
-              ))}
+                  {voiceError || voiceStatus}
+                </p>
+              ) : voiceAvailabilityChecked && !voiceSupported ? (
+                <p className="-mt-3 mb-3 text-sm text-muted-foreground" aria-live="polite">
+                  Voice input is not available in this browser. Typing, including your phone
+                  keyboard&apos;s microphone, still works.
+                </p>
+              ) : null}
+              <div className="flex flex-wrap items-center justify-end gap-2 md:justify-end">
+                <Button disabled={!draft.trim() || isGenerating} type="submit" className="rounded-2xl cta-glow">
+                  Send
+                </Button>
+                <Button
+                  className={cn(
+                    "rounded-2xl",
+                    isListening && "border-primary/40 bg-primary/20 text-card-foreground hover:bg-primary/[0.26]",
+                  )}
+                  disabled={isGenerating || !voiceSupported}
+                  type="button"
+                  variant="outline"
+                  aria-pressed={isListening}
+                  onClick={toggleVoiceInput}
+                >
+                  {isListening ? "Stop voice" : voiceSupported ? "Use voice" : "Voice unavailable"}
+                </Button>
+                {canSkip ? (
+                  <Button className="rounded-2xl" type="button" variant="outline" onClick={skipTurn}>
+                    Skip
+                  </Button>
+                ) : null}
+                <Button className="rounded-2xl" type="button" variant="outline" onClick={resetSession}>
+                  Reset
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className="flex flex-col gap-3 border-t border-border/60 p-6 md:flex-row md:flex-wrap">
+              <Button
+                disabled={isGenerating || isGeneratingProfile}
+                className="rounded-2xl cta-glow"
+                onClick={() => generateSearchRequest()}
+              >
+                {isGenerating ? "Regenerating..." : "Regenerate"}
+              </Button>
+              {result?.searchRequest ? (
+                <Button
+                  asChild
+                  className="rounded-2xl cta-glow"
+                >
+                  <a href={buildGoogleAiModeUrl(result.searchRequest)} rel="noreferrer" target="_blank">
+                    Search Google AI Mode
+                  </a>
+                </Button>
+              ) : null}
+              {result?.searchRequest ? (
+                <Button
+                  className="rounded-2xl"
+                  disabled={isGeneratingProfile}
+                  type="button"
+                  variant="outline"
+                  onClick={() => generateProfileDraft()}
+                >
+                  {isGeneratingProfile ? "Drafting profile..." : "Draft profile"}
+                </Button>
+              ) : null}
+              {result?.searchRequest ? (
+                <Button asChild variant="outline" className="rounded-2xl">
+                  <Link href="/tailor-resume">Tailor resume</Link>
+                </Button>
+              ) : null}
+              <Button className="rounded-2xl" type="button" variant="outline" onClick={resetSession}>
+                New intake
+              </Button>
+            </div>
+          )}
+
+          {error ? <p className="border-t border-border/60 px-6 py-4 text-sm text-destructive md:px-8">{error}</p> : null}
+          {profileError ? (
+            <p className="border-border/60 px-6 pb-5 text-sm text-destructive md:px-8">{profileError}</p>
+          ) : null}
+
+          {contact.raw ? (
+            <div
+              className="space-y-4 border-t border-border/60 px-6 pb-8 pt-6 md:px-8"
+              aria-live="polite"
+            >
+              <div className="space-y-3">
+                <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
+                  Contact saved
+                </span>
+                <p className="text-sm text-muted-foreground">
+                  These follow-up details are saved with this chat session for matching results.
+                </p>
+              </div>
+              <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 rounded-2xl border border-border bg-card p-5 text-sm">
+                {contact.name ? (
+                  <>
+                    <dt className="font-medium text-muted-foreground">Name</dt>
+                    <dd>{contact.name}</dd>
+                  </>
+                ) : null}
+                {contact.email ? (
+                  <>
+                    <dt className="font-medium text-muted-foreground">Email</dt>
+                    <dd className="break-all">{contact.email}</dd>
+                  </>
+                ) : null}
+                {contact.phone ? (
+                  <>
+                    <dt className="font-medium text-muted-foreground">Phone</dt>
+                    <dd>{contact.phone}</dd>
+                  </>
+                ) : null}
+              </dl>
             </div>
           ) : null}
 
-          <textarea
-            aria-label={currentQuestion.prompt}
-            inputMode={currentQuestion.type === "number" ? "numeric" : "text"}
-            placeholder={
-              currentQuestion.type === "answer"
-                ? "Type your answer here..."
-                : currentQuestion.placeholder ?? "Type your answer here..."
-            }
-            value={draft}
-            onKeyDown={submitTurnFromKeyboard}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          {voiceStatus || voiceError ? (
-            <p className={voiceError ? "voice-status warning" : "voice-status"} aria-live="polite">
-              {voiceError || voiceStatus}
-            </p>
-          ) : voiceAvailabilityChecked && !voiceSupported ? (
-            <p className="voice-status" aria-live="polite">
-              Voice input is not available in this browser. Typing, including your phone keyboard&apos;s
-              microphone, still works.
-            </p>
+          {isGeneratingProfile ? (
+            <div className="space-y-2 border-t border-border/60 px-6 pb-8 pt-6 md:px-8" aria-live="polite">
+              <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
+                Drafting archetype
+              </span>
+              <p className="text-sm text-muted-foreground">
+                Reading the completed intake and preparing a realistic LinkedIn-style profile.
+              </p>
+            </div>
           ) : null}
-          <div className="actions">
-            <button className="button" disabled={!draft.trim() || isGenerating}>
-              Send
-            </button>
-            <button
-              className={`button secondary voice-button${isListening ? " listening" : ""}`}
-              disabled={isGenerating || !voiceSupported}
-              type="button"
-              aria-pressed={isListening}
-              onClick={toggleVoiceInput}
-            >
-              {isListening ? "Stop voice" : voiceSupported ? "Use voice" : "Voice unavailable"}
-            </button>
-            {canSkip ? (
-              <button className="button secondary" type="button" onClick={skipTurn}>
-                Skip
-              </button>
-            ) : null}
-            <button className="button secondary" type="button" onClick={resetSession}>
-              Reset
-            </button>
-          </div>
-        </form>
-      ) : (
-        <div className="actions">
-          <button
-            className="button"
-            disabled={isGenerating || isGeneratingProfile}
-            onClick={() => generateSearchRequest()}
-          >
-            {isGenerating ? "Regenerating..." : "Regenerate"}
-          </button>
-          {result?.searchRequest ? (
-            <a
-              className="button"
-              href={buildGoogleAiModeUrl(result.searchRequest)}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Search Google AI Mode
-            </a>
+
+          {profileDraft ? <ProfileDraftView profile={profileDraft} /> : null}
+
+          {freeSearchLinks.length > 0 ? (
+            <div className="space-y-6 border-t border-border/60 px-6 pb-10 pt-8 md:px-8" aria-live="polite">
+              <div className="space-y-3">
+                <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
+                  Free search links
+                </span>
+                <p className="text-sm text-muted-foreground">
+                  No API key needed. These open searches in your browser instead of scraping results into
+                  the app.
+                </p>
+              </div>
+              <ul className="grid list-none gap-4 p-0">
+                {freeSearchLinks.map((item) => (
+                  <li
+                    key={item.label}
+                    className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] max-md:text-sm "
+                  >
+                    <a href={item.url} className="font-semibold text-foreground underline-offset-4 hover:underline"
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {item.label}
+                    </a>
+                    <p className="mt-2 text-muted-foreground">{item.description}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
-          {result?.searchRequest ? (
-            <button
-              className="button secondary"
-              disabled={isGeneratingProfile}
-              type="button"
-              onClick={() => generateProfileDraft()}
-            >
-              {isGeneratingProfile ? "Drafting profile..." : "Draft profile"}
-            </button>
-          ) : null}
-          {result?.searchRequest ? (
-            <Link className="button secondary" href="/tailor-resume">
-              Tailor resume
-            </Link>
-          ) : null}
-          <button className="button secondary" type="button" onClick={resetSession}>
-            New intake
-          </button>
-        </div>
-      )}
-
-      {error ? <p className="warning">{error}</p> : null}
-      {profileError ? <p className="warning">{profileError}</p> : null}
-
-      {contact.raw ? (
-        <div className="contact-confirmation" aria-live="polite">
-          <div>
-            <span className="pill">Contact saved</span>
-            <p className="muted">
-              These follow-up details are saved with this chat session for matching results.
-            </p>
-          </div>
-          <dl>
-            {contact.name ? (
-              <>
-                <dt>Name</dt>
-                <dd>{contact.name}</dd>
-              </>
-            ) : null}
-            {contact.email ? (
-              <>
-                <dt>Email</dt>
-                <dd>{contact.email}</dd>
-              </>
-            ) : null}
-            {contact.phone ? (
-              <>
-                <dt>Phone</dt>
-                <dd>{contact.phone}</dd>
-              </>
-            ) : null}
-          </dl>
-        </div>
-      ) : null}
-
-      {isGeneratingProfile ? (
-        <div className="profile-draft" aria-live="polite">
-          <span className="pill">Drafting archetype</span>
-          <p className="muted">
-            Reading the completed intake and preparing a realistic LinkedIn-style profile.
-          </p>
-        </div>
-      ) : null}
-
-      {profileDraft ? <ProfileDraftView profile={profileDraft} /> : null}
-
-      {freeSearchLinks.length > 0 ? (
-        <div className="search-results" aria-live="polite">
-          <div>
-            <span className="pill">Free search links</span>
-            <p className="muted">
-              No API key needed. These open searches in your browser instead of
-              scraping results into the app.
-            </p>
-          </div>
-          <ul className="result-list">
-            {freeSearchLinks.map((item) => (
-              <li key={item.label}>
-                <a href={item.url} rel="noreferrer" target="_blank">
-                  {item.label}
-                </a>
-                <p className="muted">{item.description}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </section>
+        </section>
+      </div>
+    </div>
   );
 
   function nextMessageId(prefix: string) {
@@ -1092,30 +1165,37 @@ function normalizeStoredDefaults(defaults: Partial<SearchDefaults> | undefined):
 
 function ProfileDraftView({ profile }: { profile: LinkedInProfileDraft }) {
   return (
-    <div className="profile-draft" aria-live="polite">
-      <div>
-        <span className="pill">Archetype</span>
-        <h3>{profile.archetype.name}</h3>
-        <p>{profile.archetype.summary}</p>
+    <div className="space-y-8 border-t border-border/60 px-6 pb-10 pt-8 md:px-8" aria-live="polite">
+      <div className="space-y-3">
+        <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
+          Archetype
+        </span>
+        <h3 className="text-xl font-semibold tracking-tight text-foreground">{profile.archetype.name}</h3>
+        <p className="text-sm leading-relaxed text-muted-foreground">{profile.archetype.summary}</p>
       </div>
 
-      <div className="profile-grid">
-        <section>
-          <h3>Ideal job</h3>
+      <div className="grid gap-6 md:grid-cols-2">
+        <section className="rounded-2xl border border-border bg-card p-6">
+          <h3 className="mb-4 text-lg font-semibold tracking-tight">Ideal job</h3>
           <p>
-            <strong>{profile.idealJob.title}</strong>
+            <strong className="text-foreground">{profile.idealJob.title}</strong>
           </p>
-          <p className="muted">{profile.idealJob.why}</p>
-          <div className="tag-list">
+          <p className="mt-2 text-muted-foreground">{profile.idealJob.why}</p>
+          <div className="mt-5 flex flex-wrap gap-2">
             {profile.idealJob.adjacentTitles.map((title) => (
-              <span key={title}>{title}</span>
+              <span
+                key={title}
+                className="rounded-full border border-border bg-secondary px-[10px] py-1 text-xs text-secondary-foreground"
+              >
+                {title}
+              </span>
             ))}
           </div>
         </section>
 
-        <section>
-          <h3>Kind of work</h3>
-          <ul>
+        <section className="rounded-2xl border border-border bg-card p-6">
+          <h3 className="mb-4 text-lg font-semibold tracking-tight">Kind of work</h3>
+          <ul className="space-y-2 pl-6 text-muted-foreground [&>li]:list-disc [&>li]:marker:text-muted-foreground">
             {profile.workStyle.kindOfWork.map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -1123,36 +1203,43 @@ function ProfileDraftView({ profile }: { profile: LinkedInProfileDraft }) {
         </section>
       </div>
 
-      <section className="linkedin-card">
-        <p className="eyebrow">LinkedIn draft</p>
-        <h3>{profile.linkedInProfile.headline}</h3>
-        <p>{profile.linkedInProfile.about}</p>
+      <section className="grid gap-6 rounded-3xl border border-border bg-card px-8 py-8">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">LinkedIn draft</p>
+        <h3 className="text-lg font-semibold tracking-tight text-foreground">{profile.linkedInProfile.headline}</h3>
+        <p className="text-sm leading-relaxed text-muted-foreground">{profile.linkedInProfile.about}</p>
 
-        <h4>Featured ideas</h4>
-        <ul>
+        <h4 className="text-base font-semibold text-foreground">Featured ideas</h4>
+        <ul className="space-y-2 pl-6 text-muted-foreground [&>li]:list-disc">
           {profile.linkedInProfile.featured.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
 
-        <h4>Experience positioning</h4>
-        {profile.linkedInProfile.experiencePositioning.map((section) => (
-          <div key={section.title}>
-            <p>
-              <strong>{section.title}</strong>
-            </p>
-            <ul>
-              {section.bullets.map((bullet) => (
-                <li key={bullet}>{bullet}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        <h4 className="mt-6 text-base font-semibold text-foreground">Experience positioning</h4>
+        <div className="space-y-6">
+          {profile.linkedInProfile.experiencePositioning.map((section) => (
+            <div key={section.title}>
+              <p>
+                <strong className="text-foreground">{section.title}</strong>
+              </p>
+              <ul className="mt-2 space-y-2 pl-6 text-muted-foreground [&>li]:list-disc">
+                {section.bullets.map((bullet) => (
+                  <li key={bullet}>{bullet}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
 
-        <h4>Skills</h4>
-        <div className="tag-list">
+        <h4 className="text-base font-semibold text-foreground">Skills</h4>
+        <div className="flex flex-wrap gap-2">
           {profile.linkedInProfile.skills.map((skill) => (
-            <span key={skill}>{skill}</span>
+            <span
+              key={skill}
+              className="rounded-full border border-border bg-secondary px-[10px] py-1 text-xs text-secondary-foreground"
+            >
+              {skill}
+            </span>
           ))}
         </div>
       </section>

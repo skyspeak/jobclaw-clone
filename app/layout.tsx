@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "DearCC presents JobClaw",
-  description: "A hosted chat intake UI for the JobClaw search request flow.",
+  description: "Landing, turn-taking intake, and DearCC-hosted experiences aligned to JobClaw's design system.",
 };
 
 export default function RootLayout({

@@ -2,6 +2,9 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 type Direction = "across" | "down";
 
 type CrosswordWord = {
@@ -162,38 +165,55 @@ export function AiCompetenceCrossword() {
   }
 
   return (
-    <section className="card crossword-card" aria-labelledby="crossword-title">
-      <div className="crossword-hero">
-        <div>
-          <p className="eyebrow">AI competence crossword</p>
-          <h1 id="crossword-title">Five words. One tiny model literacy check.</h1>
-          <p className="lead">
+    <section className="space-y-8 rounded-3xl border border-border/70 bg-card p-8 shadow-sm sm:p-10" aria-labelledby="crossword-title">
+      <div className="flex flex-wrap items-end justify-between gap-6 lg:gap-10">
+        <div className="min-w-0 flex-1">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            AI competence crossword
+          </p>
+          <h1 id="crossword-title" className="max-w-lg text-balance text-4xl font-bold tracking-tight text-foreground md:text-[clamp(2.3rem,6vw,3.4rem)]">
+            Five words. One tiny model literacy check.
+          </h1>
+          <p className="max-w-lg pt-4 text-[1.05rem] leading-relaxed text-muted-foreground">
             Fill the grid, check your answers, then share your score as a small game mechanic.
           </p>
         </div>
-        <div className="timer-card" aria-live="polite">
-          <span>{score.complete ? "Finished" : "Timer"}</span>
-          <strong>{formattedTime}</strong>
+        <div aria-live="polite" className="grid shrink-0 justify-items-end tabular-nums text-foreground">
+          <span className="max-w-[8rem] text-right text-[0.72rem] font-bold uppercase leading-tight tracking-[0.12em] text-muted-foreground md:text-[0.8rem]">
+            {score.complete ? "Finished" : "Timer"}
+          </span>
+          <strong className="leading-[0.92] md:text-[clamp(4rem,11vw,6.5rem)]">{formattedTime}</strong>
         </div>
       </div>
 
-      <div className="crossword-layout">
-        <div className="crossword-grid" aria-label="AI competence crossword grid">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(320px,0.92fr)_minmax(280px,0.82fr)] lg:gap-10">
+        <div className="grid w-full gap-2 [grid-template-columns:repeat(13,minmax(24px,1fr))] [grid-template-rows:repeat(13,minmax(24px,1fr))] lg:aspect-square lg:max-w-[620px] md:justify-self-start" aria-label="AI competence crossword grid">
           {playableCells.map((cell) => {
             const value = entries[cellKey(cell.row, cell.col)] ?? "";
             const isWrong = checked && value !== cell.letter;
 
             return (
               <label
-                className={`crossword-cell ${isWrong ? "wrong" : ""}`}
+                className={cn(
+                  "relative grid aspect-square place-items-center rounded-lg border bg-card md:gap-px",
+                  isWrong
+                    ? "border-destructive bg-destructive/10 text-destructive"
+                    : "border-border text-foreground",
+                )}
                 key={`${cell.row}-${cell.col}`}
                 style={{
                   gridColumn: cell.col + 1,
                   gridRow: cell.row + 1,
                 }}
               >
-                {cell.number ? <span>{cell.number}</span> : null}
+                {cell.number ? (
+                  <span className="absolute left-2 top-[3px] text-[10px] font-medium leading-none text-muted-foreground">
+                    {cell.number}
+                  </span>
+                ) : null}
                 <input
+                  className="flex h-[calc(100%-2px)] w-[calc(100%-2px)] items-center justify-center rounded-[7px] border-0 bg-transparent p-0 text-center font-extrabold uppercase text-current outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  style={{ fontSize: "clamp(1rem, 2vw, 1.55rem)" }}
                   aria-label={`Row ${cell.row + 1}, column ${cell.col + 1}`}
                   maxLength={1}
                   value={value}
@@ -204,14 +224,14 @@ export function AiCompetenceCrossword() {
           })}
         </div>
 
-        <div className="clue-panel">
+        <div className="grid gap-6">
           <section>
-            <h2>Across</h2>
-            <ol className="clue-list">
+            <h2 className="mb-5 text-xl font-semibold tracking-tight">Across</h2>
+            <ol className="m-0 list-decimal space-y-3 px-8 text-muted-foreground">
               {words
                 .filter((word) => word.direction === "across")
                 .map((word) => (
-                  <li key={word.id}>
+                  <li key={word.id} className="leading-relaxed [&>strong]:font-semibold [&>strong]:text-foreground">
                     <strong>{word.id}.</strong> {word.clue}
                   </li>
                 ))}
@@ -219,51 +239,57 @@ export function AiCompetenceCrossword() {
           </section>
 
           <section>
-            <h2>Down</h2>
-            <ol className="clue-list">
+            <h2 className="mb-5 text-xl font-semibold tracking-tight">Down</h2>
+            <ol className="m-0 list-decimal space-y-3 px-8 text-muted-foreground">
               {words
                 .filter((word) => word.direction === "down")
                 .map((word) => (
-                  <li key={word.id}>
+                  <li key={word.id} className="leading-relaxed [&>strong]:font-semibold [&>strong]:text-foreground">
                     <strong>{word.id}.</strong> {word.clue}
                   </li>
                 ))}
             </ol>
           </section>
 
-          <div className="actions">
-            <button className="button" type="button" onClick={() => setChecked(true)}>
+          <div className="flex flex-wrap gap-3">
+            <Button className="rounded-2xl cta-glow" type="button" onClick={() => setChecked(true)}>
               Check answers
-            </button>
-            <button className="button secondary" type="button" onClick={revealGame}>
+            </Button>
+            <Button variant="outline" type="button" className="rounded-2xl" onClick={revealGame}>
               Reveal
-            </button>
-            <button className="button secondary" type="button" onClick={resetGame}>
+            </Button>
+            <Button variant="outline" type="button" className="rounded-2xl" onClick={resetGame}>
               Reset
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
-      <div className="share-panel">
+      <div className="flex flex-col gap-5 border-t border-border pt-8 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2>Share your time and invite your friends</h2>
-          <p className="muted">
+          <h2 className="text-lg font-semibold tracking-tight">Share your time and invite your friends</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             Native share opens the mobile share sheet. X and LinkedIn links are web fallbacks.
           </p>
         </div>
-        <div className="actions">
-          <button className="button" type="button" onClick={shareGame}>
+        <div className="flex flex-wrap gap-3">
+          <Button className="rounded-2xl cta-glow" type="button" onClick={shareGame}>
             Share score
-          </button>
-          <a className="button secondary" href={xUrl} rel="noreferrer" target="_blank">
-            Share on X
-          </a>
-          <a className="button secondary" href={linkedInUrl} rel="noreferrer" target="_blank">
-            Share on LinkedIn
-          </a>
+          </Button>
+          <Button variant="outline" asChild className="rounded-2xl">
+            <a href={xUrl} rel="noreferrer" target="_blank">
+              Share on X
+            </a>
+          </Button>
+          <Button variant="outline" asChild className="rounded-2xl">
+            <a href={linkedInUrl} rel="noreferrer" target="_blank">
+              Share on LinkedIn
+            </a>
+          </Button>
         </div>
-        {copied ? <p className="muted">Share text copied to clipboard.</p> : null}
+        {copied ? (
+          <p className="w-full text-sm text-muted-foreground md:w-auto">Share text copied to clipboard.</p>
+        ) : null}
       </div>
     </section>
   );
