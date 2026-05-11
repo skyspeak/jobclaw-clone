@@ -41,8 +41,24 @@ async function signInAdmin(formData: FormData) {
   redirect("/admin");
 }
 
+async function signOutAdmin() {
+  "use server";
+
+  const cookieStore = await cookies();
+  cookieStore.set(ADMIN_COOKIE_NAME, "", {
+    httpOnly: true,
+    maxAge: 0,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  redirect("/admin");
+}
+
 export default async function AdminDashboardPage({ searchParams }: AdminDashboardPageProps) {
   const params = await searchParams;
+
   const queryPassword = getFirstParam(params.password) ?? getFirstParam(params.token);
   const cookieStore = await cookies();
   const cookiePassword = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
@@ -103,10 +119,18 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
 
   return (
     <main className="min-h-[100dvh] brand-bg px-4 py-8 sm:px-8 md:pb-24">
-      <nav aria-label="Main links" className="mx-auto mb-12 flex w-full max-w-[1180px]">
+      <nav
+        aria-label="Main links"
+        className="mx-auto mb-12 flex w-full max-w-[1180px] flex-wrap items-center justify-between gap-4"
+      >
         <Link className="text-sm font-bold text-foreground underline-offset-4 hover:underline sm:text-base" href="/">
           JobClaw
         </Link>
+        <form action={signOutAdmin}>
+          <Button type="submit" variant="outline" className="rounded-2xl">
+            Sign out
+          </Button>
+        </form>
       </nav>
 
       <section className="mx-auto grid w-full max-w-[1180px] gap-14">
@@ -140,6 +164,85 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
         </Card>
 
         {submissions.length > 0 ? (
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="space-y-2 border-b border-border/60 p-8 md:p-10">
+              <CardTitle className="text-xl tracking-tight">All submissions</CardTitle>
+              <CardDescription className="text-base">
+                Contact info and a shortcut to each person&apos;s intake survey responses below.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-border/70 bg-muted/40">
+                      <th className="px-5 py-3.5 font-semibold text-foreground md:px-8">Contact</th>
+                      <th className="px-5 py-3.5 font-semibold text-foreground md:px-4">Email</th>
+                      <th className="px-5 py-3.5 font-semibold text-foreground md:px-4">Phone</th>
+                      <th className="px-5 py-3.5 font-semibold text-foreground md:px-8">Questions answered</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissions.map((submission) => {
+                      const answersAnchor = `intake-answers-${submission.id}`;
+                      const displayName = submission.contact.name.trim() || "Unnamed person";
+                      const submitted = new Intl.DateTimeFormat("en", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(submission.createdAt));
+
+                      return (
+                        <tr
+                          key={submission.id}
+                          className="border-b border-border/55 last:border-0 odd:bg-card even:bg-muted/25"
+                        >
+                          <td className="max-w-[220px] px-5 py-4 align-top md:max-w-xs md:px-8">
+                            <p className="font-medium text-foreground">{displayName}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{submitted}</p>
+                          </td>
+                          <td className="max-w-[200px] break-all px-5 py-4 align-top md:px-4">
+                            {submission.contact.email ? (
+                              <a
+                                className="text-foreground underline-offset-4 hover:underline"
+                                href={`mailto:${submission.contact.email}`}
+                              >
+                                {submission.contact.email}
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-5 py-4 align-top md:px-4">
+                            {submission.contact.phone ? (
+                              <a
+                                className="text-foreground underline-offset-4 hover:underline"
+                                href={`tel:${submission.contact.phone.replace(/\s/g, "")}`}
+                              >
+                                {submission.contact.phone}
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-4 align-top md:px-8">
+                            <Link
+                              className="font-medium text-foreground underline-offset-4 hover:underline"
+                              href={`#${answersAnchor}`}
+                            >
+                              View answers
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {submissions.length > 0 ? (
           <div className="grid gap-14">
             {submissions.map((submission) => (
               <article key={submission.id} className="rounded-3xl border border-border/70 bg-card shadow-sm">
@@ -162,7 +265,25 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
                   </Card>
                 </CardHeader>
 
-                <CardContent className="grid gap-12 border-border/55 px-10 py-14 md:grid-cols-2 md:divide-x md:divide-border/40 lg:divide-x lg:divide-border/35">
+                <div
+                  className="scroll-mt-24 border-t border-border/55 px-10 py-14"
+                  id={`intake-answers-${submission.id}`}
+                >
+                  <h3 className="mb-8 text-xl font-semibold tracking-tight">Intake survey answers</h3>
+                  <div className="grid gap-5 md:gap-6">
+                    {intakeQuestions.map((question) => (
+                      <div className="rounded-2xl border border-border bg-muted/40 p-[18px]" key={question.id}>
+                        <p className="m-0 text-[0.855rem] font-bold text-muted-foreground">{question.label}</p>
+                        <p className="m-0 mt-2 text-[0.8rem] leading-relaxed text-muted-foreground/90">{question.prompt}</p>
+                        <p className="m-0 mt-4 whitespace-pre-wrap text-[0.935rem] leading-relaxed text-foreground">
+                          {submission.answers[question.id]?.trim() || "—"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <CardContent className="grid gap-12 border-t border-border/55 px-10 py-14 md:grid-cols-2 md:divide-x md:divide-border/40 lg:divide-x lg:divide-border/35">
                   <section className="md:pr-10">
                     <h3 className="mb-6 text-xl font-semibold tracking-tight">Assessment</h3>
                     <dl className="grid grid-cols-[max-content,minmax(0,1fr)] gap-x-4 gap-y-4 text-[0.875rem]">
@@ -185,29 +306,51 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
                   </section>
 
                   <section className="md:pl-12">
-                    <h3 className="mb-6 text-xl font-semibold tracking-tight">Contact</h3>
+                    <h3 className="mb-6 text-xl font-semibold tracking-tight">Contact on file</h3>
                     <dl className="grid grid-cols-[max-content,minmax(0,1fr)] gap-x-4 gap-y-4 text-[0.875rem]">
                       <AssessmentRow dt="Name" dd={submission.contact.name || "Not provided"} />
                       <AssessmentRow dt="Email" dd={submission.contact.email || "Not provided"} />
                       <AssessmentRow dt="Phone" dd={submission.contact.phone || "Not provided"} />
-                      <AssessmentRow dt="Raw entry" dd={submission.contact.raw || "Not provided"} />
+                      <AssessmentRow
+                        dt="LinkedIn URL"
+                        dd={
+                          submission.resumeSnapshot?.linkedInUrl?.trim() ||
+                          "Not provided"
+                        }
+                      />
+                      <AssessmentRow dt="Raw entry (legacy)" dd={submission.contact.raw || "Not provided"} />
                     </dl>
                   </section>
-                </CardContent>
 
-                <CardFooter className="flex-col items-stretch gap-14 border-border/55 px-10 pb-12 pt-2">
-                  <details className="border-t border-border/60 pt-12">
-                    <summary className="cursor-pointer pb-12 text-xl font-bold">View chat answers</summary>
-                    <div className="grid gap-5">
-                      {intakeQuestions.map((question) => (
-                        <div className="rounded-2xl border border-border bg-card p-[18px]" key={question.id}>
-                          <p className="m-0 text-[0.855rem] font-bold text-muted-foreground">{question.label}</p>
-                          <p className="m-0 mt-3 whitespace-pre-wrap text-[0.935rem] leading-relaxed">{submission.answers[question.id]}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                </CardFooter>
+                  {submission.resumeSnapshot &&
+                  (submission.resumeSnapshot.linkedInUrl ||
+                    submission.resumeSnapshot.resumeFileName ||
+                    submission.resumeSnapshot.resumeText) ? (
+                    <section className="md:col-span-2 md:border-t md:border-border/40 md:pt-12">
+                      <h3 className="mb-6 text-xl font-semibold tracking-tight">Resume &amp; LinkedIn</h3>
+                      <dl className="grid grid-cols-[max-content,minmax(0,1fr)] gap-x-4 gap-y-4 text-[0.875rem]">
+                        <AssessmentRow
+                          dt="LinkedIn URL"
+                          dd={submission.resumeSnapshot.linkedInUrl || "Not provided"}
+                        />
+                        <AssessmentRow
+                          dt="Resume file name"
+                          dd={submission.resumeSnapshot.resumeFileName || "Not provided"}
+                        />
+                      </dl>
+                      {submission.resumeSnapshot.resumeText ? (
+                        <details className="mt-8 rounded-2xl border border-border bg-muted/30 p-4">
+                          <summary className="cursor-pointer text-base font-medium">View resume text</summary>
+                          <pre className="mt-4 max-h-[28rem] overflow-auto whitespace-pre-wrap rounded-xl bg-card p-4 text-sm leading-relaxed">
+                            {submission.resumeSnapshot.resumeText}
+                          </pre>
+                        </details>
+                      ) : (
+                        <p className="mt-4 text-sm text-muted-foreground">No résumé text was captured for this intake.</p>
+                      )}
+                    </section>
+                  ) : null}
+                </CardContent>
               </article>
             ))}
           </div>

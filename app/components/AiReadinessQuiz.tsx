@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -123,11 +124,25 @@ export function AiReadinessQuiz() {
             Five quick questions. Get a readiness score, then challenge someone else.
           </p>
         </div>
-        <div aria-live="polite" className="grid shrink-0 justify-items-end tabular-nums text-foreground">
-          <span className="max-w-[12rem] text-right text-[0.72rem] font-bold uppercase leading-tight tracking-[0.12em] text-muted-foreground md:text-[0.8rem]">
-            {result.complete ? result.tier : "Answer all five"}
-          </span>
-          <strong className="leading-[0.92] md:text-[clamp(3rem,8vw,5rem)]">{result.percent}%</strong>
+        <div aria-live="polite" className="flex shrink-0 flex-col items-end gap-4 tabular-nums text-foreground">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2 rounded-xl"
+            disabled={result.answered === 0}
+            aria-label="Clear all answers and retake the quiz from the beginning"
+            onClick={resetQuiz}
+          >
+            <RotateCcw className="size-4 shrink-0" aria-hidden />
+            Restart quiz
+          </Button>
+          <div className="grid justify-items-end">
+            <span className="max-w-[12rem] text-right text-[0.72rem] font-bold uppercase leading-tight tracking-[0.12em] text-muted-foreground md:text-[0.8rem]">
+              {result.complete ? result.tier : "Answer all five"}
+            </span>
+            <strong className="leading-[0.92] md:text-[clamp(3rem,8vw,5rem)]">{result.percent}%</strong>
+          </div>
         </div>
       </div>
 
@@ -178,8 +193,16 @@ export function AiReadinessQuiz() {
           <Button className="rounded-2xl cta-glow" disabled={!result.complete} type="button" onClick={shareResult}>
             Share result
           </Button>
-          <Button className="rounded-2xl" variant="outline" type="button" onClick={resetQuiz}>
-            Reset quiz
+          <Button
+            className="gap-2 rounded-2xl"
+            variant="outline"
+            type="button"
+            disabled={result.answered === 0}
+            onClick={resetQuiz}
+            aria-label="Clear all answers and retake the quiz"
+          >
+            <RotateCcw className="size-4 shrink-0" aria-hidden />
+            Restart quiz
           </Button>
         </div>
         {copied ? <p className="col-span-full text-sm text-muted-foreground">Quiz result copied to clipboard.</p> : null}

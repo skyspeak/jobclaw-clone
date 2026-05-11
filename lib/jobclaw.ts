@@ -46,6 +46,30 @@ export type JobClawResponse = {
   searchRequest: SearchRequest | null;
 };
 
+export const workModeSchema = z.enum(["Any", "Remote", "Hybrid", "On-site"]);
+export const senioritySchema = z.enum([
+  "Any",
+  "Internship",
+  "Entry level",
+  "Associate",
+  "Mid-Senior level",
+  "Director",
+  "Executive",
+]);
+
+export const searchRequestSchema = z.object({
+  provider: z.string(),
+  jobTitle: z.string(),
+  keywords: z.array(z.string()),
+  exclusions: z.array(z.string()),
+  location: z.string(),
+  workMode: workModeSchema,
+  seniority: senioritySchema,
+  minSalary: z.string(),
+  requireVisaSponsorship: z.boolean(),
+  maxResults: z.number().int().min(1).max(50),
+});
+
 export const intakeQuestions: Array<{
   id: IntakeQuestionId;
   label: string;
@@ -108,20 +132,8 @@ export const generateRequestSchema = z.object({
     .object({
       provider: z.string().optional(),
       location: z.string().optional(),
-      workMode: z
-        .enum(["Any", "Remote", "Hybrid", "On-site"])
-        .optional(),
-      seniority: z
-        .enum([
-          "Any",
-          "Internship",
-          "Entry level",
-          "Associate",
-          "Mid-Senior level",
-          "Director",
-          "Executive",
-        ])
-        .optional(),
+      workMode: workModeSchema.optional(),
+      seniority: senioritySchema.optional(),
       minSalary: z.string().optional(),
       requireVisaSponsorship: z.boolean().optional(),
       preferVolunteerRoles: z.boolean().optional(),
@@ -294,4 +306,33 @@ function buildSummary(
     exclusions.length > 0 ? ` while avoiding ${exclusions.slice(0, 2).join(" and ")}` : "";
 
   return `Inferred a ${defaults.seniority.toLowerCase()} search for ${jobTitle}${location}, emphasizing ${keywords.slice(0, 3).join(", ")}${avoid}.`;
+}
+
+export function buildSearchQueryFromRequest(searchRequest: SearchRequest): string {
+  const exclusions = searchRequest.exclusions
+    .filter(Boolean)
+    .map((term) => `-${quoteIfNeeded(term)}`);
+
+  return [
+    quoteIfNeeded(searchRequest.jobTitle),
+    ...searchRequest.keywords.map(quoteIfNeeded),
+    searchRequest.seniority !== "Any" ? quoteIfNeeded(searchRequest.seniority) : "",
+    searchRequest.location,
+    searchRequest.workMode !== "Any" ? searchRequest.workMode : "",
+    searchRequest.minSalary,
+    searchRequest.requireVisaSponsorship ? "visa sponsorship" : "",
+    ...exclusions,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function quoteIfNeeded(value: string): string {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  return /\s/.test(trimmed) ? `"${trimmed}"` : trimmed;
 }

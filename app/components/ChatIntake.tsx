@@ -1,133 +1,33 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import type { ChangeEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
+import { IntakeGeneratingScreen } from "@/app/components/IntakeGeneratingScreen";
+import { IntakeWizard } from "@/app/components/IntakeWizard";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import {
+  buildSearchQueryFromRequest,
   defaultSearchDefaults,
   IntakeAnswers,
-  IntakeQuestionId,
-  intakeQuestions,
   JobClawResponse,
-  SearchRequest,
   SearchDefaults,
+  SearchRequest,
 } from "@/lib/jobclaw";
+import {
+  prefsSchema,
+  prefsValuesToSearchDefaults,
+  questionSchema,
+  searchDefaultsToPrefsValues,
+  type PrefsValues,
+} from "@/lib/intake-questions";
 import type { GeneratedResume } from "@/lib/resume";
+import type { ResumeSnapshot } from "@/lib/submissions";
 
-const storageKey = "jobclaw.turn-taking-session.v1";
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onend: (() => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
-  onresult: ((event: SpeechRecognitionResultEventLike) => void) | null;
-};
-
-type SpeechRecognitionErrorEventLike = {
-  error: string;
-};
-
-type SpeechRecognitionResultEventLike = {
-  resultIndex: number;
-  results: {
-    length: number;
-    [index: number]: {
-      isFinal: boolean;
-      [index: number]: {
-        transcript: string;
-      };
-    };
-  };
-};
-
-type WindowWithSpeechRecognition = Window & {
-  SpeechRecognition?: SpeechRecognitionConstructor;
-  webkitSpeechRecognition?: SpeechRecognitionConstructor;
-};
-
-const emptyAnswers: IntakeAnswers = {
-  q1: "",
-  q2: "",
-  q3: "",
-  q4: "",
-  q5: "",
-};
-
-const emptyContact: ContactInfo = {
-  raw: "",
-  name: "",
-  email: "",
-  phone: "",
-};
-
-const workModes = ["Any", "Remote", "Hybrid", "On-site"] as const;
-const seniorityLevels = [
-  "Any",
-  "Internship",
-  "Entry level",
-  "Associate",
-  "Mid-Senior level",
-  "Director",
-  "Executive",
-] as const;
-
-type ChatRole = "assistant" | "user" | "system";
-
-type ChatMessage = {
-  id: string;
-  role: ChatRole;
-  label?: string;
-  content: string;
-};
-
-type ChatStep =
-  | {
-      id: IntakeQuestionId;
-      label: string;
-      prompt: string;
-      type: "answer";
-      required: true;
-    }
-  | {
-      id: keyof SearchDefaults;
-      label: string;
-      prompt: string;
-      type: "text" | "select" | "number" | "boolean";
-      required?: false;
-      placeholder?: string;
-      options?: string[];
-    }
-  | {
-      id: "contact";
-      label: string;
-      prompt: string;
-      type: "contact";
-      required?: false;
-      placeholder?: string;
-    };
-
-type StoredSession = {
-  submissionId: string;
-  answers: IntakeAnswers;
-  contact: ContactInfo;
-  defaults: SearchDefaults;
-  currentStep: number;
-  messages: ChatMessage[];
-  result: JobClawResponse | null;
-  profileDraft: LinkedInProfileDraft | null;
-  generatedResume: GeneratedResume | null;
-};
+const storageKey = "jobclaw.intake-wizard.v2";
 
 type ContactInfo = {
   raw: string;
@@ -170,126 +70,81 @@ type LinkedInProfileDraft = {
   error?: string;
 };
 
-const intakeSteps: ChatStep[] = [
-  ...intakeQuestions.map((question) => ({
-    ...question,
-    type: "answer" as const,
-    required: true as const,
-  })),
-  {
-    id: "location",
-    label: "Location",
-    prompt: "Where should we focus the search? You can name a city, region, or say remote.",
-    type: "text",
-    placeholder: "Oakland, CA",
-  },
-  {
-    id: "workMode",
-    label: "Work mode",
-    prompt: "What work mode do you prefer?",
-    type: "select",
-    options: ["Any", "Remote", "Hybrid", "On-site"],
-  },
-  {
-    id: "seniority",
-    label: "Seniority",
-    prompt: "What level should JobClaw look for?",
-    type: "select",
-    options: [
-      "Any",
-      "Internship",
-      "Entry level",
-      "Associate",
-      "Mid-Senior level",
-      "Director",
-      "Executive",
-    ],
-  },
-  {
-    id: "minSalary",
-    label: "Minimum salary",
-    prompt: "Do you have a minimum salary? You can skip this.",
-    type: "text",
-    placeholder: "$70,000",
-  },
-  {
-    id: "requireVisaSponsorship",
-    label: "Visa sponsorship",
-    prompt: "Do you need visa sponsorship?",
-    type: "boolean",
-    options: ["No", "Yes"],
-  },
-  {
-    id: "preferVolunteerRoles",
-    label: "Volunteer roles",
-    prompt: "Should JobClaw prefer volunteer or nonprofit opportunities?",
-    type: "boolean",
-    options: ["No", "Yes"],
-  },
-  {
-    id: "maxResults",
-    label: "Result count",
-    prompt: "How many matches should it return?",
-    type: "number",
-    placeholder: "5",
-  },
-  {
-    id: "notes",
-    label: "Extra notes",
-    prompt: "Anything else JobClaw should know before creating the search request?",
-    type: "text",
-    placeholder: "Prioritize onboarding, workforce development, LMS administration...",
-  },
-  {
-    id: "contact",
-    label: "Contact details",
-    prompt:
-      "Optional: leave your name, email, and phone number if you want us to contact you with matching results.",
-    type: "contact",
-    placeholder: "Jane Doe, jane@example.com, (555) 123-4567",
-  },
-];
+const emptyContact: ContactInfo = {
+  raw: "",
+  name: "",
+  email: "",
+  phone: "",
+};
 
-function createAssistantMessage(stepIndex: number): ChatMessage {
-  const step = intakeSteps[stepIndex];
+const workModes = ["Any", "Remote", "Hybrid", "On-site"] as const;
+const seniorityLevels = [
+  "Any",
+  "Internship",
+  "Entry level",
+  "Associate",
+  "Mid-Senior level",
+  "Director",
+  "Executive",
+] as const;
 
-  if (!step) {
-    return {
-      id: "assistant-complete",
-      role: "assistant",
-      label: "Done",
-      content: "I have everything I need. I will generate your search request now.",
-    };
-  }
+type StoredSessionV2 = {
+  submissionId: string;
+  wizardStep: number;
+  wizardAnswers: string[];
+  currentAnswer: string;
+  contact: ContactInfo;
+  defaults: SearchDefaults;
+  result: JobClawResponse | null;
+  profileDraft: LinkedInProfileDraft | null;
+  generatedResume: GeneratedResume | null;
+  linkedInUrl: string;
+  resumeText: string;
+  resumeFileName: string;
+};
 
+type LegacyStoredSession = Partial<StoredSessionV2> & {
+  messages?: unknown[];
+  currentStep?: number;
+  answers?: Partial<IntakeAnswers>;
+};
+
+function readFreshSession(): StoredSessionV2 {
   return {
-    id: `assistant-${step.id}-${stepIndex}`,
-    role: "assistant",
-    label: step.label,
-    content: step.prompt,
-  };
-}
-
-function readStoredSession(): StoredSession {
-  const fallback: StoredSession = {
     submissionId: "",
-    answers: emptyAnswers,
+    wizardStep: 0,
+    wizardAnswers: ["", "", "", "", ""],
+    currentAnswer: "",
     contact: emptyContact,
     defaults: defaultSearchDefaults,
-    currentStep: 0,
-    messages: [
-      {
-        id: "system-start",
-        role: "system",
-        content:
-          "Help us understand a little bit about you so we can guide you to the right jobs",
-      },
-      createAssistantMessage(0),
-    ],
     result: null,
     profileDraft: null,
     generatedResume: null,
+    linkedInUrl: "",
+    resumeText: "",
+    resumeFileName: "",
   };
+}
+
+function normalizeStoredDefaults(defaults: Partial<SearchDefaults> | undefined): SearchDefaults {
+  const nextDefaults = { ...defaultSearchDefaults, ...defaults };
+  const maxResults =
+    typeof nextDefaults.maxResults === "number"
+      ? nextDefaults.maxResults
+      : Number.parseInt(String(nextDefaults.maxResults), 10);
+
+  return {
+    ...nextDefaults,
+    workMode: workModes.includes(nextDefaults.workMode) ? nextDefaults.workMode : "Any",
+    seniority: seniorityLevels.includes(nextDefaults.seniority) ? nextDefaults.seniority : "Any",
+    requireVisaSponsorship: nextDefaults.requireVisaSponsorship === true,
+    preferVolunteerRoles: nextDefaults.preferVolunteerRoles === true,
+    maxResults: Number.isFinite(maxResults) ? Math.min(Math.max(maxResults, 1), 50) : 5,
+  };
+}
+
+function readStoredSession(): StoredSessionV2 {
+  const fallback = readFreshSession();
 
   if (typeof window === "undefined") {
     return fallback;
@@ -302,289 +157,405 @@ function readStoredSession(): StoredSession {
   }
 
   try {
-    const parsed = JSON.parse(stored) as Partial<StoredSession>;
-    const currentStep = Math.min(parsed.currentStep ?? 0, intakeSteps.length);
+    const parsed = JSON.parse(stored) as LegacyStoredSession;
+    const next = readFreshSession();
 
-    return {
-      submissionId: parsed.submissionId ?? "",
-      answers: { ...emptyAnswers, ...parsed.answers },
-      contact: { ...emptyContact, ...parsed.contact },
-      defaults: normalizeStoredDefaults(parsed.defaults),
-      currentStep,
-      messages: parsed.messages?.length ? removeSearchRequestMessages(parsed.messages) : fallback.messages,
-      result: parsed.result ?? null,
-      profileDraft: parsed.profileDraft ?? null,
-      generatedResume: parsed.generatedResume ?? null,
-    };
+    next.submissionId = parsed.submissionId ?? "";
+    next.contact = { ...emptyContact, ...parsed.contact };
+    next.defaults = normalizeStoredDefaults(parsed.defaults);
+    next.result = parsed.result ?? null;
+    next.profileDraft = parsed.profileDraft ?? null;
+    next.generatedResume = parsed.generatedResume ?? null;
+    next.linkedInUrl = typeof parsed.linkedInUrl === "string" ? parsed.linkedInUrl : "";
+    next.resumeText = typeof parsed.resumeText === "string" ? parsed.resumeText : "";
+    next.resumeFileName = typeof parsed.resumeFileName === "string" ? parsed.resumeFileName : "";
+
+    if (parsed.wizardAnswers && Array.isArray(parsed.wizardAnswers) && parsed.wizardAnswers.length === 5) {
+      next.wizardAnswers = parsed.wizardAnswers.map((s) => String(s ?? ""));
+    } else if (parsed.answers) {
+      next.wizardAnswers = [
+        parsed.answers.q1 ?? "",
+        parsed.answers.q2 ?? "",
+        parsed.answers.q3 ?? "",
+        parsed.answers.q4 ?? "",
+        parsed.answers.q5 ?? "",
+      ];
+    }
+
+    if (typeof parsed.wizardStep === "number") {
+      next.wizardStep = Math.min(Math.max(parsed.wizardStep, 0), 6);
+    } else if (typeof parsed.currentStep === "number") {
+      const cs = parsed.currentStep;
+      if (cs <= 4) {
+        next.wizardStep = cs;
+      } else if (cs <= 12) {
+        next.wizardStep = 5;
+      } else {
+        next.wizardStep = 5;
+      }
+    }
+
+    next.currentAnswer =
+      typeof parsed.currentAnswer === "string"
+        ? parsed.currentAnswer
+        : next.wizardAnswers[next.wizardStep] ?? "";
+
+    return next;
   } catch {
     window.localStorage.removeItem(storageKey);
     return fallback;
   }
 }
 
+function wizardAnswersToIntakeAnswers(rows: string[]): IntakeAnswers {
+  return {
+    q1: rows[0] ?? "",
+    q2: rows[1] ?? "",
+    q3: rows[2] ?? "",
+    q4: rows[3] ?? "",
+    q5: rows[4] ?? "",
+  };
+}
+
+function buildResumeSnapshot(
+  linkedInUrl: string,
+  resumeText: string,
+  resumeFileName: string,
+): ResumeSnapshot | undefined {
+  const u = linkedInUrl.trim();
+  const t = resumeText.trim();
+  const f = resumeFileName.trim();
+
+  if (!u && !t && !f) {
+    return undefined;
+  }
+
+  const snapshot: ResumeSnapshot = {};
+
+  if (u) {
+    snapshot.linkedInUrl = u;
+  }
+
+  if (t) {
+    snapshot.resumeText = t;
+  }
+
+  if (f) {
+    snapshot.resumeFileName = f;
+  }
+
+  return snapshot;
+}
+
+function hasMinimumProfileEvidence(
+  linkedInUrl: string,
+  resumeText: string,
+  email: string,
+  phone: string,
+): boolean {
+  return (
+    linkedInUrl.trim().length > 0 ||
+    resumeText.trim().length > 0 ||
+    email.trim().length > 0 ||
+    phone.trim().length > 0
+  );
+}
+
+const PROFILE_GATE_HINT =
+  "Add at least one of: LinkedIn profile URL, an uploaded résumé (text-based file), email, or phone number before continuing.";
+
+type LiveJobSearchState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "unconfigured"; message: string; query: string }
+  | { kind: "success"; query: string; results: Array<{ title: string; link: string; snippet: string }> }
+  | { kind: "error"; message: string; query?: string };
+
 export function ChatIntake() {
   const [storedSession] = useState(readStoredSession);
   const [submissionId, setSubmissionId] = useState(storedSession.submissionId);
-  const [answers, setAnswers] = useState<IntakeAnswers>(storedSession.answers);
+  const [wizardStep, setWizardStep] = useState(storedSession.wizardStep);
+  const [wizardAnswers, setWizardAnswers] = useState<string[]>(storedSession.wizardAnswers);
+  const [currentAnswer, setCurrentAnswer] = useState(storedSession.currentAnswer);
+  const [answerError, setAnswerError] = useState("");
   const [contact, setContact] = useState<ContactInfo>(storedSession.contact);
   const [defaults, setDefaults] = useState<SearchDefaults>(storedSession.defaults);
-  const [currentStep, setCurrentStep] = useState(storedSession.currentStep);
-  const [messages, setMessages] = useState<ChatMessage[]>(storedSession.messages);
-  const [draft, setDraft] = useState("");
   const [result, setResult] = useState<JobClawResponse | null>(storedSession.result);
   const [profileDraft, setProfileDraft] = useState<LinkedInProfileDraft | null>(
     storedSession.profileDraft,
   );
   const [generatedResume] = useState<GeneratedResume | null>(storedSession.generatedResume);
+  const [linkedInUrl, setLinkedInUrl] = useState(storedSession.linkedInUrl);
+  const [resumeText, setResumeText] = useState(storedSession.resumeText);
+  const [resumeFileName, setResumeFileName] = useState(storedSession.resumeFileName);
+  const [isReadingResume, setIsReadingResume] = useState(false);
   const [isGeneratingProfile, setIsGeneratingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
-  const [voiceSupported, setVoiceSupported] = useState(false);
-  const [voiceAvailabilityChecked, setVoiceAvailabilityChecked] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState("");
-  const [voiceError, setVoiceError] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messageIdRef = useRef(storedSession.messages.length);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const voiceBaseDraftRef = useRef("");
+  const [liveJobSearch, setLiveJobSearch] = useState<LiveJobSearchState>({ kind: "idle" });
 
-  const currentQuestion = intakeSteps[currentStep];
-  const isComplete = currentStep >= intakeSteps.length;
-  const progress = Math.round((Math.min(currentStep, intakeSteps.length) / intakeSteps.length) * 100);
-  const canSkip = currentQuestion && !currentQuestion.required;
+  const prefsForm = useForm<PrefsValues>({
+    resolver: zodResolver(prefsSchema),
+    defaultValues: searchDefaultsToPrefsValues(storedSession.defaults),
+  });
 
-  const transcriptPreview = useMemo(
-    () => messages.filter((message) => message.role !== "system").slice(-5),
-    [messages],
+  const totalSteps = 7;
+
+  const profileCompleteForGenerate = useMemo(
+    () => hasMinimumProfileEvidence(linkedInUrl, resumeText, contact.email, contact.phone),
+    [linkedInUrl, resumeText, contact.email, contact.phone],
   );
+
   const freeSearchLinks = useMemo(
     () => (result?.searchRequest ? buildFreeSearchLinks(result.searchRequest) : []),
     [result],
   );
+
+  const searchRequestFingerprint = useMemo(() => {
+    const sr = result?.searchRequest;
+    if (!sr) {
+      return null;
+    }
+
+    return [sr.jobTitle, sr.keywords.join("|"), sr.location, sr.workMode, sr.seniority, sr.maxResults].join("::");
+  }, [result?.searchRequest]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    const session: StoredSession = {
+    const session: StoredSessionV2 = {
       submissionId,
-      answers,
+      wizardStep,
+      wizardAnswers,
+      currentAnswer,
       contact,
       defaults,
-      currentStep,
-      messages,
       result,
       profileDraft,
       generatedResume,
+      linkedInUrl,
+      resumeText,
+      resumeFileName,
     };
 
     window.localStorage.setItem(storageKey, JSON.stringify(session));
   }, [
-    answers,
     contact,
-    currentStep,
+    currentAnswer,
     defaults,
     generatedResume,
-    messages,
+    linkedInUrl,
     profileDraft,
+    resumeFileName,
+    resumeText,
     result,
     submissionId,
+    wizardAnswers,
+    wizardStep,
   ]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, result]);
+    const sr = result?.searchRequest;
 
-  useEffect(() => {
-    const supportCheckId = window.setTimeout(() => {
-      setVoiceSupported(Boolean(getSpeechRecognitionConstructor()));
-      setVoiceAvailabilityChecked(true);
-    }, 0);
-
-    return () => {
-      window.clearTimeout(supportCheckId);
-      const recognition = recognitionRef.current;
-
-      if (recognition) {
-        recognition.onend = null;
-        recognition.onerror = null;
-        recognition.onresult = null;
-        recognition.abort();
-        recognitionRef.current = null;
-      }
-    };
-  }, []);
-
-  async function submitTurn(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!currentQuestion || !draft.trim() || isGenerating) {
+    if (!searchRequestFingerprint || !sr) {
+      queueMicrotask(() => {
+        setLiveJobSearch({ kind: "idle" });
+      });
       return;
     }
 
-    await acceptTurn(draft.trim());
-  }
+    const pinnedSearchRequest = sr;
 
-  async function submitTurnFromKeyboard(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
-      return;
-    }
+    let cancelled = false;
 
-    event.preventDefault();
+    async function loadLiveJobHits() {
+      setLiveJobSearch({ kind: "loading" });
 
-    if (!currentQuestion || !draft.trim() || isGenerating) {
-      return;
-    }
+      try {
+        const response = await fetch("/api/job-search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ searchRequest: pinnedSearchRequest }),
+        });
 
-    await acceptTurn(draft.trim());
-  }
+        const data = (await response.json()) as {
+          configured?: boolean;
+          message?: string;
+          query?: string;
+          results?: Array<{ title: string; link: string; snippet: string }>;
+          error?: string;
+        };
 
-  async function acceptTurn(rawValue: string, displayValue = rawValue) {
-    if (!currentQuestion) {
-      return;
-    }
+        if (cancelled) {
+          return;
+        }
 
-    clearVoiceInput();
+        if (data.configured === false) {
+          setLiveJobSearch({
+            kind: "unconfigured",
+            message:
+              data.message ??
+              "Add SERPER_API_KEY to enable live Google job search results (see JobClaw .env.example).",
+            query: data.query ?? `${buildSearchQueryFromRequest(pinnedSearchRequest)} job posting`,
+          });
+          return;
+        }
 
-    const { nextAnswers, nextContact, nextDefaults } = applyStepValue(
-      currentQuestion,
-      rawValue,
-      answers,
-      contact,
-      defaults,
-    );
-    const nextStep = currentStep + 1;
-    const nextMessages: ChatMessage[] = [
-      ...messages,
-      {
-        id: nextMessageId("user"),
-        role: "user",
-        label: currentQuestion.label,
-        content: displayValue,
-      },
-    ];
+        if (!response.ok || data.error) {
+          setLiveJobSearch({
+            kind: "error",
+            message: data.error ?? `Search returned ${response.status}.`,
+            query: data.query,
+          });
+          return;
+        }
 
-    if (nextStep < intakeSteps.length) {
-      nextMessages.push(createAssistantMessage(nextStep));
-    } else {
-      nextMessages.push(createAssistantMessage(nextStep));
-    }
-
-    setAnswers(nextAnswers);
-    setContact(nextContact);
-    setDefaults(nextDefaults);
-    setCurrentStep(nextStep);
-    setMessages(nextMessages);
-    setDraft("");
-    setError("");
-
-    if (nextStep === intakeSteps.length) {
-      await generateSearchRequest(nextAnswers, nextDefaults, nextMessages, nextContact);
-    }
-  }
-
-  async function skipTurn() {
-    if (!currentQuestion || currentQuestion.required || isGenerating) {
-      return;
-    }
-
-    await acceptTurn("", "Skip");
-  }
-
-  function toggleVoiceInput() {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setVoiceStatus("Adding your voice answer...");
-      return;
-    }
-
-    const SpeechRecognition = getSpeechRecognitionConstructor();
-
-    if (!SpeechRecognition) {
-      setVoiceError("Voice input is not available in this browser. Try Chrome or Edge.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    const isMobileVoiceInput = isLikelyMobileDevice();
-    const listeningStatus = isMobileVoiceInput
-      ? "Listening... speak your answer. Mobile browsers may stop automatically after a pause."
-      : "Listening... speak your answer, then tap Stop.";
-
-    recognition.continuous = !isMobileVoiceInput;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    voiceBaseDraftRef.current = draft;
-    recognitionRef.current = recognition;
-    setVoiceError("");
-    setVoiceStatus(listeningStatus);
-    setIsListening(true);
-
-    recognition.onresult = (event) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
-
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const result = event.results[index];
-        const transcript = result[0]?.transcript ?? "";
-
-        if (result.isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
+        setLiveJobSearch({
+          kind: "success",
+          query: data.query ?? "",
+          results: Array.isArray(data.results) ? data.results : [],
+        });
+      } catch {
+        if (!cancelled) {
+          setLiveJobSearch({ kind: "error", message: "Could not reach the job search service." });
         }
       }
+    }
 
-      const nextDraft = [voiceBaseDraftRef.current, finalTranscript, interimTranscript]
-        .map((part) => part.trim())
-        .filter(Boolean)
-        .join(" ");
+    void loadLiveJobHits();
 
-      setDraft(nextDraft);
+    return () => {
+      cancelled = true;
+    };
+  }, [result?.searchRequest, searchRequestFingerprint]);
 
-      if (finalTranscript.trim()) {
-        voiceBaseDraftRef.current = [voiceBaseDraftRef.current, finalTranscript.trim()]
-          .filter(Boolean)
-          .join(" ");
+  function handleCurrentAnswerChange(value: string) {
+    setCurrentAnswer(value);
+    if (answerError) {
+      setAnswerError("");
+    }
+  }
+
+  function handleNext() {
+    if (wizardStep >= 6) {
+      return;
+    }
+
+    if (wizardStep < 5) {
+      const validated = questionSchema.safeParse({ answer: currentAnswer });
+      if (!validated.success) {
+        setAnswerError(validated.error.issues[0]?.message ?? "Please share a bit more.");
+        return;
       }
-    };
 
-    recognition.onerror = (event) => {
-      setVoiceError(getVoiceErrorMessage(event.error));
-      setVoiceStatus("");
-      setIsListening(false);
-      recognitionRef.current = null;
-    };
+      setAnswerError("");
+      const nextRows = [...wizardAnswers];
+      nextRows[wizardStep] = currentAnswer;
+      setWizardAnswers(nextRows);
+      setCurrentAnswer(nextRows[wizardStep + 1] ?? "");
+      setWizardStep((s) => s + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
 
-    recognition.onend = () => {
-      setIsListening(false);
-      setVoiceStatus((currentStatus) =>
-        currentStatus === listeningStatus
-          ? "Voice input stopped. Review your answer, then send it."
-          : currentStatus,
-      );
-      recognitionRef.current = null;
-    };
+    if (wizardStep === 5) {
+      const prefs = prefsForm.getValues();
+      setDefaults({ ...defaults, ...prefsValuesToSearchDefaults(prefs) });
+      setWizardStep(6);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function handleBack() {
+    if (wizardStep === 0) {
+      return;
+    }
+
+    if (wizardStep === 6) {
+      setWizardStep(5);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    setAnswerError("");
+    const nextRows = [...wizardAnswers];
+
+    if (wizardStep < 5) {
+      nextRows[wizardStep] = currentAnswer;
+      setWizardAnswers(nextRows);
+      setCurrentAnswer(nextRows[wizardStep - 1] ?? "");
+    } else if (wizardStep === 5) {
+      setCurrentAnswer(wizardAnswers[4] ?? "");
+    }
+
+    setWizardStep((s) => s - 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function readResumeFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setIsReadingResume(true);
 
     try {
-      recognition.start();
-    } catch {
-      setVoiceError("Voice input could not start. Check microphone permissions and try again.");
-      setVoiceStatus("");
-      setIsListening(false);
-      recognitionRef.current = null;
+      const text = await file.text();
+
+      if (!text.trim()) {
+        throw new Error("That file did not contain readable text. Try a different text-based file (.txt, .md, …).");
+      }
+
+      setResumeText(text.trim());
+      setResumeFileName(file.name);
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Unable to read that resume file.";
+      setError(message);
+    } finally {
+      setIsReadingResume(false);
     }
+  }
+
+  async function handleGenerateBrief() {
+    if (!hasMinimumProfileEvidence(linkedInUrl, resumeText, contact.email, contact.phone)) {
+      return;
+    }
+
+    const prefs = prefsForm.getValues();
+    const mergedDefaults = { ...defaults, ...prefsValuesToSearchDefaults(prefs) };
+    setDefaults(mergedDefaults);
+
+    const nextAnswers = wizardAnswersToIntakeAnswers(wizardAnswers);
+
+    await generateSearchRequest(
+      nextAnswers,
+      mergedDefaults,
+      contact,
+      buildResumeSnapshot(linkedInUrl, resumeText, resumeFileName),
+    );
   }
 
   async function generateSearchRequest(
-    nextAnswers = answers,
-    nextDefaults = defaults,
-    nextMessages = messages,
-    nextContact = contact,
+    nextAnswers: IntakeAnswers = wizardAnswersToIntakeAnswers(wizardAnswers),
+    nextDefaults: SearchDefaults = defaults,
+    nextContact: ContactInfo = contact,
+    nextResumeSnapshot: ResumeSnapshot | undefined = buildResumeSnapshot(
+      linkedInUrl,
+      resumeText,
+      resumeFileName,
+    ),
   ) {
+    if (!hasMinimumProfileEvidence(linkedInUrl, resumeText, nextContact.email, nextContact.phone)) {
+      setError(PROFILE_GATE_HINT);
+      return;
+    }
+
     setIsGenerating(true);
     setError("");
 
@@ -606,7 +577,6 @@ export function ChatIntake() {
       setResult(payload);
       setProfileDraft(null);
       setProfileError("");
-      setMessages(nextMessages);
 
       await submitIntakeSubmission({
         nextAnswers,
@@ -614,6 +584,7 @@ export function ChatIntake() {
         nextDefaults,
         nextResult: payload,
         nextProfileDraft: null,
+        nextResumeSnapshot,
       });
 
       await generateProfileDraft(nextAnswers, nextDefaults, payload, nextContact);
@@ -627,49 +598,31 @@ export function ChatIntake() {
   }
 
   function resetSession() {
-    const freshSession = readFreshSession();
-
-    clearVoiceInput();
-    setSubmissionId(freshSession.submissionId);
-    setAnswers(freshSession.answers);
-    setContact(freshSession.contact);
-    setDefaults(freshSession.defaults);
-    setCurrentStep(freshSession.currentStep);
-    setMessages(freshSession.messages);
-    setDraft("");
+    const fresh = readFreshSession();
+    setSubmissionId(fresh.submissionId);
+    setWizardStep(fresh.wizardStep);
+    setWizardAnswers(fresh.wizardAnswers);
+    setCurrentAnswer(fresh.currentAnswer);
+    setContact(fresh.contact);
+    setDefaults(fresh.defaults);
+    prefsForm.reset(searchDefaultsToPrefsValues(fresh.defaults));
     setResult(null);
     setProfileDraft(null);
     setProfileError("");
     setError("");
+    setAnswerError("");
+    setLinkedInUrl("");
+    setResumeText("");
+    setResumeFileName("");
     window.localStorage.removeItem(storageKey);
-  }
-
-  function clearVoiceInput() {
-    abortVoiceRecognition();
-    setIsListening(false);
-    setVoiceStatus("");
-    setVoiceError("");
-  }
-
-  function abortVoiceRecognition() {
-    const recognition = recognitionRef.current;
-
-    if (!recognition) {
-      return;
-    }
-
-    recognition.onend = null;
-    recognition.onerror = null;
-    recognition.onresult = null;
-    recognition.abort();
-    recognitionRef.current = null;
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function generateProfileDraft(
-    nextAnswers = answers,
-    nextDefaults = defaults,
-    nextResult = result,
-    nextContact = contact,
+    nextAnswers: IntakeAnswers = wizardAnswersToIntakeAnswers(wizardAnswers),
+    nextDefaults: SearchDefaults = defaults,
+    nextResult: JobClawResponse | null = result,
+    nextContact: ContactInfo = contact,
   ) {
     if (!nextResult?.searchRequest || isGeneratingProfile) {
       return;
@@ -703,16 +656,8 @@ export function ChatIntake() {
         nextDefaults,
         nextResult,
         nextProfileDraft: payload,
+        nextResumeSnapshot: buildResumeSnapshot(linkedInUrl, resumeText, resumeFileName),
       });
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        {
-          id: nextMessageId("assistant-profile"),
-          role: "assistant",
-          label: "Archetype",
-          content: `${payload.archetype.name}: ${payload.idealJob.title}`,
-        },
-      ]);
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : "Unable to generate profile draft.";
@@ -728,12 +673,14 @@ export function ChatIntake() {
     nextDefaults,
     nextResult,
     nextProfileDraft,
+    nextResumeSnapshot,
   }: {
     nextAnswers: IntakeAnswers;
     nextContact: ContactInfo;
     nextDefaults: SearchDefaults;
     nextResult: JobClawResponse;
     nextProfileDraft: LinkedInProfileDraft | null;
+    nextResumeSnapshot?: ResumeSnapshot;
   }) {
     const clientSubmissionId = getSubmissionId();
 
@@ -750,6 +697,7 @@ export function ChatIntake() {
           defaults: nextDefaults,
           result: nextResult,
           profileDraft: nextProfileDraft,
+          resumeSnapshot: nextResumeSnapshot,
         }),
       });
       const payload = await readJsonResponse(response);
@@ -782,348 +730,335 @@ export function ChatIntake() {
     return nextSubmissionId;
   }
 
-  function bubbleClasses(role: ChatRole) {
-    return cn(
-      "text-[0.96rem] leading-snug shadow-sm",
-      role === "assistant" &&
-        "max-w-[min(92%,620px)] self-start rounded-[22px] rounded-bl-[7px] border border-border/55 bg-muted/90 px-3.5 py-2.5 text-card-foreground",
-      role === "user" &&
-        "max-w-[min(76%,560px)] self-end rounded-[22px] rounded-br-[7px] border-transparent bg-primary px-3.5 py-2.5 text-primary-foreground",
-      role === "system" &&
-        "mx-auto max-w-[min(70%,480px)] self-center rounded-full border-0 bg-muted px-[14px] py-2 text-center text-[0.78rem] text-muted-foreground shadow-none",
+  if (isGenerating) {
+    return <IntakeGeneratingScreen />;
+  }
+
+  if (result) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col brand-bg selection:bg-primary selection:text-primary-foreground">
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-16 pt-5 sm:px-8 md:px-14 md:pt-10">
+          <header className="mb-6 flex flex-col gap-4 sm:mb-8">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:text-sm">
+              <Link className="text-foreground underline-offset-4 hover:underline" href="/">
+                JOBCLAW
+              </Link>
+            </div>
+            <Link
+              href="/"
+              className="w-fit text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              ← Back to home
+            </Link>
+          </header>
+
+          <section
+            className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border/70 bg-card shadow-md"
+            aria-labelledby="results-title"
+          >
+            <div className="border-b border-border/60 px-6 py-5 md:px-8">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Your brief
+              </p>
+              <h2 id="results-title" className="text-xl font-semibold tracking-tight text-foreground">
+                Career brief and search plan
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-[0.9375rem]">
+                We combined your quiz answers with your preferences into this brief&apos;s actions below. Pick your
+                next step: run a guided job search in Google AI Mode, sketch a LinkedIn-style profile draft, open the
+                résumé tailoring flow, or clear everything and redo the quiz from a blank slate in this browser.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-4 border-b border-border/60 p-6 md:px-8">
+              <BriefActionBlock description="Take the intake quiz again from the beginning. This clears your saved answers, contact fields, LinkedIn URL, and résumé text in this browser so you can build a brand-new brief.">
+                <Button
+                  disabled={isGenerating || isGeneratingProfile}
+                  className="h-auto min-h-11 w-full flex-col gap-0.5 rounded-2xl py-2.5 cta-glow sm:w-fit sm:items-start sm:px-6"
+                  type="button"
+                  onClick={resetSession}
+                >
+                  <span className="text-base font-semibold">Take the quiz again</span>
+                  <span className="max-w-md text-left text-xs font-normal leading-snug text-primary-foreground/90">
+                    Start from scratch (nothing from this session is kept)
+                  </span>
+                </Button>
+              </BriefActionBlock>
+
+              {result?.searchRequest ? (
+                <BriefActionBlock description="Search for jobs with Google AI Mode using the keywords and filters from this brief. Opens a new tab in your browser.">
+                  <Button asChild className="h-auto min-h-11 w-full flex-col gap-0.5 rounded-2xl py-2.5 cta-glow sm:w-fit sm:items-start sm:px-6">
+                    <a href={buildGoogleAiModeUrl(result.searchRequest)} rel="noreferrer" target="_blank">
+                      <span className="text-base font-semibold">Search for jobs with Google AI Mode</span>
+                      <span className="max-w-md text-left text-xs font-normal leading-snug text-primary-foreground/90">
+                        Opens Google with your search request prefilled
+                      </span>
+                    </a>
+                  </Button>
+                </BriefActionBlock>
+              ) : null}
+
+              {result?.searchRequest ? (
+                <BriefActionBlock description="Generate a LinkedIn-style profile draft from this brief and your intake—headline, about, experience angles, and skills you can copy or edit.">
+                  <Button
+                    className="h-auto min-h-11 w-full flex-col gap-0.5 rounded-2xl py-2.5 sm:w-fit sm:items-start sm:px-6"
+                    disabled={isGeneratingProfile}
+                    type="button"
+                    variant="outline"
+                    onClick={() => generateProfileDraft()}
+                  >
+                    <span className="text-base font-semibold">
+                      {isGeneratingProfile ? "Generating profile draft…" : "Draft a LinkedIn-style profile"}
+                    </span>
+                    <span className="max-w-md text-left text-xs font-normal leading-snug text-muted-foreground">
+                      {isGeneratingProfile
+                        ? "Reading your brief and building suggested copy…"
+                        : "Uses this brief and your quiz answers on the server"}
+                    </span>
+                  </Button>
+                </BriefActionBlock>
+              ) : null}
+
+              {result?.searchRequest ? (
+                <BriefActionBlock description="Open JobClaw’s résumé tailoring tool in a new context so you can align your CV with roles you care about.">
+                  <Button asChild variant="outline" className="h-auto min-h-11 w-full flex-col gap-0.5 rounded-2xl py-2.5 sm:w-fit sm:items-start sm:px-6">
+                    <Link href="/tailor-resume">
+                      <span className="text-base font-semibold">Tailor your résumé</span>
+                      <span className="max-w-md text-left text-xs font-normal leading-snug text-muted-foreground">
+                        Go to the résumé tailoring page
+                      </span>
+                    </Link>
+                  </Button>
+                </BriefActionBlock>
+              ) : null}
+            </div>
+
+            {result?.searchRequest ? (
+              <div className="border-b border-border/60 px-6 py-6 md:px-8" aria-live="polite">
+                <div className="mb-4 space-y-2">
+                  <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
+                    Live job search
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    Fresh web hits for your inferred role and keywords (Google via Serper). Links are whatever Google
+                    returned—always confirm on the employer or job-board page.
+                  </p>
+                </div>
+
+                {liveJobSearch.kind === "loading" ? (
+                  <p className="text-sm text-muted-foreground">Searching for job postings…</p>
+                ) : null}
+
+                {liveJobSearch.kind === "unconfigured" ? (
+                  <div className="space-y-3 rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-sm">
+                    <p className="text-foreground">{liveJobSearch.message}</p>
+                    <p className="leading-relaxed text-muted-foreground">
+                      <span className="font-medium text-foreground">Key to add:</span>{" "}
+                      <code className="rounded bg-muted px-1.5 py-0.5 text-xs">SERPER_API_KEY</code> from{" "}
+                      <a className="underline underline-offset-4" href="https://serper.dev" rel="noreferrer" target="_blank">
+                        serper.dev
+                      </a>
+                      . (The workspace <code className="text-xs">jobclaw-repo</code> API uses{" "}
+                      <code className="text-xs">GEMINI_API_KEY</code> to generate summaries and hypothetical roles—that
+                      is separate from retrieving live pages from the web.)
+                    </p>
+                    {liveJobSearch.query ? (
+                      <p className="break-words pt-1 text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">Query we would run:</span>{" "}
+                        {liveJobSearch.query}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {liveJobSearch.kind === "error" ? (
+                  <div className="rounded-2xl border border-destructive/35 bg-destructive/5 p-4 text-sm text-destructive">
+                    <p>{liveJobSearch.message}</p>
+                    {liveJobSearch.query ? (
+                      <p className="mt-2 break-words text-xs opacity-90">Query: {liveJobSearch.query}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {liveJobSearch.kind === "success" && liveJobSearch.results.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No results came back for this search.</p>
+                ) : null}
+
+                {liveJobSearch.kind === "success" && liveJobSearch.results.length > 0 ? (
+                  <ul className="grid list-none gap-3 p-0">
+                    {liveJobSearch.results.map((hit) => (
+                      <li key={hit.link} className="rounded-2xl border border-border bg-muted/25 p-4">
+                        <a
+                          className="font-semibold text-foreground underline-offset-4 hover:underline"
+                          href={hit.link}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          {hit.title}
+                        </a>
+                        <p className="mt-1 break-all text-xs text-muted-foreground">{hit.link}</p>
+                        {hit.snippet ? (
+                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{hit.snippet}</p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+
+            {error ? (
+              <p className="border-t border-border/60 px-6 py-4 text-sm text-destructive md:px-8">{error}</p>
+            ) : null}
+            {profileError ? (
+              <p className="border-border/60 px-6 pb-5 text-sm text-destructive md:px-8">{profileError}</p>
+            ) : null}
+
+            {(contact.email || contact.phone || contact.name || linkedInUrl.trim()) ? (
+              <div className="space-y-4 border-t border-border/60 px-6 pb-8 pt-4 md:px-8" aria-live="polite">
+                <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
+                  Profile on file
+                </span>
+                <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 rounded-2xl border border-border bg-card p-5 text-sm">
+                  {linkedInUrl.trim() ? (
+                    <>
+                      <dt className="font-medium text-muted-foreground">LinkedIn</dt>
+                      <dd className="break-all">
+                        <a
+                          className="text-foreground underline-offset-4 hover:underline"
+                          href={linkedInUrl.trim()}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          {linkedInUrl.trim()}
+                        </a>
+                      </dd>
+                    </>
+                  ) : null}
+                  {contact.name ? (
+                    <>
+                      <dt className="font-medium text-muted-foreground">Name</dt>
+                      <dd>{contact.name}</dd>
+                    </>
+                  ) : null}
+                  {contact.email ? (
+                    <>
+                      <dt className="font-medium text-muted-foreground">Email</dt>
+                      <dd className="break-all">{contact.email}</dd>
+                    </>
+                  ) : null}
+                  {contact.phone ? (
+                    <>
+                      <dt className="font-medium text-muted-foreground">Phone</dt>
+                      <dd>{contact.phone}</dd>
+                    </>
+                  ) : null}
+                  {resumeFileName || resumeText.trim() ? (
+                    <>
+                      <dt className="font-medium text-muted-foreground">Résumé</dt>
+                      <dd>
+                        {resumeFileName ? (
+                          <span>
+                            {resumeFileName}
+                            {resumeText.trim() ? ` (${resumeText.trim().length.toLocaleString()} characters)` : null}
+                          </span>
+                        ) : (
+                          <span>{resumeText.trim().length.toLocaleString()} characters from your last session</span>
+                        )}
+                      </dd>
+                    </>
+                  ) : null}
+                </dl>
+              </div>
+            ) : null}
+
+            {isGeneratingProfile ? (
+              <div className="space-y-2 border-t border-border/60 px-6 pb-8 pt-6 md:px-8" aria-live="polite">
+                <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
+                  Drafting archetype
+                </span>
+                <p className="text-sm text-muted-foreground">
+                  Reading the completed intake and preparing a realistic LinkedIn-style profile.
+                </p>
+              </div>
+            ) : null}
+
+            {profileDraft ? <ProfileDraftView profile={profileDraft} /> : null}
+
+            {freeSearchLinks.length > 0 ? (
+              <div className="space-y-6 border-t border-border/60 px-6 pb-10 pt-8 md:px-8" aria-live="polite">
+                <div className="space-y-3">
+                  <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
+                    Free search links
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    No API key needed. These open searches in your browser instead of scraping results into the app.
+                  </p>
+                </div>
+                <ul className="grid list-none gap-4 p-0">
+                  {freeSearchLinks.map((item) => (
+                    <li
+                      key={item.label}
+                      className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] max-md:text-sm "
+                    >
+                      <a
+                        href={item.url}
+                        className="font-semibold text-foreground underline-offset-4 hover:underline"
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        {item.label}
+                      </a>
+                      <p className="mt-2 text-muted-foreground">{item.description}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col brand-bg selection:bg-primary selection:text-primary-foreground">
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-10 pt-5 sm:px-8 md:px-14 md:pb-16 md:pt-10">
-        <header className="mb-4 flex flex-col gap-4 sm:mb-6">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:text-sm">
-            <Link className="text-foreground underline-offset-4 hover:underline" href="/">
-              JOBCLAW
-            </Link>
-            <span>
-              {Math.min(currentStep + 1, intakeSteps.length)} / {intakeSteps.length}
-            </span>
-          </div>
-          <Progress aria-label={`${progress}% complete`} className="h-2" value={progress} />
-          <Link
-            href="/"
-            className="w-fit text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            ← Back to home
-          </Link>
-        </header>
+    <IntakeWizard
+      step={wizardStep}
+      totalSteps={totalSteps}
+      currentAnswer={currentAnswer}
+      onCurrentAnswerChange={handleCurrentAnswerChange}
+      answerError={answerError}
+      prefsForm={prefsForm}
+      linkedInUrl={linkedInUrl}
+      onLinkedInUrlChange={setLinkedInUrl}
+      resumeFileName={resumeFileName}
+      onResumeFile={readResumeFile}
+      isReadingResume={isReadingResume}
+      contactEmail={contact.email}
+      onContactEmailChange={(value) =>
+        setContact((current) => ({ ...current, email: value }))
+      }
+      contactPhone={contact.phone}
+      onContactPhoneChange={(value) =>
+        setContact((current) => ({ ...current, phone: value }))
+      }
+      profileCompleteForGenerate={profileCompleteForGenerate}
+      profileIncompleteHint={PROFILE_GATE_HINT}
+      onBack={handleBack}
+      onNext={handleNext}
+      onGenerate={() => void handleGenerateBrief()}
+      isGenerating={isGenerating}
+    />
+  );
+}
 
-        <section
-          className="flex min-h-[min(85dvh,52rem)] flex-1 flex-col overflow-hidden rounded-3xl border border-border/70 bg-card shadow-md"
-          aria-labelledby="chat-title"
-        >
-          <div className="border-b border-border/60 px-6 py-5 md:px-8">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Turn-taking intake
-            </p>
-            <h2 id="chat-title" className="text-xl font-semibold tracking-tight text-foreground">
-              One question at a time.
-            </h2>
-            <p className="mt-1 max-w-xl text-sm text-muted-foreground sm:text-base">
-              Help us understand a little bit about you so we can guide you to the right jobs
-            </p>
-          </div>
-
-          <div
-            className="scrollbar-thin flex min-h-[12rem] flex-1 flex-col gap-3 overflow-y-auto px-6 py-5 md:px-8"
-            aria-live="polite"
-          >
-            {transcriptPreview.map((message) => (
-              <div key={message.id} className={bubbleClasses(message.role)}>
-                {message.label ? (
-                  <strong className="mb-1 block text-[11px] font-semibold uppercase tracking-wide opacity-65">
-                    {message.label}
-                  </strong>
-                ) : null}
-                <span className="bubble-body inline-block whitespace-pre-wrap">{message.content}</span>
-              </div>
-            ))}
-            {isGenerating ? (
-              <div className={bubbleClasses("assistant")}>
-                <strong className="mb-1 block text-[11px] font-semibold uppercase tracking-wide opacity-65">
-                  Generating
-                </strong>
-                <span className="inline-block whitespace-pre-wrap">Creating your structured search request...</span>
-              </div>
-            ) : null}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {!isComplete && currentQuestion ? (
-            <form
-              className="sticky bottom-0 z-10 border-t border-border/60 bg-card/95 px-5 pb-6 pt-4 backdrop-blur-md md:static md:z-0 md:border-t md:bg-transparent md:p-6 md:pt-6"
-              onSubmit={submitTurn}
-            >
-              {currentQuestion.type === "select" || currentQuestion.type === "boolean" ? (
-                <div className="mb-4 flex flex-wrap gap-2">
-                  {currentQuestion.options?.map((option) => (
-                    <button
-                      className={cn(
-                        "rounded-full border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm text-foreground shadow-none transition-colors",
-                        "hover:bg-primary/[0.17]",
-                      )}
-                      key={option}
-                      type="button"
-                      onClick={() => acceptTurn(option)}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              <Textarea
-                aria-label={currentQuestion.prompt}
-                inputMode={currentQuestion.type === "number" ? "numeric" : "text"}
-                placeholder={
-                  currentQuestion.type === "answer"
-                    ? "Type your answer here..."
-                    : currentQuestion.placeholder ?? "Type your answer here..."
-                }
-                value={draft}
-                onKeyDown={submitTurnFromKeyboard}
-                onChange={(event) => setDraft(event.target.value)}
-                className="focus-visible:border-primary/40 mb-4 min-h-[48px] max-h-32 resize-none rounded-3xl bg-card px-5 py-3.5 text-base leading-relaxed focus-visible:ring-2 focus-visible:ring-primary/50"
-              />
-              {voiceStatus || voiceError ? (
-                <p
-                  className={cn(
-                    "-mt-3 mb-3 text-sm text-muted-foreground",
-                    voiceError && "text-destructive",
-                  )}
-                  aria-live="polite"
-                >
-                  {voiceError || voiceStatus}
-                </p>
-              ) : voiceAvailabilityChecked && !voiceSupported ? (
-                <p className="-mt-3 mb-3 text-sm text-muted-foreground" aria-live="polite">
-                  Voice input is not available in this browser. Typing, including your phone
-                  keyboard&apos;s microphone, still works.
-                </p>
-              ) : null}
-              <div className="flex flex-wrap items-center justify-end gap-2 md:justify-end">
-                <Button disabled={!draft.trim() || isGenerating} type="submit" className="rounded-2xl cta-glow">
-                  Send
-                </Button>
-                <Button
-                  className={cn(
-                    "rounded-2xl",
-                    isListening && "border-primary/40 bg-primary/20 text-card-foreground hover:bg-primary/[0.26]",
-                  )}
-                  disabled={isGenerating || !voiceSupported}
-                  type="button"
-                  variant="outline"
-                  aria-pressed={isListening}
-                  onClick={toggleVoiceInput}
-                >
-                  {isListening ? "Stop voice" : voiceSupported ? "Use voice" : "Voice unavailable"}
-                </Button>
-                {canSkip ? (
-                  <Button className="rounded-2xl" type="button" variant="outline" onClick={skipTurn}>
-                    Skip
-                  </Button>
-                ) : null}
-                <Button className="rounded-2xl" type="button" variant="outline" onClick={resetSession}>
-                  Reset
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <div className="flex flex-col gap-3 border-t border-border/60 p-6 md:flex-row md:flex-wrap">
-              <Button
-                disabled={isGenerating || isGeneratingProfile}
-                className="rounded-2xl cta-glow"
-                onClick={() => generateSearchRequest()}
-              >
-                {isGenerating ? "Regenerating..." : "Regenerate"}
-              </Button>
-              {result?.searchRequest ? (
-                <Button
-                  asChild
-                  className="rounded-2xl cta-glow"
-                >
-                  <a href={buildGoogleAiModeUrl(result.searchRequest)} rel="noreferrer" target="_blank">
-                    Search Google AI Mode
-                  </a>
-                </Button>
-              ) : null}
-              {result?.searchRequest ? (
-                <Button
-                  className="rounded-2xl"
-                  disabled={isGeneratingProfile}
-                  type="button"
-                  variant="outline"
-                  onClick={() => generateProfileDraft()}
-                >
-                  {isGeneratingProfile ? "Drafting profile..." : "Draft profile"}
-                </Button>
-              ) : null}
-              {result?.searchRequest ? (
-                <Button asChild variant="outline" className="rounded-2xl">
-                  <Link href="/tailor-resume">Tailor resume</Link>
-                </Button>
-              ) : null}
-              <Button className="rounded-2xl" type="button" variant="outline" onClick={resetSession}>
-                New intake
-              </Button>
-            </div>
-          )}
-
-          {error ? <p className="border-t border-border/60 px-6 py-4 text-sm text-destructive md:px-8">{error}</p> : null}
-          {profileError ? (
-            <p className="border-border/60 px-6 pb-5 text-sm text-destructive md:px-8">{profileError}</p>
-          ) : null}
-
-          {contact.raw ? (
-            <div
-              className="space-y-4 border-t border-border/60 px-6 pb-8 pt-6 md:px-8"
-              aria-live="polite"
-            >
-              <div className="space-y-3">
-                <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
-                  Contact saved
-                </span>
-                <p className="text-sm text-muted-foreground">
-                  These follow-up details are saved with this chat session for matching results.
-                </p>
-              </div>
-              <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 rounded-2xl border border-border bg-card p-5 text-sm">
-                {contact.name ? (
-                  <>
-                    <dt className="font-medium text-muted-foreground">Name</dt>
-                    <dd>{contact.name}</dd>
-                  </>
-                ) : null}
-                {contact.email ? (
-                  <>
-                    <dt className="font-medium text-muted-foreground">Email</dt>
-                    <dd className="break-all">{contact.email}</dd>
-                  </>
-                ) : null}
-                {contact.phone ? (
-                  <>
-                    <dt className="font-medium text-muted-foreground">Phone</dt>
-                    <dd>{contact.phone}</dd>
-                  </>
-                ) : null}
-              </dl>
-            </div>
-          ) : null}
-
-          {isGeneratingProfile ? (
-            <div className="space-y-2 border-t border-border/60 px-6 pb-8 pt-6 md:px-8" aria-live="polite">
-              <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
-                Drafting archetype
-              </span>
-              <p className="text-sm text-muted-foreground">
-                Reading the completed intake and preparing a realistic LinkedIn-style profile.
-              </p>
-            </div>
-          ) : null}
-
-          {profileDraft ? <ProfileDraftView profile={profileDraft} /> : null}
-
-          {freeSearchLinks.length > 0 ? (
-            <div className="space-y-6 border-t border-border/60 px-6 pb-10 pt-8 md:px-8" aria-live="polite">
-              <div className="space-y-3">
-                <span className="inline-flex rounded-full border border-secondary-border bg-secondary px-3 py-1 text-[11px] font-semibold text-secondary-foreground">
-                  Free search links
-                </span>
-                <p className="text-sm text-muted-foreground">
-                  No API key needed. These open searches in your browser instead of scraping results into
-                  the app.
-                </p>
-              </div>
-              <ul className="grid list-none gap-4 p-0">
-                {freeSearchLinks.map((item) => (
-                  <li
-                    key={item.label}
-                    className="rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] max-md:text-sm "
-                  >
-                    <a href={item.url} className="font-semibold text-foreground underline-offset-4 hover:underline"
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      {item.label}
-                    </a>
-                    <p className="mt-2 text-muted-foreground">{item.description}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </section>
-      </div>
+function BriefActionBlock({ description, children }: { description: string; children: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-muted/15 px-4 py-4 md:px-5 md:py-5">
+      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">{description}</p>
+      <div className="flex flex-col items-stretch">{children}</div>
     </div>
   );
-
-  function nextMessageId(prefix: string) {
-    messageIdRef.current += 1;
-    return `${prefix}-${messageIdRef.current}`;
-  }
-}
-
-function readFreshSession(): StoredSession {
-  return {
-    submissionId: "",
-    answers: emptyAnswers,
-    contact: emptyContact,
-    defaults: defaultSearchDefaults,
-    currentStep: 0,
-    messages: [
-      {
-        id: "system-start",
-        role: "system",
-        content:
-          "Help us understand a little bit about you so we can guide you to the right jobs",
-      },
-      createAssistantMessage(0),
-    ],
-    result: null,
-    profileDraft: null,
-    generatedResume: null,
-  };
-}
-
-function getSpeechRecognitionConstructor() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const speechWindow = window as WindowWithSpeechRecognition;
-
-  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
-}
-
-function isLikelyMobileDevice() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return window.matchMedia("(pointer: coarse)").matches || window.navigator.maxTouchPoints > 0;
-}
-
-function getVoiceErrorMessage(error: string) {
-  if (error === "not-allowed" || error === "service-not-allowed") {
-    return "Microphone access was blocked. Allow microphone access, then try voice input again.";
-  }
-
-  if (error === "no-speech") {
-    return "I did not hear anything. Tap Use voice and try speaking again.";
-  }
-
-  if (error === "audio-capture") {
-    return "No microphone was found. Connect a microphone and try again.";
-  }
-
-  return "Voice input stopped unexpectedly. You can keep typing or try again.";
 }
 
 async function readJsonResponse(response: Response) {
@@ -1138,29 +1073,6 @@ async function readJsonResponse(response: Response) {
   } catch {
     return { error: text };
   }
-}
-
-function removeSearchRequestMessages(messages: ChatMessage[]) {
-  return messages.filter(
-    (message) => message.label !== "Search request" && !message.id.startsWith("assistant-result"),
-  );
-}
-
-function normalizeStoredDefaults(defaults: Partial<SearchDefaults> | undefined): SearchDefaults {
-  const nextDefaults = { ...defaultSearchDefaults, ...defaults };
-  const maxResults =
-    typeof nextDefaults.maxResults === "number"
-      ? nextDefaults.maxResults
-      : Number.parseInt(String(nextDefaults.maxResults), 10);
-
-  return {
-    ...nextDefaults,
-    workMode: workModes.includes(nextDefaults.workMode) ? nextDefaults.workMode : "Any",
-    seniority: seniorityLevels.includes(nextDefaults.seniority) ? nextDefaults.seniority : "Any",
-    requireVisaSponsorship: nextDefaults.requireVisaSponsorship === true,
-    preferVolunteerRoles: nextDefaults.preferVolunteerRoles === true,
-    maxResults: Number.isFinite(maxResults) ? Math.min(Math.max(maxResults, 1), 50) : 5,
-  };
 }
 
 function ProfileDraftView({ profile }: { profile: LinkedInProfileDraft }) {
@@ -1204,7 +1116,9 @@ function ProfileDraftView({ profile }: { profile: LinkedInProfileDraft }) {
       </div>
 
       <section className="grid gap-6 rounded-3xl border border-border bg-card px-8 py-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">LinkedIn draft</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          LinkedIn draft
+        </p>
         <h3 className="text-lg font-semibold tracking-tight text-foreground">{profile.linkedInProfile.headline}</h3>
         <p className="text-sm leading-relaxed text-muted-foreground">{profile.linkedInProfile.about}</p>
 
@@ -1247,85 +1161,8 @@ function ProfileDraftView({ profile }: { profile: LinkedInProfileDraft }) {
   );
 }
 
-function applyStepValue(
-  step: ChatStep,
-  rawValue: string,
-  answers: IntakeAnswers,
-  contact: ContactInfo,
-  defaults: SearchDefaults,
-) {
-  if (step.type === "answer") {
-    return {
-      nextAnswers: {
-        ...answers,
-        [step.id]: rawValue,
-      },
-      nextContact: contact,
-      nextDefaults: defaults,
-    };
-  }
-
-  if (step.type === "contact") {
-    return {
-      nextAnswers: answers,
-      nextContact: parseContactInfo(rawValue),
-      nextDefaults: defaults,
-    };
-  }
-
-  return {
-    nextAnswers: answers,
-    nextContact: contact,
-    nextDefaults: {
-      ...defaults,
-      [step.id]: normalizeDefaultValue(step, rawValue),
-    },
-  };
-}
-
-function normalizeDefaultValue(
-  step: Exclude<ChatStep, { type: "answer" } | { type: "contact" }>,
-  rawValue: string,
-) {
-  if (!rawValue) {
-    return defaultSearchDefaults[step.id];
-  }
-
-  if (step.type === "boolean") {
-    return /^(yes|y|true|1)$/i.test(rawValue);
-  }
-
-  if (step.type === "number") {
-    const parsed = Number.parseInt(rawValue, 10);
-    return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 50) : 5;
-  }
-
-  return rawValue;
-}
-
-function parseContactInfo(rawValue: string): ContactInfo {
-  const email = rawValue.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? "";
-  const phone =
-    rawValue.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/)?.[0] ??
-    "";
-  const name =
-    rawValue
-      .replace(email, "")
-      .replace(phone, "")
-      .split(/,|\n/)
-      .map((part) => part.trim())
-      .find(Boolean) ?? "";
-
-  return {
-    raw: rawValue,
-    name,
-    email,
-    phone,
-  };
-}
-
 function buildFreeSearchLinks(searchRequest: SearchRequest): SearchLink[] {
-  const query = buildSearchQuery(searchRequest);
+  const query = buildSearchQueryFromRequest(searchRequest);
   const location = searchRequest.location || (searchRequest.workMode === "Remote" ? "remote" : "");
   const linkedInParams = new URLSearchParams({
     keywords: query,
@@ -1375,7 +1212,7 @@ function buildFreeSearchLinks(searchRequest: SearchRequest): SearchLink[] {
 
 function buildGoogleAiModeUrl(searchRequest: SearchRequest) {
   const params = new URLSearchParams({
-    q: `${buildSearchQuery(searchRequest)} job posting`,
+    q: `${buildSearchQueryFromRequest(searchRequest)} job posting`,
     udm: "50",
     sourceid: "chrome",
     cs: "1",
@@ -1383,33 +1220,4 @@ function buildGoogleAiModeUrl(searchRequest: SearchRequest) {
   });
 
   return `https://www.google.com/search?${params.toString()}`;
-}
-
-function buildSearchQuery(searchRequest: SearchRequest) {
-  const exclusions = searchRequest.exclusions
-    .filter(Boolean)
-    .map((term) => `-${quoteIfNeeded(term)}`);
-
-  return [
-    quoteIfNeeded(searchRequest.jobTitle),
-    ...searchRequest.keywords.map(quoteIfNeeded),
-    searchRequest.seniority !== "Any" ? quoteIfNeeded(searchRequest.seniority) : "",
-    searchRequest.location,
-    searchRequest.workMode !== "Any" ? searchRequest.workMode : "",
-    searchRequest.minSalary,
-    searchRequest.requireVisaSponsorship ? "visa sponsorship" : "",
-    ...exclusions,
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function quoteIfNeeded(value: string) {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return "";
-  }
-
-  return /\s/.test(trimmed) ? `"${trimmed}"` : trimmed;
 }

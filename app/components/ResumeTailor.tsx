@@ -13,6 +13,7 @@ import { defaultSearchDefaults, JobClawResponse, SearchDefaults, SearchRequest }
 import type { GeneratedResume, StudentResumeIntake } from "@/lib/resume";
 
 const intakeStorageKey = "jobclaw.turn-taking-session.v1";
+const intakeWizardStorageKey = "jobclaw.intake-wizard.v2";
 
 type StoredIntakeSession = {
   contact?: {
@@ -453,15 +454,18 @@ export function ResumeTailor() {
 
 function readInitialTailorState() {
   const session = readStoredIntakeSession();
+  const wizardResume = readWizardResumeText();
   const jobOptions = buildJobOptions(session);
   const generatedResume = session?.generatedResume ?? null;
+
+  const resumeText = (wizardResume || generatedResume?.resumeText || "").trim();
 
   return {
     session,
     jobOptions,
     email: session?.contact?.email ?? "",
     generatedResume,
-    resumeText: generatedResume?.resumeText ?? "",
+    resumeText,
     resumeBuilderIntake: {
       ...emptyResumeIntake,
       name: session?.contact?.name ?? "",
@@ -487,6 +491,24 @@ function readStoredIntakeSession() {
     return JSON.parse(stored) as StoredIntakeSession;
   } catch {
     return null;
+  }
+}
+
+function readWizardResumeText() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  try {
+    const raw = window.localStorage.getItem(intakeWizardStorageKey);
+    if (!raw) {
+      return "";
+    }
+
+    const parsed = JSON.parse(raw) as { resumeText?: string };
+    return typeof parsed.resumeText === "string" ? parsed.resumeText : "";
+  } catch {
+    return "";
   }
 }
 

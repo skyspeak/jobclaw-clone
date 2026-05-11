@@ -35,6 +35,12 @@ export type ProfileAssessment = {
   };
 };
 
+export type ResumeSnapshot = {
+  linkedInUrl?: string;
+  resumeText?: string;
+  resumeFileName?: string;
+};
+
 export type IntakeSubmission = {
   id: string;
   createdAt: string;
@@ -44,6 +50,7 @@ export type IntakeSubmission = {
   defaults: SearchDefaults;
   result: JobClawResponse;
   profileDraft: ProfileAssessment | null;
+  resumeSnapshot?: ResumeSnapshot | null;
 };
 
 const contactSchema = z.object({
@@ -63,6 +70,13 @@ export const submissionRequestSchema = z.object({
     searchRequest: z.unknown().nullable(),
   }),
   profileDraft: z.unknown().nullable().optional(),
+  resumeSnapshot: z
+    .object({
+      linkedInUrl: z.string().max(500).optional(),
+      resumeText: z.string().max(50_000).optional(),
+      resumeFileName: z.string().max(500).optional(),
+    })
+    .optional(),
 });
 
 const submissionsFilePath = path.join(process.cwd(), "data", "intake-submissions.json");
@@ -79,6 +93,7 @@ type SubmissionRow = {
   defaults: SearchDefaults;
   result: JobClawResponse;
   profile_draft: ProfileAssessment | null;
+  resume_snapshot?: ResumeSnapshot | null;
 };
 
 export function getSubmissionStoreLabel() {
@@ -115,6 +130,7 @@ export async function createSubmission(
     defaults: { ...defaultSearchDefaults, ...request.defaults },
     result: request.result as JobClawResponse,
     profileDraft: normalizeProfileDraft(request.profileDraft),
+    resumeSnapshot: normalizeResumeSnapshot(request.resumeSnapshot),
   };
 
   if (databaseUrl) {
@@ -156,7 +172,8 @@ async function listDatabaseSubmissions(): Promise<IntakeSubmission[]> {
       answers,
       defaults,
       result,
-      profile_draft
+      profile_draft,
+      resume_snapshot
     from intake_submissions
     order by created_at desc
   `;
@@ -177,7 +194,8 @@ async function upsertDatabaseSubmission(
       answers,
       defaults,
       result,
-      profile_draft
+      profile_draft,
+      resume_snapshot
     ) values (
       ${submission.id},
       ${submission.createdAt},
@@ -186,7 +204,8 @@ async function upsertDatabaseSubmission(
       ${sql.json(submission.answers)},
       ${sql.json(submission.defaults)},
       ${sql.json(submission.result)},
-      ${sql.json(submission.profileDraft)}
+      ${sql.json(submission.profileDraft)},
+      ${sql.json(submission.resumeSnapshot ?? null)}
     )
     on conflict (id) do update set
       updated_at = excluded.updated_at,
@@ -194,7 +213,8 @@ async function upsertDatabaseSubmission(
       answers = excluded.answers,
       defaults = excluded.defaults,
       result = excluded.result,
-      profile_draft = excluded.profile_draft
+      profile_draft = excluded.profile_draft,
+      resume_snapshot = excluded.resume_snapshot
     returning
       id,
       created_at,
@@ -203,7 +223,8 @@ async function upsertDatabaseSubmission(
       answers,
       defaults,
       result,
-      profile_draft
+      profile_draft,
+      resume_snapshot
   `;
 
   return mapSubmissionRow(rows[0]);
@@ -237,6 +258,11 @@ async function ensureSubmissionsTable(sql: ReturnType<typeof postgres>) {
       profile_draft jsonb
     )
   `;
+
+  await sql`
+    alter table intake_submissions
+    add column if not exists resume_snapshot jsonb
+  `;
 }
 
 function mapSubmissionRow(row: SubmissionRow): IntakeSubmission {
@@ -249,6 +275,7 @@ function mapSubmissionRow(row: SubmissionRow): IntakeSubmission {
     defaults: row.defaults,
     result: row.result,
     profileDraft: row.profile_draft,
+    resumeSnapshot: normalizeResumeSnapshot(row.resume_snapshot ?? null),
   };
 }
 
@@ -278,6 +305,37 @@ function normalizeProfileDraft(profileDraft: unknown): ProfileAssessment | null 
   }
 
   return profileDraft as ProfileAssessment;
+}
+
+function normalizeResumeSnapshot(snapshot: unknown): ResumeSnapshot | null {
+  if (snapshot === undefined || snapshot === null) {
+    return null;
+  }
+
+  if (typeof snapshot !== "object") {
+    return null;
+  }
+
+  const raw = snapshot as Record<string, unknown>;
+  const next: ResumeSnapshot = {};
+
+  if (typeof raw.linkedInUrl === "string" && raw.linkedInUrl.trim()) {
+    next.linkedInUrl = raw.linkedInUrl.trim();
+  }
+
+  if (typeof raw.resumeText === "string" && raw.resumeText.trim()) {
+    next.resumeText = raw.resumeText.trim();
+  }
+
+  if (typeof raw.resumeFileName === "string" && raw.resumeFileName.trim()) {
+    next.resumeFileName = raw.resumeFileName.trim();
+  }
+
+  if (!next.linkedInUrl && !next.resumeText && !next.resumeFileName) {
+    return null;
+  }
+
+  return next;
 }
 
 function toIsoString(value: string | Date) {

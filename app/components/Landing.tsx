@@ -65,6 +65,8 @@ export function Landing() {
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             <ExploreLink href="/ai-adoption" label="Ramp AI adoption chart" />
+            <ExploreLink href="/matched-internships" label="Agent-matched internships" />
+            <ExploreLink href="/project-sprints" label="Project sprints (no fits yet)" />
             <ExploreLink href="/micro-internships" label="Micro-internships" />
             <ExploreLink href="/quiz" label="AI readiness quiz" />
             <ExploreLink href="/crossword" label="AI competence crossword" />
