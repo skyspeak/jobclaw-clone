@@ -170,6 +170,44 @@
   box-shadow: 0 10px 30px -10px hsla(65, 100%, 40%, 0.5);
 }
 
+/* Landing: human handoff strip — organic “relay” between people (respects reduced motion via TS) */
+@keyframes human-handoff-dash {
+  to {
+    stroke-dashoffset: -220;
+  }
+}
+
+@keyframes human-handoff-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .human-handoff-path--flow {
+    stroke-dasharray: 5 16;
+    animation: human-handoff-dash 16s linear infinite;
+  }
+
+  .human-handoff-node {
+    animation: human-handoff-breathe 3.2s ease-in-out infinite;
+  }
+
+  .human-handoff-node--b {
+    animation-delay: 0.9s;
+  }
+
+  /* Center “guides” node — slightly steadier pulse */
+  .human-handoff-node--guide {
+    animation-duration: 3.8s;
+    animation-delay: 0.35s;
+  }
+}
+
 @layer utilities {
   .hover-elevate {
     transition:

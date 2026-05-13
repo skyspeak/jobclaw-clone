@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { createJobClawResponse, generateRequestSchema } from "@/lib/jobclaw";
+import {
+  createJobClawResponse,
+  generateRequestSchema,
+  intakeQuestions,
+} from "@/lib/jobclaw";
+import { generateJobClawWithGemini } from "@/lib/gemini-intake";
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -17,5 +24,16 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json(createJobClawResponse(parsed.data));
+  const payload = parsed.data;
+
+  const missingAnswers = intakeQuestions.filter(({ id }) => !(payload.answers[id] ?? "").trim());
+
+  if (missingAnswers.length > 0) {
+    return NextResponse.json(createJobClawResponse(payload));
+  }
+
+  const geminiResponse = await generateJobClawWithGemini(payload);
+  const responsePayload = geminiResponse ?? createJobClawResponse(payload);
+
+  return NextResponse.json(responsePayload);
 }

@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import type { ChangeEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
-import { ArrowLeft, ArrowRight, Check, Loader2, Mic, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
@@ -13,15 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { appendChip, type PrefsValues, QUESTIONS } from "@/lib/intake-questions";
-import {
-  getSpeechRecognitionConstructor,
-  getVoiceErrorMessage,
-  isLikelyMobileDevice,
-  type SpeechRecognitionLike,
-} from "@/lib/speech-recognition";
-import { cn } from "@/lib/utils";
+
+import { VoiceTextarea } from "./VoiceTextarea";
 
 type IntakeWizardProps = {
   step: number;
@@ -72,134 +65,6 @@ export function IntakeWizard({
 }: IntakeWizardProps) {
   const currentQuestion = step < 5 ? QUESTIONS[step] : null;
 
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const voiceBaseRef = useRef("");
-  const [isListening, setIsListening] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState("");
-  const [voiceError, setVoiceError] = useState("");
-  const [voiceSupported, setVoiceSupported] = useState(false);
-  const [voiceChecked, setVoiceChecked] = useState(false);
-
-  const abortRecognition = useCallback(() => {
-    const recognition = recognitionRef.current;
-
-    if (recognition) {
-      recognition.onend = null;
-      recognition.onerror = null;
-      recognition.onresult = null;
-      recognition.abort();
-      recognitionRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    const supportCheckId = window.setTimeout(() => {
-      setVoiceSupported(Boolean(getSpeechRecognitionConstructor()));
-      setVoiceChecked(true);
-    }, 0);
-
-    return () => {
-      window.clearTimeout(supportCheckId);
-      abortRecognition();
-    };
-  }, [abortRecognition]);
-
-  useEffect(() => {
-    abortRecognition();
-    const id = window.setTimeout(() => {
-      setIsListening(false);
-      setVoiceStatus("");
-      setVoiceError("");
-    }, 0);
-    return () => {
-      window.clearTimeout(id);
-      abortRecognition();
-    };
-  }, [step, abortRecognition]);
-
-  const toggleVoiceInput = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      setVoiceStatus("Adding your voice answer...");
-      return;
-    }
-
-    const SpeechRecognition = getSpeechRecognitionConstructor();
-
-    if (!SpeechRecognition) {
-      setVoiceError("Voice input is not available in this browser. Try Chrome or Edge.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    const isMobileVoiceInput = isLikelyMobileDevice();
-    const listeningStatus = isMobileVoiceInput
-      ? "Listening… speak your answer. Mobile browsers may stop automatically after a pause."
-      : "Listening… speak your answer, then tap the microphone again to stop.";
-
-    recognition.continuous = !isMobileVoiceInput;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    voiceBaseRef.current = currentAnswer;
-    recognitionRef.current = recognition;
-    setVoiceError("");
-    setVoiceStatus(listeningStatus);
-    setIsListening(true);
-
-    recognition.onresult = (event) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
-
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const result = event.results[index];
-        const transcript = result[0]?.transcript ?? "";
-
-        if (result.isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      const nextDraft = [voiceBaseRef.current, finalTranscript, interimTranscript]
-        .map((part) => part.trim())
-        .filter(Boolean)
-        .join(" ");
-
-      onCurrentAnswerChange(nextDraft);
-
-      if (finalTranscript.trim()) {
-        voiceBaseRef.current = [voiceBaseRef.current, finalTranscript.trim()].filter(Boolean).join(" ");
-      }
-    };
-
-    recognition.onerror = (event) => {
-      setVoiceError(getVoiceErrorMessage(event.error));
-      setVoiceStatus("");
-      setIsListening(false);
-      recognitionRef.current = null;
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      setVoiceStatus((currentStatus) =>
-        currentStatus === listeningStatus
-          ? "Voice input stopped. Review your answer, then continue."
-          : currentStatus,
-      );
-      recognitionRef.current = null;
-    };
-
-    try {
-      recognition.start();
-    } catch {
-      setVoiceError("Voice input could not start. Check microphone permissions and try again.");
-      setVoiceStatus("");
-      setIsListening(false);
-      recognitionRef.current = null;
-    }
-  }, [currentAnswer, onCurrentAnswerChange]);
-
   return (
     <div className="flex min-h-[100dvh] flex-col brand-bg selection:bg-primary selection:text-primary-foreground">
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 pb-32 pt-5 sm:px-6 sm:pb-12 md:px-12 md:pt-12">
@@ -237,65 +102,16 @@ export function IntakeWizard({
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:text-sm">
                   Type or speak your answer
                 </Label>
-                <div className="relative">
-                  <Textarea
-                    placeholder="In your own words..."
-                    className="min-h-[120px] resize-none rounded-2xl border-border/70 bg-card py-4 pl-4 pr-14 text-base leading-relaxed shadow-sm focus-visible:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/60 sm:min-h-[160px] sm:pr-16 sm:text-lg"
-                    data-testid={`textarea-q${step + 1}`}
-                    value={currentAnswer}
-                    onChange={(e) => onCurrentAnswerChange(e.target.value)}
-                    aria-describedby={
-                      voiceStatus || voiceError
-                        ? `voice-status-q${step + 1}`
-                        : voiceChecked && !voiceSupported
-                          ? `voice-unavailable-q${step + 1}`
-                          : undefined
-                    }
-                  />
-                  <Button
-                    type="button"
-                    variant={isListening ? "default" : "outline"}
-                    size="icon"
-                    className={cn(
-                      "absolute right-2 top-2 h-10 w-10 shrink-0 rounded-full border-border/70 sm:right-3 sm:top-3",
-                      isListening && "border-primary/40 bg-primary text-primary-foreground",
-                    )}
-                    data-testid={`button-voice-q${step + 1}`}
-                    aria-label={isListening ? "Stop voice input" : "Speak your answer"}
-                    aria-pressed={isListening}
-                    disabled={!voiceChecked || !voiceSupported || isGenerating}
-                    title={
-                      !voiceChecked
-                        ? "Checking voice support…"
-                        : !voiceSupported
-                          ? "Voice input is not available in this browser"
-                          : isListening
-                            ? "Stop recording"
-                            : "Speak your answer"
-                    }
-                    onClick={toggleVoiceInput}
-                  >
-                    <Mic className="h-4 w-4" strokeWidth={2.25} />
-                  </Button>
-                </div>
+                <VoiceTextarea
+                  key={`question-${step}`}
+                  placeholder="In your own words..."
+                  data-testid={`textarea-q${step + 1}`}
+                  value={currentAnswer}
+                  onValueChange={onCurrentAnswerChange}
+                  micDisabled={isGenerating}
+                  micLabel="Speak your answer"
+                />
                 {answerError ? <p className="text-sm font-medium text-destructive">{answerError}</p> : null}
-                {voiceStatus || voiceError ? (
-                  <p
-                    id={`voice-status-q${step + 1}`}
-                    className={cn("text-sm text-muted-foreground", voiceError && "text-destructive")}
-                    aria-live="polite"
-                  >
-                    {voiceError || voiceStatus}
-                  </p>
-                ) : voiceChecked && !voiceSupported ? (
-                  <p
-                    id={`voice-unavailable-q${step + 1}`}
-                    className="text-sm text-muted-foreground"
-                    aria-live="polite"
-                  >
-                    Voice input is not available in this browser. Typing still works.
-                  </p>
-                ) : null}
               </div>
 
               <div className="space-y-2.5">
@@ -511,11 +327,16 @@ export function IntakeWizard({
                       <FormItem>
                         <Label>Additional Notes</Label>
                         <FormControl>
-                          <Textarea
-                            placeholder="Any other context?"
-                            className="resize-none rounded-2xl border-border/70 bg-card"
+                          <VoiceTextarea
+                            placeholder="Any other context? Speak or type."
                             data-testid="textarea-notes"
-                            {...field}
+                            value={field.value ?? ""}
+                            onValueChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                            micLabel="Speak your notes"
+                            micDisabled={isGenerating}
                           />
                         </FormControl>
                         <FormMessage />

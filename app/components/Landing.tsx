@@ -1,67 +1,95 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { Activity, ArrowRight, FileText, Search, Sparkles } from "lucide-react";
+import { ArrowRight, GraduationCap, MessageCircle, Target } from "lucide-react";
 
+import { HumanHandoffVisual } from "@/app/components/HumanHandoffVisual";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export function Landing() {
   return (
-    <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-background p-5 sm:bg-transparent sm:p-12 brand-bg">
+    <div className="relative flex min-h-[100dvh] flex-col overflow-hidden brand-bg selection:bg-primary selection:text-primary-foreground">
       <nav
         aria-label="Main links"
-        className="fixed left-0 right-0 top-4 z-20 flex justify-center px-4 sm:relative sm:top-0 sm:mb-[-2rem]"
+        className="fixed left-0 right-0 top-0 z-20 flex justify-center border-b border-border/60 bg-background/85 px-4 py-4 backdrop-blur-md sm:static sm:border-b-0 sm:bg-transparent sm:py-8 sm:backdrop-blur-none"
       >
-        <div className="flex w-full max-w-xl justify-center rounded-2xl border border-border/60 bg-background/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground shadow-sm backdrop-blur-md sm:bg-transparent">
-          <Link className="text-foreground underline-offset-4 hover:underline" href="/">
-            JobClaw
+        <div className="flex w-full max-w-3xl items-center justify-between text-xs font-semibold text-muted-foreground sm:text-sm">
+          <Link className="tracking-wide text-foreground underline-offset-4 hover:underline" href="/">
+            JOBCLAW
           </Link>
+          <span className="hidden uppercase tracking-wide sm:inline">For new graduates</span>
         </div>
       </nav>
 
-      <div className="relative z-10 flex w-full max-w-xl flex-col items-center px-4 py-16 text-center sm:space-y-8 sm:px-2 sm:py-16">
-        <div className="relative">
-          <div className="absolute inset-0 scale-110 rounded-3xl bg-primary/40 blur-2xl" aria-hidden />
-          <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl bg-primary shadow-lg sm:h-24 sm:w-24">
-            <Activity className="size-10 text-primary-foreground sm:size-12" strokeWidth={2.5} />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-20 sm:pt-24" aria-hidden>
+        <div className="h-1 w-28 rounded-full bg-primary/25 sm:w-36" />
+      </div>
+
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-28 pt-24 sm:px-6 sm:pb-32 sm:pt-10 md:px-12">
+        <div className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
+          <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:mb-6 sm:text-sm">
+            Career signal, on demand
+          </p>
+
+          <HumanHandoffVisual className="mb-8 sm:mb-10" />
+
+          <h1 className="text-balance text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl md:text-[3.25rem] md:leading-[1.08]">
+            Human insight
+            <br />
+            for your first chapter.
+          </h1>
+
+          <p className="mx-auto mt-5 max-w-lg text-sm leading-relaxed text-muted-foreground sm:mt-6 sm:text-base sm:leading-relaxed">
+            The strongest internships, referrals, and offers start with understanding roles and
+            people—not blasting the same résumé everywhere. Take five minutes and shape a brief that
+            actually moves conversations forward.
+          </p>
+
+          <div className="mt-9 flex w-full max-w-md flex-col gap-3 sm:mt-10 sm:flex-row sm:justify-center">
+            <Button
+              asChild
+              size="lg"
+              className="cta-glow group h-12 rounded-full border-0 px-8 text-base font-semibold sm:h-12 sm:min-w-[200px] [&_svg]:size-4"
+            >
+              <Link href="/intake">
+                Start your brief
+                <ArrowRight className="ml-1 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="h-12 rounded-full border-border/70 bg-card px-8 text-base font-semibold text-foreground hover:bg-primary/5 sm:h-12 sm:min-w-[200px]"
+            >
+              <Link href="/matched-internships">Matched internships</Link>
+            </Button>
+          </div>
+
+          <div className="mt-14 grid w-full gap-3 sm:mt-16 sm:grid-cols-3 sm:gap-4">
+            <Pillar
+              icon={<Target className="size-5 text-primary" strokeWidth={1.75} />}
+              title="Signal over volume"
+              body="A clear story beats a stack of generic applications."
+            />
+            <Pillar
+              icon={<MessageCircle className="size-5 text-primary" strokeWidth={1.75} />}
+              title="People, not templates"
+              body="Practice how you introduce yourself and ask for help."
+            />
+            <Pillar
+              icon={<GraduationCap className="size-5 text-primary" strokeWidth={1.75} />}
+              title="Proof you can share"
+              body="Walk away with something mentors and managers can use."
+            />
           </div>
         </div>
 
-        <div className="space-y-4">
-          <h1 className="text-balance text-4xl font-bold leading-[1.05] tracking-tight text-foreground sm:text-5xl md:text-6xl">
-            Find work
-            <br />
-            that fits you.
-          </h1>
-          <p className="mx-auto max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Answer five short questions. Get a structured career brief that helps you find work
-            you&apos;ll genuinely love.
-          </p>
-        </div>
-
-        <div className="w-full pt-2">
-          <Button
-            asChild
-            size="lg"
-            className="cta-glow group h-14 w-full rounded-2xl border-0 bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90 sm:h-16 sm:text-lg [&_svg]:size-5"
-          >
-            <Link href="/intake">
-              Get Started
-              <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </Button>
-        </div>
-
-        <div className="grid w-full grid-cols-3 gap-2 pt-4 sm:gap-3">
-          <FeatureCard icon={<Sparkles className="size-5 text-primary" />} label="Reflective" />
-          <FeatureCard icon={<Search className="size-5 text-primary" />} label="AI-Powered" />
-          <FeatureCard icon={<FileText className="size-5 text-primary" />} label="Shareable" />
-        </div>
-
-        <div className="mt-12 w-full border-t border-border/50 pt-8 text-left">
-          <p className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Explore more
+        <section className="mx-auto mt-16 w-full max-w-3xl border-t border-border/50 pt-10 sm:mt-20 sm:pt-12">
+          <p className="mb-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:text-sm">
+            Explore
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             <ExploreLink href="/ai-adoption" label="Ramp AI adoption chart" />
@@ -72,28 +100,39 @@ export function Landing() {
             <ExploreLink href="/crossword" label="AI competence crossword" />
             <ExploreLink href="/tailor-resume" label="Resume tailor" />
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
 
-      <footer className="absolute bottom-5 px-4 text-center text-xs font-medium text-muted-foreground/80 sm:bottom-8 sm:text-sm">
+      <footer className="absolute bottom-5 px-4 text-center text-xs font-medium text-muted-foreground/90 sm:bottom-8 sm:text-sm">
         Free, forever. Built by New Work Foundation.
       </footer>
     </div>
   );
 }
 
-function FeatureCard({ icon, label }: { icon: React.ReactNode; label: string }) {
+function Pillar({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
   return (
-    <Card className="flex flex-col items-center justify-center gap-1 border-border/60 py-3 shadow-sm sm:gap-2 sm:py-4">
-      {icon}
-      <span className="text-[11px] font-medium text-foreground sm:text-xs">{label}</span>
-    </Card>
+    <div className="rounded-2xl border border-border/70 bg-card p-5 text-left shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        {icon}
+        <span className="text-sm font-semibold text-foreground">{title}</span>
+      </div>
+      <p className="text-[13px] leading-relaxed text-muted-foreground sm:text-sm">{body}</p>
+    </div>
   );
 }
 
 function ExploreLink({ href, label }: { href: string; label: string }) {
   return (
-    <Button variant="outline" asChild size="sm" className="h-auto justify-start whitespace-normal rounded-xl py-3">
+    <Button
+      variant="outline"
+      asChild
+      size="sm"
+      className={cn(
+        "h-auto justify-start whitespace-normal rounded-xl border-border/70 bg-card py-3 text-left text-foreground",
+        "hover:border-primary/50 hover:bg-primary/5",
+      )}
+    >
       <Link href={href}>{label}</Link>
     </Button>
   );

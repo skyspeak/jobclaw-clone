@@ -1,6 +1,16 @@
 import * as z from "zod";
 
-import { defaultSearchDefaults, type SearchDefaults } from "@/lib/jobclaw";
+import { defaultSearchDefaults, type IntakeAnswers, type SearchDefaults } from "@/lib/jobclaw";
+
+export function wizardRowsToIntakeAnswers(rows: string[]): IntakeAnswers {
+  return {
+    q1: rows[0] ?? "",
+    q2: rows[1] ?? "",
+    q3: rows[2] ?? "",
+    q4: rows[3] ?? "",
+    q5: rows[4] ?? "",
+  };
+}
 
 export type IntakeQuestionItem = {
   prompt: string;

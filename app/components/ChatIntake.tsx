@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { IntakeGeneratingScreen } from "@/app/components/IntakeGeneratingScreen";
 import { IntakeWizard } from "@/app/components/IntakeWizard";
+import { SprintTrackSection } from "@/app/components/SprintTrackSection";
 import { Button } from "@/components/ui/button";
 import {
   buildSearchQueryFromRequest,
@@ -18,10 +19,15 @@ import {
   SearchRequest,
 } from "@/lib/jobclaw";
 import {
+  buildSprintContext,
+  writeSprintSession,
+} from "@/lib/intake-sprints";
+import {
   prefsSchema,
   prefsValuesToSearchDefaults,
   questionSchema,
   searchDefaultsToPrefsValues,
+  wizardRowsToIntakeAnswers,
   type PrefsValues,
 } from "@/lib/intake-questions";
 import type { GeneratedResume } from "@/lib/resume";
@@ -207,16 +213,6 @@ function readStoredSession(): StoredSessionV2 {
   }
 }
 
-function wizardAnswersToIntakeAnswers(rows: string[]): IntakeAnswers {
-  return {
-    q1: rows[0] ?? "",
-    q2: rows[1] ?? "",
-    q3: rows[2] ?? "",
-    q4: rows[3] ?? "",
-    q5: rows[4] ?? "",
-  };
-}
-
 function buildResumeSnapshot(
   linkedInUrl: string,
   resumeText: string,
@@ -320,6 +316,16 @@ export function ChatIntake() {
 
     return [sr.jobTitle, sr.keywords.join("|"), sr.location, sr.workMode, sr.seniority, sr.maxResults].join("::");
   }, [result?.searchRequest]);
+
+  const sprintContextFromBrief = useMemo(() => {
+    if (!result?.searchRequest) {
+      return null;
+    }
+
+    return buildSprintContext(result.searchRequest, wizardRowsToIntakeAnswers(wizardAnswers), {
+      preferVolunteerRoles: defaults.preferVolunteerRoles,
+    });
+  }, [defaults.preferVolunteerRoles, result?.searchRequest, wizardAnswers]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -432,6 +438,23 @@ export function ChatIntake() {
     };
   }, [result?.searchRequest, searchRequestFingerprint]);
 
+  useEffect(() => {
+    if (!result?.searchRequest) return;
+    if (liveJobSearch.kind !== "success") return;
+    if (liveJobSearch.results.length > 0) return;
+
+    writeSprintSession({
+      searchRequest: result.searchRequest,
+      answers: wizardRowsToIntakeAnswers(wizardAnswers),
+      preferVolunteerRoles: defaults.preferVolunteerRoles,
+    });
+  }, [
+    defaults.preferVolunteerRoles,
+    liveJobSearch,
+    result?.searchRequest,
+    wizardAnswers,
+  ]);
+
   function handleCurrentAnswerChange(value: string) {
     setCurrentAnswer(value);
     if (answerError) {
@@ -531,7 +554,7 @@ export function ChatIntake() {
     const mergedDefaults = { ...defaults, ...prefsValuesToSearchDefaults(prefs) };
     setDefaults(mergedDefaults);
 
-    const nextAnswers = wizardAnswersToIntakeAnswers(wizardAnswers);
+    const nextAnswers = wizardRowsToIntakeAnswers(wizardAnswers);
 
     await generateSearchRequest(
       nextAnswers,
@@ -542,7 +565,7 @@ export function ChatIntake() {
   }
 
   async function generateSearchRequest(
-    nextAnswers: IntakeAnswers = wizardAnswersToIntakeAnswers(wizardAnswers),
+    nextAnswers: IntakeAnswers = wizardRowsToIntakeAnswers(wizardAnswers),
     nextDefaults: SearchDefaults = defaults,
     nextContact: ContactInfo = contact,
     nextResumeSnapshot: ResumeSnapshot | undefined = buildResumeSnapshot(
@@ -619,7 +642,7 @@ export function ChatIntake() {
   }
 
   async function generateProfileDraft(
-    nextAnswers: IntakeAnswers = wizardAnswersToIntakeAnswers(wizardAnswers),
+    nextAnswers: IntakeAnswers = wizardRowsToIntakeAnswers(wizardAnswers),
     nextDefaults: SearchDefaults = defaults,
     nextResult: JobClawResponse | null = result,
     nextContact: ContactInfo = contact,
@@ -858,9 +881,9 @@ export function ChatIntake() {
                       <a className="underline underline-offset-4" href="https://serper.dev" rel="noreferrer" target="_blank">
                         serper.dev
                       </a>
-                      . (The workspace <code className="text-xs">jobclaw-repo</code> API uses{" "}
-                      <code className="text-xs">GEMINI_API_KEY</code> to generate summaries and hypothetical roles—that
-                      is separate from retrieving live pages from the web.)
+                      . Your brief is produced by <code className="text-xs">/api/generate</code> using{" "}
+                      <code className="text-xs">GEMINI_API_KEY</code> when configured, otherwise JobClaw&apos;s built-in
+                      rules.
                     </p>
                     {liveJobSearch.query ? (
                       <p className="break-words pt-1 text-xs text-muted-foreground">
@@ -881,7 +904,43 @@ export function ChatIntake() {
                 ) : null}
 
                 {liveJobSearch.kind === "success" && liveJobSearch.results.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No results came back for this search.</p>
+                  <div className="space-y-6 pt-2">
+                    <div className="rounded-2xl border border-amber-400/55 bg-amber-400/10 p-4 text-sm leading-relaxed text-foreground md:p-6 md:text-[0.9375rem]">
+                      <p className="font-semibold">No indexed listings surfaced for this brief yet.</p>
+                      <p className="mt-2 text-muted-foreground">
+                        That happens when search engines omit fresh postings—or filters are unusually tight. Use the runway
+                        to ship proof instead: cohort-style AI-forward project sprints, each two weeks, ending in office
+                        hours where mentors react to both your artifact and how you wielded automation.
+                      </p>
+                    </div>
+                    {sprintContextFromBrief ? (
+                      <>
+                        <SprintTrackSection
+                          context={sprintContextFromBrief}
+                          intro="One sprint, matched to your brief. AI-forward scaffolding stays constant; the copy and rationale shift around your inferred space, strengths, motivations, and forward signals."
+                        />
+                        <Button asChild variant="outline" className="w-full rounded-2xl sm:w-auto">
+                          <Link
+                            href="/project-sprints"
+                            prefetch={false}
+                            onClick={() =>
+                              writeSprintSession({
+                                searchRequest: result.searchRequest!,
+                                answers: wizardRowsToIntakeAnswers(wizardAnswers),
+                                preferVolunteerRoles: defaults.preferVolunteerRoles,
+                              })
+                            }
+                          >
+                            Open playbook view for printing / sharing
+                          </Link>
+                        </Button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        We could not personalize sprints yet—try regenerating your brief after completing every question.
+                      </p>
+                    )}
+                  </div>
                 ) : null}
 
                 {liveJobSearch.kind === "success" && liveJobSearch.results.length > 0 ? (
