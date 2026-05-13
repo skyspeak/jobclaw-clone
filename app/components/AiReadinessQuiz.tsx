@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { RotateCcw } from "lucide-react";
 
@@ -207,6 +208,29 @@ export function AiReadinessQuiz() {
         </div>
         {copied ? <p className="col-span-full text-sm text-muted-foreground">Quiz result copied to clipboard.</p> : null}
       </div>
+
+      {result.complete ? (
+        <div className="rounded-3xl border border-primary/35 bg-primary/[0.07] p-6 shadow-sm sm:p-8">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            After the quiz
+          </p>
+          <h2 className="mt-2 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            Six two-week solo sprints
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-[0.9375rem]">
+            Same playbook as JobClaw&apos;s sprint guide: one focused build per AI-first lane, ending in a
+            shareable artifact plus the doc that proves you understood what you shipped.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Button asChild className="rounded-2xl cta-glow">
+              <Link href="/ai-sprints">Open sprint guide</Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-2xl border-border/70 bg-card">
+              <a href="/api/ai-sprints-guide?download=1">Download HTML guide</a>
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

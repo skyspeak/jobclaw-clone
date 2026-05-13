@@ -854,6 +854,27 @@ export function ChatIntake() {
                   </Button>
                 </BriefActionBlock>
               ) : null}
+
+              <BriefActionBlock description="Six two-week solo sprint blueprints (finance, consulting, product, research, policy, clinical)—open in the app or download a standalone HTML copy for offline reading.">
+                <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <Button asChild className="h-auto min-h-11 w-full flex-col gap-0.5 rounded-2xl py-2.5 cta-glow sm:w-fit sm:items-start sm:px-6">
+                    <Link href="/ai-sprints">
+                      <span className="text-base font-semibold">Six two-week AI sprints</span>
+                      <span className="max-w-md text-left text-xs font-normal leading-snug text-primary-foreground/90">
+                        Open the full guide in JobClaw
+                      </span>
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="h-auto min-h-11 w-full flex-col gap-0.5 rounded-2xl border-border/70 bg-card py-2.5 sm:w-fit sm:items-start sm:px-6">
+                    <a href="/api/ai-sprints-guide?download=1" rel="noreferrer">
+                      <span className="text-base font-semibold">Download HTML guide</span>
+                      <span className="max-w-md text-left text-xs font-normal leading-snug text-muted-foreground">
+                        Standalone file — same content as the sprint page
+                      </span>
+                    </a>
+                  </Button>
+                </div>
+              </BriefActionBlock>
             </div>
 
             {result?.searchRequest ? (
