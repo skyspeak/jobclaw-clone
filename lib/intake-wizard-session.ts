@@ -1,24 +1,15 @@
 import type { SearchRequest } from "@/lib/jobclaw";
+import { INTAKE_WIZARD_STORAGE_KEY, readIntakeSession } from "@/lib/intake-session";
 
-export const INTAKE_WIZARD_STORAGE_KEY = "jobclaw.intake-wizard.v2";
+export { INTAKE_WIZARD_STORAGE_KEY };
 
 export function readIntakeSearchRequest(): SearchRequest | null {
-  if (typeof window === "undefined") {
+  const session = readIntakeSession();
+  const searchRequest = session.result?.searchRequest;
+
+  if (!searchRequest || typeof searchRequest.jobTitle !== "string") {
     return null;
   }
 
-  try {
-    const raw = window.localStorage.getItem(INTAKE_WIZARD_STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as { result?: { searchRequest?: SearchRequest | null } };
-    const searchRequest = parsed?.result?.searchRequest;
-    if (!searchRequest || typeof searchRequest.jobTitle !== "string") {
-      return null;
-    }
-
-    return searchRequest;
-  } catch {
-    return null;
-  }
+  return searchRequest;
 }
