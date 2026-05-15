@@ -7,6 +7,7 @@ import {
   AI_TRACKS_GUIDE_TITLE,
   AI_TRACKS_PATTERN,
 } from "@/lib/ai-tracks-data";
+import { TrackCommitButton } from "@/app/components/TrackCommitButton";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -151,6 +152,8 @@ export default function AiTracksPage() {
             <blockquote className="mt-8 border-l-4 border-primary bg-primary/5 px-5 py-4 text-sm font-medium leading-relaxed text-foreground sm:text-base">
               Outcomes you can claim: &ldquo;{track.outcomes}&rdquo;
             </blockquote>
+
+            <TrackCommitButton trackId={track.id} />
           </article>
         ))}
 

@@ -22,6 +22,7 @@ import {
   buildSprintContext,
   writeSprintSession,
 } from "@/lib/intake-sprints";
+import { writeMatchedInternshipsSession } from "@/lib/matched-internships";
 import {
   prefsSchema,
   prefsValuesToSearchDefaults,
@@ -419,11 +420,19 @@ export function ChatIntake() {
           return;
         }
 
+        const results = Array.isArray(data.results) ? data.results : [];
         setLiveJobSearch({
           kind: "success",
           query: data.query ?? "",
-          results: Array.isArray(data.results) ? data.results : [],
+          results,
         });
+        if (results.length > 0) {
+          writeMatchedInternshipsSession({
+            searchRequest: pinnedSearchRequest,
+            query: data.query ?? "",
+            results,
+          });
+        }
       } catch {
         if (!cancelled) {
           setLiveJobSearch({ kind: "error", message: "Could not reach the job search service." });
@@ -965,24 +974,34 @@ export function ChatIntake() {
                 ) : null}
 
                 {liveJobSearch.kind === "success" && liveJobSearch.results.length > 0 ? (
-                  <ul className="grid list-none gap-3 p-0">
-                    {liveJobSearch.results.map((hit) => (
-                      <li key={hit.link} className="rounded-2xl border border-border bg-muted/25 p-4">
-                        <a
-                          className="font-semibold text-foreground underline-offset-4 hover:underline"
-                          href={hit.link}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          {hit.title}
-                        </a>
-                        <p className="mt-1 break-all text-xs text-muted-foreground">{hit.link}</p>
-                        {hit.snippet ? (
-                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{hit.snippet}</p>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="space-y-4">
+                    <ul className="grid list-none gap-3 p-0">
+                      {liveJobSearch.results.map((hit) => (
+                        <li key={hit.link} className="rounded-2xl border border-border bg-muted/25 p-4">
+                          <a
+                            className="font-semibold text-foreground underline-offset-4 hover:underline"
+                            href={hit.link}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            {hit.title}
+                          </a>
+                          <p className="mt-1 break-all text-xs text-muted-foreground">{hit.link}</p>
+                          {hit.snippet ? (
+                            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{hit.snippet}</p>
+                          ) : null}
+                          <Button asChild size="sm" className="mt-4 rounded-2xl cta-glow">
+                            <a href={hit.link} rel="noreferrer" target="_blank">
+                              Apply on their website
+                            </a>
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button asChild variant="outline" className="rounded-2xl">
+                      <Link href="/matched-internships">Open matched internships view</Link>
+                    </Button>
+                  </div>
                 ) : null}
               </div>
             ) : null}

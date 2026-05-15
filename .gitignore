@@ -4,3 +4,4 @@ out
 tsconfig.tsbuildinfo
 .env*.local
 data/intake-submissions.json
+data/track-commits.json
