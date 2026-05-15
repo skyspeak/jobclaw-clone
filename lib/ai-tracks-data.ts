@@ -1,11 +1,11 @@
 /**
  * Content derived from "6 AI Sprints - Two Week Solo Builds.md" in the repo root.
- * Two-week solo sprint framing aligned to portfolio-grade proof (artifact + doc).
+ * Presented in-product as AI tracks: two-week solo builds with artifact + proof doc.
  */
 
-export type SprintTableRow = { name: string; description: string };
+export type TrackTableRow = { name: string; description: string };
 
-export type AiSprint = {
+export type AiTrack = {
   id: string;
   number: number;
   title: string;
@@ -13,17 +13,17 @@ export type AiSprint = {
   bet: string;
   week1: string;
   week2: string;
-  deliverables: SprintTableRow[];
-  tools: SprintTableRow[];
+  deliverables: TrackTableRow[];
+  tools: TrackTableRow[];
   outcomes: string;
 };
 
-export const AI_SPRINTS_GUIDE_TITLE = "6 Two-Week Solo Sprints";
+export const AI_TRACKS_GUIDE_TITLE = "6 Two-Week Solo AI Tracks";
 
-export const AI_SPRINTS_GUIDE_INTRO = {
-  lead: `One sprint per AI-first role. Each is designed to produce the kind of evidence serious AI-forward roles screen for: not "I used Claude," but "here is a working thing I built that changed how real work gets done." Ship the artifact, write the runbook, leave the playbook behind.`,
+export const AI_TRACKS_GUIDE_INTRO = {
+  lead: `One track per AI-first role. Each is designed to produce the kind of evidence serious AI-forward roles screen for: not "I used Claude," but "here is a working thing I built that changed how real work gets done." Ship the artifact, write the runbook, leave the playbook behind.`,
   throughline: `The throughline across all six: build alongside the work, not above it. By the end of two weeks you should be able to point a recruiter (or yourself, six months from now) at a public repo or a shareable doc and say, "this is what I changed."`,
-  structureIntro: `How each sprint is structured:`,
+  structureIntro: `How each track is structured:`,
   structureRows: [
     { name: "The bet", description: "One-sentence framing of the workflow being transformed" },
     { name: "Week 1 / Week 2", description: "Narrative arc of the build — what gets made, in what order" },
@@ -31,10 +31,10 @@ export const AI_SPRINTS_GUIDE_INTRO = {
     { name: "Tool stack", description: "What you'll have used in anger, not just clicked through" },
     { name: "Outcomes", description: "The proof-of-work claim you can make on a resume or in an interview" },
   ],
-  footnote: `A "sprint" here means a focused two-week solo build, not a Scrum ceremony. Nights and weekends count.`,
+  footnote: `A "track" here means a focused two-week solo build, not a Scrum ceremony. Nights and weekends count.`,
 } as const;
 
-export const AI_SPRINTS: AiSprint[] = [
+export const AI_TRACKS: AiTrack[] = [
   {
     id: "financial-analyst",
     number: 1,
@@ -76,7 +76,7 @@ export const AI_SPRINTS: AiSprint[] = [
       { name: "Claude + Perplexity", description: "Research sweeps, primary source triangulation" },
       { name: "Gamma or Tome", description: "Deck production in hours not days" },
       { name: "Python / Streamlit", description: "Pricing or segmentation prototype" },
-      { name: "Make or Zapier", description: 'No-code workflow automation as the deliverable' },
+      { name: "Make or Zapier", description: "No-code workflow automation as the deliverable" },
     ],
     outcomes: `Took a real strategy question end-to-end: research, recommendation, working prototype, and a playbook a non-technical user can rerun. The proof-of-concept is the deliverable, not the slides.`,
   },
@@ -170,7 +170,7 @@ export const AI_SPRINTS: AiSprint[] = [
   },
 ];
 
-export const AI_SPRINTS_PATTERN = {
+export const AI_TRACKS_PATTERN = {
   title: "The pattern across all six",
   rows: [
     { sector: "Finance", build: "Comps + memo agent", proof: "Quarter-over-quarter time savings, runbook" },
@@ -180,5 +180,5 @@ export const AI_SPRINTS_PATTERN = {
     { sector: "Policy", build: "Regulatory tracker", proof: "Memo + feedback from five real readers" },
     { sector: "Clinical", build: "Extraction pipeline", proof: "Validation metrics + bias audit" },
   ],
-  closing: `Every sprint ends with two artifacts: the thing itself (running, viewable, ideally public) and the document that proves you understood what you built (runbook, audit, writeup, methods note). That's the shape of evidence top AI-forward roles look for, scaled to a portfolio piece a new grad can credibly produce in two weeks.`,
+  closing: `Every track ends with two artifacts: the thing itself (running, viewable, ideally public) and the document that proves you understood what you built (runbook, audit, writeup, methods note). That's the shape of evidence top AI-forward roles look for, scaled to a portfolio piece a new grad can credibly produce in two weeks.`,
 } as const;

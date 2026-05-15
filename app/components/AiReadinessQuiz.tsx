@@ -215,18 +215,18 @@ export function AiReadinessQuiz() {
             After the quiz
           </p>
           <h2 className="mt-2 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-            Six two-week solo sprints
+            Six two-week solo AI tracks
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-[0.9375rem]">
-            Same playbook as JobClaw&apos;s sprint guide: one focused build per AI-first lane, ending in a
+            Same playbook as JobClaw&apos;s AI tracks guide: one focused build per AI-first lane, ending in a
             shareable artifact plus the doc that proves you understood what you shipped.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Button asChild className="rounded-2xl cta-glow">
-              <Link href="/ai-sprints">Open sprint guide</Link>
+              <Link href="/ai-tracks">Open tracks guide</Link>
             </Button>
             <Button asChild variant="outline" className="rounded-2xl border-border/70 bg-card">
-              <a href="/api/ai-sprints-guide?download=1">Download HTML guide</a>
+              <a href="/api/ai-tracks-guide?download=1">Download HTML guide</a>
             </Button>
           </div>
         </div>

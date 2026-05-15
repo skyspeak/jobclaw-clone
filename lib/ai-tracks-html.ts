@@ -1,10 +1,10 @@
 import {
-  AI_SPRINTS,
-  AI_SPRINTS_GUIDE_INTRO,
-  AI_SPRINTS_GUIDE_TITLE,
-  AI_SPRINTS_PATTERN,
-  type AiSprint,
-} from "@/lib/ai-sprints-data";
+  AI_TRACKS,
+  AI_TRACKS_GUIDE_INTRO,
+  AI_TRACKS_GUIDE_TITLE,
+  AI_TRACKS_PATTERN,
+  type AiTrack,
+} from "@/lib/ai-tracks-data";
 
 export function escapeHtml(text: string): string {
   return text
@@ -19,14 +19,14 @@ function p(text: string): string {
   return `<p class="prose">${escapeHtml(text)}</p>`;
 }
 
-function sprintSection(s: AiSprint): string {
-  const deliverRows = s.deliverables
+function trackSection(t: AiTrack): string {
+  const deliverRows = t.deliverables
     .map(
       (row) =>
         `<tr><td class="t-name">${escapeHtml(row.name)}</td><td>${escapeHtml(row.description)}</td></tr>`,
     )
     .join("");
-  const toolRows = s.tools
+  const toolRows = t.tools
     .map(
       (row) =>
         `<tr><td class="t-name">${escapeHtml(row.name)}</td><td>${escapeHtml(row.description)}</td></tr>`,
@@ -34,33 +34,33 @@ function sprintSection(s: AiSprint): string {
     .join("");
 
   return `
-    <article class="sprint" id="${escapeHtml(s.id)}">
-      <div class="sprint-head">
-        <span class="pill">Sprint ${s.number}</span>
-        <h2>${escapeHtml(s.title)}</h2>
-        <p class="subtitle">${escapeHtml(s.subtitle)}</p>
+    <article class="track" id="${escapeHtml(t.id)}">
+      <div class="track-head">
+        <span class="pill">Track ${t.number}</span>
+        <h2>${escapeHtml(t.title)}</h2>
+        <p class="subtitle">${escapeHtml(t.subtitle)}</p>
       </div>
-      <p class="bet"><strong>The bet.</strong> ${escapeHtml(s.bet)}</p>
+      <p class="bet"><strong>The bet.</strong> ${escapeHtml(t.bet)}</p>
       <div class="weeks">
-        <div class="week"><span class="wk">Week 1.</span> ${escapeHtml(s.week1)}</div>
-        <div class="week"><span class="wk">Week 2.</span> ${escapeHtml(s.week2)}</div>
+        <div class="week"><span class="wk">Week 1.</span> ${escapeHtml(t.week1)}</div>
+        <div class="week"><span class="wk">Week 2.</span> ${escapeHtml(t.week2)}</div>
       </div>
       <h3>Deliverables</h3>
       <table class="grid"><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>${deliverRows}</tbody></table>
       <h3>Tool stack</h3>
       <table class="grid"><thead><tr><th>Tool</th><th>What you&apos;ll have done with it</th></tr></thead><tbody>${toolRows}</tbody></table>
-      <blockquote class="outcome">&ldquo;${escapeHtml(s.outcomes)}&rdquo;</blockquote>
+      <blockquote class="outcome">&ldquo;${escapeHtml(t.outcomes)}&rdquo;</blockquote>
     </article>
   `;
 }
 
-export function buildAiSprintsGuideHtml(options: { canonicalUrl?: string } = {}): string {
+export function buildAiTracksGuideHtml(options: { canonicalUrl?: string } = {}): string {
   const { canonicalUrl = "" } = options;
   const canonicalLink = canonicalUrl
     ? `<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />`
     : "";
 
-  const intro = AI_SPRINTS_GUIDE_INTRO;
+  const intro = AI_TRACKS_GUIDE_INTRO;
   const structureRows = intro.structureRows
     .map(
       (row) =>
@@ -68,22 +68,22 @@ export function buildAiSprintsGuideHtml(options: { canonicalUrl?: string } = {})
     )
     .join("");
 
-  const patternRows = AI_SPRINTS_PATTERN.rows
+  const patternRows = AI_TRACKS_PATTERN.rows
     .map(
       (row) =>
         `<tr><td>${escapeHtml(row.sector)}</td><td>${escapeHtml(row.build)}</td><td>${escapeHtml(row.proof)}</td></tr>`,
     )
     .join("");
 
-  const sprintsHtml = AI_SPRINTS.map(sprintSection).join("\n");
+  const tracksHtml = AI_TRACKS.map(trackSection).join("\n");
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(AI_SPRINTS_GUIDE_TITLE)} — JobClaw</title>
-  <meta name="description" content="Six two-week solo builds for AI-first roles: artifact + proof document for each." />
+  <title>${escapeHtml(AI_TRACKS_GUIDE_TITLE)} — JobClaw</title>
+  <meta name="description" content="Six two-week solo AI tracks for AI-first roles: artifact + proof document for each." />
   ${canonicalLink}
   <style>
     :root {
@@ -145,7 +145,7 @@ export function buildAiSprintsGuideHtml(options: { canonicalUrl?: string } = {})
     .intro-block { margin-bottom: 2.75rem; }
     h2 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
     h3 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 1.5rem 0 0.6rem; }
-    .sprint {
+    .track {
       margin-bottom: 2.5rem;
       padding: 1.75rem 1.35rem 2rem;
       border-radius: var(--radius);
@@ -153,8 +153,8 @@ export function buildAiSprintsGuideHtml(options: { canonicalUrl?: string } = {})
       background: var(--card);
       box-shadow: 0 1px 0 rgba(0,0,0,0.03);
     }
-    @media (min-width: 640px) { .sprint { padding: 2rem 1.85rem 2.25rem; } }
-    .sprint-head { margin-bottom: 1rem; }
+    @media (min-width: 640px) { .track { padding: 2rem 1.85rem 2.25rem; } }
+    .track-head { margin-bottom: 1rem; }
     .pill {
       display: inline-block;
       font-size: 0.65rem;
@@ -218,8 +218,8 @@ export function buildAiSprintsGuideHtml(options: { canonicalUrl?: string } = {})
 <body>
   <div class="wrap">
     <header class="hero">
-      <p class="eyebrow">JobClaw · Two-week builds</p>
-      <h1>${escapeHtml(AI_SPRINTS_GUIDE_TITLE)}</h1>
+      <p class="eyebrow">JobClaw · AI tracks</p>
+      <h1>${escapeHtml(AI_TRACKS_GUIDE_TITLE)}</h1>
       ${p(intro.lead)}
       ${p(intro.throughline)}
     </header>
@@ -233,19 +233,19 @@ export function buildAiSprintsGuideHtml(options: { canonicalUrl?: string } = {})
       ${p(intro.footnote)}
     </section>
 
-    ${sprintsHtml}
+    ${tracksHtml}
 
     <section class="pattern">
-      <h2>${escapeHtml(AI_SPRINTS_PATTERN.title)}</h2>
+      <h2>${escapeHtml(AI_TRACKS_PATTERN.title)}</h2>
       <table class="grid">
         <thead><tr><th>Sector</th><th>The thing you build</th><th>The thing that proves you built it</th></tr></thead>
         <tbody>${patternRows}</tbody>
       </table>
-      ${p(AI_SPRINTS_PATTERN.closing)}
+      ${p(AI_TRACKS_PATTERN.closing)}
     </section>
 
     <p class="foot">
-      Generated from JobClaw&apos;s sprint guide.
+      Generated from JobClaw&apos;s AI tracks guide.
       <a class="brand" href="https://dearcc.org">New Work Foundation</a>
     </p>
   </div>
