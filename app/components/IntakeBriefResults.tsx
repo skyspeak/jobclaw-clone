@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Route, Share2 } from "lucide-react";
+import { ArrowRight, Route, Share2, Target } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { wizardRowsToIntakeAnswers } from "@/lib/intake-questions";
@@ -140,6 +140,13 @@ export function IntakeBriefResults() {
           <Route className="size-5" />
           Build your own career pathway
           <ArrowRight className="size-5 opacity-90" />
+        </Link>
+      </Button>
+
+      <Button asChild variant="outline" className="h-12 w-full rounded-2xl border-border/70 bg-card sm:w-auto">
+        <Link href="/job-fit">
+          <Target className="size-4" />
+          Check fit for a job posting
         </Link>
       </Button>
 
