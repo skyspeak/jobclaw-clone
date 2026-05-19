@@ -19,6 +19,7 @@ export type AiTrack = {
 };
 
 export const AI_TRACKS_GUIDE_TITLE = "6 Two-Week Solo AI Tracks";
+export const AI_SPRINTS_GUIDE_TITLE = "6 Two-Week Solo AI Sprints";
 
 export const AI_TRACKS_GUIDE_INTRO = {
   lead: `One track per AI-first role. Each is designed to produce the kind of evidence serious AI-forward roles screen for: not "I used Claude," but "here is a working thing I built that changed how real work gets done." Ship the artifact, write the runbook, leave the playbook behind.`,
