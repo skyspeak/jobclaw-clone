@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Route, Share2, Target } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Share2, Target } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { wizardRowsToIntakeAnswers } from "@/lib/intake-questions";
+import type { SearchRequest } from "@/lib/jobclaw";
 import {
   buildBriefShareText,
   buildGoogleAiModeUrl,
   clearIntakeSession,
-  hasResumeOrLinkedInInput,
   readIntakeSession,
   type IntakeProfileDraft,
   type IntakeWizardSession,
@@ -29,20 +29,34 @@ function readBriefSession(): IntakeWizardSession | null {
 
 export function IntakeBriefResults() {
   const router = useRouter();
-  const [session, setSession] = useState<IntakeWizardSession | null>(readBriefSession);
+  const [session, setSession] = useState<IntakeWizardSession | null>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
   const [isGeneratingProfile, setIsGeneratingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [shareNote, setShareNote] = useState("");
+  const profileGenerationStarted = useRef(false);
 
   useEffect(() => {
+    setSession(readBriefSession());
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
     if (!session?.result?.searchRequest) {
       router.replace("/intake");
     }
-  }, [session, router]);
+  }, [hasHydrated, session, router]);
 
-  const showProfileActions = useMemo(() => {
-    if (!session) return false;
-    return hasResumeOrLinkedInInput(session.linkedInUrl, session.resumeText, session.resumeFileName);
+  useEffect(() => {
+    if (!session?.result?.searchRequest || session.profileDraft || profileGenerationStarted.current) {
+      return;
+    }
+
+    profileGenerationStarted.current = true;
+    void generateProfileDraft(session);
   }, [session]);
 
   async function generateProfileDraft(active: IntakeWizardSession) {
@@ -114,7 +128,7 @@ export function IntakeBriefResults() {
     }
   }
 
-  if (!session?.result?.searchRequest) {
+  if (!hasHydrated || !session?.result?.searchRequest) {
     return (
       <p className="text-sm text-muted-foreground" aria-live="polite">
         Loading your brief…
@@ -129,6 +143,7 @@ export function IntakeBriefResults() {
       <MyBriefCard
         profile={session.profileDraft}
         summary={session.result.summary}
+        searchRequest={session.result.searchRequest}
         isLoading={isGeneratingProfile && !session.profileDraft}
         profileError={profileError}
         onShare={() => void handleShare()}
@@ -136,17 +151,10 @@ export function IntakeBriefResults() {
       />
 
       <Button asChild size="lg" className="cta-glow h-14 w-full rounded-2xl text-base font-semibold sm:text-lg">
-        <Link href="/ai-tracks">
-          <Route className="size-5" />
-          Build your own career pathway
-          <ArrowRight className="size-5 opacity-90" />
-        </Link>
-      </Button>
-
-      <Button asChild variant="outline" className="h-12 w-full rounded-2xl border-border/70 bg-card sm:w-auto">
         <Link href="/job-fit">
-          <Target className="size-4" />
+          <Target className="size-5" />
           Check fit for a job posting
+          <ArrowRight className="size-5 opacity-90" />
         </Link>
       </Button>
 
@@ -165,35 +173,54 @@ export function IntakeBriefResults() {
           </a>
         </Button>
       </div>
-
-      {showProfileActions ? (
-        <section className="space-y-3 border-t border-border/60 pt-8">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            With your materials on file
-          </p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-12 rounded-2xl"
-              disabled={isGeneratingProfile}
-              onClick={() => void generateProfileDraft(session)}
-            >
-              {isGeneratingProfile ? "Refreshing draft…" : "Draft a LinkedIn-style profile"}
-            </Button>
-            <Button asChild variant="outline" className="h-12 rounded-2xl">
-              <Link href="/tailor-resume">Tailor your résumé</Link>
-            </Button>
-          </div>
-        </section>
-      ) : null}
     </div>
   );
+}
+
+function briefIdealRole(
+  profile: IntakeProfileDraft | null,
+  searchRequest: SearchRequest,
+  summary: string,
+) {
+  if (profile?.idealJob?.title) {
+    return profile.idealJob;
+  }
+
+  const title =
+    searchRequest.jobTitle?.trim() ||
+    searchRequest.keywords.find((keyword) => keyword.trim().length > 0)?.trim() ||
+    "Early-career role";
+
+  return {
+    title,
+    why:
+      summary.trim() ||
+      "Based on your JobClaw intake and the roles you are exploring.",
+  };
+}
+
+function briefDraftContent(
+  profile: IntakeProfileDraft | null,
+  searchRequest: SearchRequest,
+  summary: string,
+) {
+  if (profile?.linkedInProfile?.headline || profile?.linkedInProfile?.about) {
+    return profile.linkedInProfile;
+  }
+
+  const title = briefIdealRole(profile, searchRequest, summary).title;
+
+  return {
+    headline: `Early-career candidate exploring ${title} roles`,
+    about: summary.trim() || "Your JobClaw brief summarizes how you want to show up in conversations.",
+    skills: searchRequest.keywords.filter((keyword) => keyword.trim().length > 0).slice(0, 8),
+  };
 }
 
 function MyBriefCard({
   profile,
   summary,
+  searchRequest,
   isLoading,
   profileError,
   onShare,
@@ -201,11 +228,19 @@ function MyBriefCard({
 }: {
   profile: IntakeProfileDraft | null;
   summary: string;
+  searchRequest: SearchRequest;
   isLoading: boolean;
   profileError: string;
   onShare: () => void;
   shareNote: string;
 }) {
+  const idealJob = briefIdealRole(profile, searchRequest, summary);
+  const draft = briefDraftContent(profile, searchRequest, summary);
+  const archetypeSummary =
+    profile?.archetype.summary?.trim() ||
+    summary.trim() ||
+    "Your brief is ready to guide your next conversations.";
+
   return (
     <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -239,46 +274,38 @@ function MyBriefCard({
       {shareNote ? <p className="mb-4 text-sm text-muted-foreground">{shareNote}</p> : null}
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Building your brief from your quiz answers…</p>
+        <p className="mb-4 text-sm text-muted-foreground">Building your brief from your quiz answers…</p>
       ) : null}
 
       {profileError ? <p className="mb-4 text-sm text-destructive">{profileError}</p> : null}
 
-      {profile ? (
-        <div className="space-y-6">
-          <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-            {profile.archetype.summary}
-          </p>
+      <div className="space-y-6">
+        <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">{archetypeSummary}</p>
 
-          <div className="rounded-2xl border border-border/60 bg-muted/15 p-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ideal role</p>
-            <p className="mt-2 font-semibold text-foreground">{profile.idealJob.title}</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{profile.idealJob.why}</p>
-          </div>
-
-          <div className="space-y-3 border-t border-border/50 pt-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Draft</p>
-            <p className="font-semibold text-foreground">{profile.linkedInProfile.headline}</p>
-            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
-              {profile.linkedInProfile.about}
-            </p>
-            {profile.linkedInProfile.skills.length > 0 ? (
-              <div className="flex flex-wrap gap-2 pt-2">
-                {profile.linkedInProfile.skills.slice(0, 12).map((skill) => (
-                  <span
-                    key={skill}
-                    className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs text-secondary-foreground"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/15 p-5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ideal role</p>
+          <p className="mt-2 font-semibold text-foreground">{idealJob.title}</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{idealJob.why}</p>
         </div>
-      ) : !isLoading ? (
-        <p className="text-sm leading-relaxed text-muted-foreground">{summary}</p>
-      ) : null}
+
+        <div className="space-y-3 border-t border-border/50 pt-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Draft</p>
+          <p className="font-semibold text-foreground">{draft.headline}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">{draft.about}</p>
+          {draft.skills.length > 0 ? (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {draft.skills.slice(0, 12).map((skill) => (
+                <span
+                  key={skill}
+                  className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs text-secondary-foreground"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
     </section>
   );
 }

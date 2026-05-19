@@ -5,6 +5,8 @@ import type { IntakeProfileDraft } from "@/lib/intake-session";
 
 const GEMINI_PRIMARY = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 const GEMINI_FALLBACK = "gemini-2.5-flash-lite";
+const MAX_JOB_TEXT_CHARS = 12_000;
+const MAX_RESUME_TEXT_CHARS = 8_000;
 
 export const jobRequirementLevelSchema = z.enum([
   "intern",
@@ -33,16 +35,48 @@ export const candidateSkillSchema = z.object({
 
 export const jobFitVerdictSchema = z.enum(["ready", "stretch", "gap"]);
 
+export const FIXED_FIT_CRITERIA = [
+  "Years of experience",
+  "Leadership",
+  "Team Management",
+] as const;
+
+/** @deprecated Domain rows use actual skill names at display time. */
+export const FIT_MATRIX_CRITERIA = [
+  ...FIXED_FIT_CRITERIA,
+  "Domain expertise - skill 1",
+  "Domain expertise - skill 2",
+  "Domain expertise - skill 3",
+] as const;
+
+export const fitMatrixRowSchema = z.object({
+  criteria: z.string(),
+  jobPost: z.string(),
+  yourBriefing: z.string(),
+  status: candidateSkillStatusSchema.optional(),
+});
+
+export type FitMatrixRow = z.infer<typeof fitMatrixRowSchema>;
+
 export const jobFitResultSchema = z.object({
   roleTitle: z.string(),
   seniority: z.string(),
-  requirements: z.array(jobRequirementSchema),
-  candidateSkills: z.array(candidateSkillSchema),
+  fitMatrix: z.array(fitMatrixRowSchema).min(1).max(6),
   verdict: jobFitVerdictSchema,
   headline: z.string(),
   summary: z.string(),
   gapsToClose: z.array(z.string()),
+  requirements: z.array(jobRequirementSchema).optional(),
+  candidateSkills: z.array(candidateSkillSchema).optional(),
 });
+
+const jobFitLlmResponseSchema = jobFitResultSchema
+  .omit({ fitMatrix: true })
+  .extend({
+    fitMatrix: z.array(fitMatrixRowSchema).optional(),
+    requirements: z.array(jobRequirementSchema).optional(),
+    candidateSkills: z.array(candidateSkillSchema).optional(),
+  });
 
 export type JobRequirement = z.infer<typeof jobRequirementSchema>;
 export type CandidateSkill = z.infer<typeof candidateSkillSchema>;
@@ -87,23 +121,48 @@ export const jobFitRequestSchema = z.object({
   candidate: jobFitCandidateContextSchema.optional(),
 });
 
-const geminiJobFitSchema = jobFitResultSchema;
-
 const JOB_FIT_SYSTEM = `You are JobClaw, a career coach for new graduates.
 
-Given a job description and candidate context (resume, survey, profile draft), extract skills and experience levels from the job ONLY—do not invent requirements not supported by the job text.
+Given a job description and candidate context (resume, survey, profile draft), fill a fit matrix comparing the JOB POST to the candidate's BRIEFING (materials).
 
-Compare the candidate honestly to each requirement. Be encouraging but realistic for early-career applicants.
+Use EXACTLY six rows in this order:
+1. Years of experience (criteria must be exactly "Years of experience")
+2. Leadership (criteria must be exactly "Leadership")
+3. Team Management (criteria must be exactly "Team Management")
+4–6. The three most important domain-specific skills from the job (criteria must be the ACTUAL skill name, e.g. "Python", "SQL", "Financial modeling" — never "Domain expertise - skill 1")
+
+For each row:
+- jobPost: what the posting asks for (short phrase; cite level/years/skills from the JD only)
+- yourBriefing: what the candidate's materials show (honest; say "Not evident" if missing)
+- status: strong | partial | missing (compare jobPost vs yourBriefing)
+
+Do not invent requirements not supported by the job text. Be realistic for early-career applicants.
 
 Verdict rules:
-- ready: candidate can credibly apply now; required skills are mostly strong or reasonable partial
-- stretch: 1–2 meaningful gaps OR level mismatch (job wants mid/senior, candidate reads entry)
-- gap: multiple missing required skills OR clear seniority mismatch
+- ready: candidate can credibly apply now; most rows strong or reasonable partial
+- stretch: 1–2 meaningful gaps OR level mismatch
+- gap: multiple missing criteria or clear seniority mismatch
 
-Return ONLY valid JSON matching the schema. Each requirement needs a short evidence snippet from the job description (paraphrase OK). Cap requirements at 12–15 skills. gapsToClose: top 3–5 learning targets as actionable phrases.`;
+Return ONLY valid JSON. gapsToClose: top 3–5 actionable learning targets.`;
 
 function isGeminiConfigured(): boolean {
   return Boolean(process.env.GEMINI_API_KEY?.trim());
+}
+
+function isOpenRouterConfigured(): boolean {
+  return Boolean(process.env.OPENROUTER_API_KEY?.trim());
+}
+
+function isAiConfigured(): boolean {
+  return isGeminiConfigured() || isOpenRouterConfigured();
+}
+
+function clipText(text: string, maxChars: number): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, maxChars)}\n\n[Truncated for analysis.]`;
 }
 
 function buildUserPrompt(jobText: string, candidate: JobFitCandidateContext): string {
@@ -112,7 +171,7 @@ function buildUserPrompt(jobText: string, candidate: JobFitCandidateContext): st
 
   return `
 Job description:
-${jobText}
+${clipText(jobText, MAX_JOB_TEXT_CHARS)}
 
 Candidate survey summary:
 ${candidate.surveySummary?.trim() || "Not provided."}
@@ -132,17 +191,19 @@ Q4: ${answers.q4 ?? ""}
 Q5: ${answers.q5 ?? ""}
 
 Resume text:
-${candidate.resumeText?.trim() || "Not provided."}
+${clipText(candidate.resumeText?.trim() || "Not provided.", MAX_RESUME_TEXT_CHARS)}
 
 Return JSON:
 {
   "roleTitle": "inferred title",
   "seniority": "e.g. Entry level, Internship, Mid-Senior",
-  "requirements": [
-    { "skill": "...", "importance": "required|preferred", "level": "intern|entry|mid|senior|unspecified", "evidence": "..." }
-  ],
-  "candidateSkills": [
-    { "skill": "...", "status": "strong|partial|missing", "note": "optional short note" }
+  "fitMatrix": [
+    { "criteria": "Years of experience", "jobPost": "...", "yourBriefing": "...", "status": "strong|partial|missing" },
+    { "criteria": "Leadership", "jobPost": "...", "yourBriefing": "...", "status": "strong|partial|missing" },
+    { "criteria": "Team Management", "jobPost": "...", "yourBriefing": "...", "status": "strong|partial|missing" },
+    { "criteria": "Python", "jobPost": "...", "yourBriefing": "...", "status": "strong|partial|missing" },
+    { "criteria": "SQL", "jobPost": "...", "yourBriefing": "...", "status": "strong|partial|missing" },
+    { "criteria": "Customer discovery", "jobPost": "...", "yourBriefing": "...", "status": "strong|partial|missing" }
   ],
   "verdict": "ready|stretch|gap",
   "headline": "short user-facing headline",
@@ -193,49 +254,214 @@ async function callGeminiModel(model: string, userText: string): Promise<string>
   return text;
 }
 
-async function callGemini(userText: string): Promise<string> {
-  try {
-    return await callGeminiModel(GEMINI_PRIMARY, userText);
-  } catch (err) {
-    const status = (err as { status?: number }).status;
-    if (status === 429 || status === 503) {
-      return await callGeminiModel(GEMINI_FALLBACK, userText);
-    }
-    throw err;
-  }
-}
-
-function parseJsonText(text: string): unknown {
-  const cleaned = text
+function cleanJsonText(text: string): string {
+  return text
     .trim()
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/, "")
     .replace(/```\s*$/, "");
-  return JSON.parse(cleaned) as unknown;
+}
+
+function parseJobFitJson(text: string): unknown | null {
+  const cleaned = cleanJsonText(text);
+  if (!cleaned) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(cleaned) as unknown;
+  } catch {
+    const start = cleaned.indexOf("{");
+    if (start < 0) {
+      return null;
+    }
+
+    let depth = 0;
+    let end = -1;
+    for (let i = start; i < cleaned.length; i += 1) {
+      const char = cleaned[i];
+      if (char === "{") {
+        depth += 1;
+      } else if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+
+    if (end <= start) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1)) as unknown;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function criteriaKey(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function isGenericDomainCriteria(criteria: string): boolean {
+  return /domain expertise\s*[-–]?\s*skill\s*\d/i.test(criteria.trim());
+}
+
+function isFixedCriteria(criteria: string): boolean {
+  const key = criteriaKey(criteria);
+  return FIXED_FIT_CRITERIA.some((label) => criteriaKey(label) === key);
+}
+
+function findRowByCriteria(label: string, rows: FitMatrixRow[]): FitMatrixRow | undefined {
+  const key = criteriaKey(label);
+  return (
+    rows.find((row) => criteriaKey(row.criteria) === key) ??
+    rows.find((row) => criteriaKey(row.criteria).includes(key.slice(0, 10)))
+  );
+}
+
+function extractTopDomainSkillNames(
+  requirements: JobRequirement[],
+  jobText: string,
+): string[] {
+  const excluded = new Set([
+    "years of experience",
+    "leadership",
+    "team management",
+    "communication",
+    "learning agility",
+    "problem solving",
+    "collaboration",
+  ]);
+
+  const fromRequirements = requirements
+    .map((r) => r.skill.trim())
+    .filter((skill) => skill && !excluded.has(criteriaKey(skill)));
+
+  const fromJob = extractSkillHintsFromText(jobText).filter(
+    (skill) => !excluded.has(criteriaKey(skill)),
+  );
+
+  return Array.from(new Set([...fromRequirements, ...fromJob])).slice(0, 3);
+}
+
+function resolveDomainCriteriaName(
+  row: FitMatrixRow | undefined,
+  domainIndex: number,
+  domainSkillNames: string[],
+): string {
+  const named = domainSkillNames[domainIndex]?.trim();
+  if (row && !isGenericDomainCriteria(row.criteria)) {
+    return row.criteria.trim();
+  }
+  if (named) {
+    return named;
+  }
+  return `Domain skill ${domainIndex + 1}`;
+}
+
+function normalizeFitMatrixRows(
+  rows: FitMatrixRow[] | undefined,
+  requirements: JobRequirement[] = [],
+  candidateSkills: CandidateSkill[] = [],
+  jobText = "",
+): FitMatrixRow[] {
+  const llmRows = rows ?? [];
+  const domainSkillNames = extractTopDomainSkillNames(requirements, jobText);
+  const domainLlmRows = llmRows.filter((row) => !isFixedCriteria(row.criteria));
+
+  const fixedRows = FIXED_FIT_CRITERIA.map((label) => {
+    const existing = findRowByCriteria(label, llmRows);
+    return {
+      criteria: label,
+      jobPost: existing?.jobPost.trim() || "Not stated in posting.",
+      yourBriefing: existing?.yourBriefing.trim() || "Not evident in your brief.",
+      status: existing?.status,
+    };
+  });
+
+  const domainRows = [0, 1, 2].map((domainIndex) => {
+    const genericLabel = `Domain expertise - skill ${domainIndex + 1}`;
+    const existing =
+      domainLlmRows[domainIndex] ??
+      findRowByCriteria(genericLabel, llmRows) ??
+      llmRows.filter((row) => isGenericDomainCriteria(row.criteria))[domainIndex];
+
+    const skillName = resolveDomainCriteriaName(existing, domainIndex, domainSkillNames);
+    const req = requirements.find((r) => criteriaKey(r.skill) === criteriaKey(skillName));
+    const match = candidateSkills.find(
+      (c) => criteriaKey(c.skill) === criteriaKey(skillName),
+    );
+
+    return {
+      criteria: skillName,
+      jobPost:
+        existing?.jobPost.trim() ||
+        req?.evidence ||
+        (domainSkillNames[domainIndex] ? `${skillName} mentioned in posting.` : "Not emphasized in posting."),
+      yourBriefing:
+        existing?.yourBriefing.trim() ||
+        match?.note ||
+        "Not evident in your brief.",
+      status: existing?.status ?? match?.status ?? "missing",
+    };
+  });
+
+  return [...fixedRows, ...domainRows];
+}
+
+export function normalizeJobFitResult(
+  raw: z.infer<typeof jobFitLlmResponseSchema>,
+  jobText = "",
+): JobFitResult {
+  const fitMatrix = normalizeFitMatrixRows(
+    raw.fitMatrix,
+    raw.requirements ?? [],
+    raw.candidateSkills ?? [],
+    jobText,
+  );
+
+  return {
+    roleTitle: raw.roleTitle,
+    seniority: raw.seniority,
+    fitMatrix,
+    verdict: raw.verdict,
+    headline: raw.headline,
+    summary: raw.summary,
+    gapsToClose: raw.gapsToClose,
+    requirements: raw.requirements,
+    candidateSkills: raw.candidateSkills,
+  };
+}
+
+function validateJobFitJson(text: string, jobText = ""): JobFitResult | null {
+  const parsed = parseJobFitJson(text);
+  if (!parsed) {
+    return null;
+  }
+  const validated = jobFitLlmResponseSchema.safeParse(parsed);
+  if (!validated.success) {
+    return null;
+  }
+  return normalizeJobFitResult(validated.data, jobText);
 }
 
 export function applyVerdictGuardrails(result: JobFitResult): JobFitResult {
-  const required = result.requirements.filter((r) => r.importance === "required");
-  const requiredSkills = required.length > 0 ? required : result.requirements;
-
-  const statusBySkill = new Map(
-    result.candidateSkills.map((c) => [c.skill.toLowerCase(), c.status] as const),
-  );
+  const fitMatrix = normalizeFitMatrixRows(result.fitMatrix);
 
   let missingRequired = 0;
-  for (const req of requiredSkills) {
-    const status =
-      statusBySkill.get(req.skill.toLowerCase()) ??
-      result.candidateSkills.find((c) =>
-        c.skill.toLowerCase().includes(req.skill.toLowerCase().slice(0, 8)),
-      )?.status;
-    if (status === "missing" || !status) {
+  for (const row of fitMatrix) {
+    const status = row.status ?? inferStatusFromBriefing(row.yourBriefing);
+    if (status === "missing") {
       missingRequired += 1;
     }
   }
 
-  const missingRatio =
-    requiredSkills.length > 0 ? missingRequired / requiredSkills.length : 0;
+  const missingRatio = fitMatrix.length > 0 ? missingRequired / fitMatrix.length : 0;
 
   let verdict = result.verdict;
   if (missingRatio > 0.5) {
@@ -252,11 +478,32 @@ export function applyVerdictGuardrails(result: JobFitResult): JobFitResult {
 
   return {
     ...result,
+    fitMatrix: fitMatrix.map((row) => ({
+      ...row,
+      status: row.status ?? inferStatusFromBriefing(row.yourBriefing),
+    })),
     verdict,
     headline: headlines[verdict],
     gapsToClose: result.gapsToClose.slice(0, 5),
-    requirements: result.requirements.slice(0, 15),
   };
+}
+
+function inferStatusFromBriefing(
+  yourBriefing: string,
+): z.infer<typeof candidateSkillStatusSchema> {
+  const lower = yourBriefing.toLowerCase();
+  if (
+    lower.includes("not evident") ||
+    lower.includes("not shown") ||
+    lower.includes("missing") ||
+    lower.includes("no evidence")
+  ) {
+    return "missing";
+  }
+  if (lower.includes("partial") || lower.includes("some") || lower.includes("limited")) {
+    return "partial";
+  }
+  return "strong";
 }
 
 async function analyzeWithOpenRouter(
@@ -303,11 +550,41 @@ async function analyzeWithOpenRouter(
       return null;
     }
 
-    const parsed = geminiJobFitSchema.safeParse(parseJsonText(content));
-    return parsed.success ? parsed.data : null;
+    return validateJobFitJson(content, jobText);
   } catch {
     return null;
   }
+}
+
+async function analyzeWithGemini(
+  jobText: string,
+  candidate: JobFitCandidateContext,
+): Promise<JobFitResult | null> {
+  if (!isGeminiConfigured()) {
+    return null;
+  }
+
+  const prompt = buildUserPrompt(jobText, candidate);
+  const models = [GEMINI_PRIMARY, GEMINI_FALLBACK];
+
+  for (const model of models) {
+    try {
+      const raw = await callGeminiModel(model, prompt);
+      const result = validateJobFitJson(raw, jobText);
+      if (result) {
+        return result;
+      }
+      console.warn(`Gemini job-fit (${model}): response failed JSON validation.`);
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      console.warn(`Gemini job-fit (${model}) failed.`, err);
+      if (status !== 429 && status !== 503) {
+        continue;
+      }
+    }
+  }
+
+  return null;
 }
 
 const SKILL_HINTS = [
@@ -343,6 +620,7 @@ function extractSkillHintsFromText(text: string): string[] {
 export function buildFallbackJobFit(
   jobText: string,
   candidate: JobFitCandidateContext,
+  options?: { aiConfigured?: boolean },
 ): JobFitResult {
   const resume = candidate.resumeText ?? "";
   const requirements: JobRequirement[] = extractSkillHintsFromText(jobText).map((skill) => ({
@@ -371,16 +649,56 @@ export function buildFallbackJobFit(
   const missing = candidateSkills.filter((c) => c.status === "missing").length;
   const verdict: JobFitVerdict =
     missing === 0 ? "ready" : missing <= 2 ? "stretch" : "gap";
+  const seniority = inferSeniority(jobText);
+  const lowerJob = jobText.toLowerCase();
+  const lowerResume = resume.toLowerCase();
+
+  const fitMatrix = normalizeFitMatrixRows(
+    [
+      {
+        criteria: "Years of experience",
+        jobPost: seniority,
+        yourBriefing: lowerResume.includes("intern") || lowerResume.includes("student")
+          ? "Early-career / student experience in materials."
+          : "Experience level not clearly stated in brief.",
+        status:
+          lowerJob.includes("senior") && !lowerResume.includes("senior") ? "missing" : "partial",
+      },
+      {
+        criteria: "Leadership",
+        jobPost: lowerJob.includes("lead") ? "Leadership expected." : "Leadership not emphasized.",
+        yourBriefing: lowerResume.match(/lead|president|captain|chair/)
+          ? "Some leadership signals in brief."
+          : "Not evident in your brief.",
+        status: lowerResume.match(/lead|president|captain|chair/) ? "partial" : "missing",
+      },
+      {
+        criteria: "Team Management",
+        jobPost: lowerJob.match(/team|manage|supervis/)
+          ? "Team or people management mentioned."
+          : "Not emphasized in posting.",
+        yourBriefing: lowerResume.match(/team|collaborat|group project/)
+          ? "Team collaboration mentioned."
+          : "Not evident in your brief.",
+        status: lowerResume.match(/team|collaborat|group project/) ? "partial" : "missing",
+      },
+    ],
+    requirements.slice(0, 12),
+    candidateSkills,
+    jobText,
+  );
 
   return applyVerdictGuardrails({
     roleTitle: inferRoleTitle(jobText),
-    seniority: inferSeniority(jobText),
-    requirements: requirements.slice(0, 12),
+    seniority,
+    fitMatrix,
     candidateSkills,
+    requirements: requirements.slice(0, 12),
     verdict,
     headline: "",
-    summary:
-      "This is a quick skills scan without an AI key configured. Add GEMINI_API_KEY or OPENROUTER_API_KEY for a deeper analysis grounded in the full job description.",
+    summary: options?.aiConfigured
+      ? "AI analysis did not complete (often when a fetched posting is very long). This is a rough keyword scan—try again or paste a shorter job description for a full analysis."
+      : "This is a quick skills scan without an AI key configured. Add GEMINI_API_KEY or OPENROUTER_API_KEY in jobclaw/.env.local (next to package.json) for a deeper analysis.",
     gapsToClose: candidateSkills
       .filter((c) => c.status === "missing")
       .map((c) => c.skill)
@@ -427,18 +745,12 @@ export async function analyzeJobFit(input: {
   candidate: JobFitCandidateContext;
 }): Promise<JobFitResult> {
   const candidate = jobFitCandidateContextSchema.parse(input.candidate);
-  const jobText = input.jobText.trim();
+  const jobText = clipText(input.jobText.trim(), MAX_JOB_TEXT_CHARS);
+  const aiConfigured = isAiConfigured();
 
-  if (isGeminiConfigured()) {
-    try {
-      const raw = await callGemini(buildUserPrompt(jobText, candidate));
-      const parsed = geminiJobFitSchema.safeParse(parseJsonText(raw));
-      if (parsed.success) {
-        return applyVerdictGuardrails(parsed.data);
-      }
-    } catch (err) {
-      console.warn("Gemini job-fit analysis failed, trying fallback.", err);
-    }
+  const geminiResult = await analyzeWithGemini(jobText, candidate);
+  if (geminiResult) {
+    return applyVerdictGuardrails(geminiResult);
   }
 
   const openRouterResult = await analyzeWithOpenRouter(jobText, candidate);
@@ -446,7 +758,7 @@ export async function analyzeJobFit(input: {
     return applyVerdictGuardrails(openRouterResult);
   }
 
-  return buildFallbackJobFit(jobText, candidate);
+  return buildFallbackJobFit(jobText, candidate, { aiConfigured });
 }
 
 export function verdictLabel(verdict: JobFitVerdict): string {

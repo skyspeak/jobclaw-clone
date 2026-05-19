@@ -6,7 +6,6 @@ import { ArrowRight, GraduationCap, MessageCircle, Target } from "lucide-react";
 
 import { HumanHandoffVisual } from "@/app/components/HumanHandoffVisual";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 export function Landing() {
   return (
@@ -43,8 +42,9 @@ export function Landing() {
 
           <p className="mx-auto mt-5 max-w-lg text-sm leading-relaxed text-muted-foreground sm:mt-6 sm:text-base sm:leading-relaxed">
             The strongest internships, referrals, and offers start with understanding roles and
-            people—not blasting the same résumé everywhere. Take five minutes and shape a brief that
-            actually moves conversations forward.
+            people—not blasting the same résumé everywhere.
+            <br />
+            Take five minutes and shape a brief that actually moves conversations forward.
           </p>
 
           <div className="mt-9 flex w-full max-w-md flex-col gap-3 sm:mt-10 sm:flex-row sm:justify-center">
@@ -86,22 +86,6 @@ export function Landing() {
             />
           </div>
         </div>
-
-        <section className="mx-auto mt-16 w-full max-w-3xl border-t border-border/50 pt-10 sm:mt-20 sm:pt-12">
-          <p className="mb-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:text-sm">
-            Explore
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <ExploreLink href="/ai-tracks" label="Six two-week AI tracks (guide + HTML)" />
-            <ExploreLink href="/ai-adoption" label="Ramp AI adoption chart" />
-            <ExploreLink href="/matched-internships" label="Agent-matched internships" />
-            <ExploreLink href="/project-sprints" label="Project sprints (no fits yet)" />
-            <ExploreLink href="/micro-internships" label="Micro-internships" />
-            <ExploreLink href="/quiz" label="AI readiness quiz" />
-            <ExploreLink href="/crossword" label="AI competence crossword" />
-            <ExploreLink href="/tailor-resume" label="Resume tailor" />
-          </div>
-        </section>
       </main>
 
       <footer className="absolute bottom-5 px-4 text-center text-xs font-medium text-muted-foreground/90 sm:bottom-8 sm:text-sm">
@@ -120,21 +104,5 @@ function Pillar({ icon, title, body }: { icon: ReactNode; title: string; body: s
       </div>
       <p className="text-[13px] leading-relaxed text-muted-foreground sm:text-sm">{body}</p>
     </div>
-  );
-}
-
-function ExploreLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Button
-      variant="outline"
-      asChild
-      size="sm"
-      className={cn(
-        "h-auto justify-start whitespace-normal rounded-xl border-border/70 bg-card py-3 text-left text-foreground",
-        "hover:border-primary/50 hover:bg-primary/5",
-      )}
-    >
-      <Link href={href}>{label}</Link>
-    </Button>
   );
 }

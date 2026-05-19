@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, Loader2, Target } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   buildCandidateContextFromSession,
   verdictDescription,
   verdictLabel,
+  type FitMatrixRow,
   type JobFitResult,
   type JobFitVerdict,
 } from "@/lib/job-fit";
@@ -23,69 +24,43 @@ const JOB_FIT_JD_STORAGE_KEY = "jobclaw.job-fit.jd.v1";
 export function JobFitAnalyzer() {
   const [jobUrl, setJobUrl] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [isFetching, setIsFetching] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [pasteMode, setPasteMode] = useState(false);
+  const [isWorking, setIsWorking] = useState(false);
   const [error, setError] = useState("");
-  const [fetchNote, setFetchNote] = useState("");
   const [result, setResult] = useState<JobFitResult | null>(null);
+  const [hasIntakeSession, setHasIntakeSession] = useState(false);
 
-  const hasIntakeSession = useMemo(() => {
-    if (typeof window === "undefined") return false;
+  const usingUrl = Boolean(jobUrl.trim()) && !pasteMode;
+  const showTextarea = !usingUrl;
+
+  useEffect(() => {
     const session = readIntakeSession();
-    return Boolean(session.result?.summary || session.resumeText?.trim());
+    setHasIntakeSession(Boolean(session.result?.summary || session.resumeText?.trim()));
   }, []);
 
-  async function handleFetch() {
-    const url = jobUrl.trim();
-    if (!url) {
-      setError("Enter a job posting URL to fetch.");
-      return;
+  async function fetchPostingText(url: string): Promise<string> {
+    const response = await fetch("/api/job-post-fetch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobUrl: url }),
+    });
+    const payload = (await response.json()) as {
+      text?: string;
+      error?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error ?? "Could not fetch that URL.");
     }
 
-    setIsFetching(true);
-    setError("");
-    setFetchNote("");
-
-    try {
-      const response = await fetch("/api/job-post-fetch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobUrl: url }),
-      });
-      const payload = (await response.json()) as {
-        text?: string;
-        error?: string;
-        suggestPaste?: boolean;
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Could not fetch that URL.");
-      }
-
-      if (payload.text) {
-        setJobDescription(payload.text);
-        setFetchNote("Posting loaded — review and edit before analyzing.");
-      }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not fetch job posting.");
-    } finally {
-      setIsFetching(false);
+    if (!payload.text?.trim()) {
+      throw new Error("Could not read enough text from that posting.");
     }
+
+    return payload.text.trim();
   }
 
-  async function handleAnalyze(event: FormEvent) {
-    event.preventDefault();
-
-    const text = jobDescription.trim();
-    if (text.length < 80) {
-      setError("Paste at least a few sentences of the job description, or fetch from a URL first.");
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setError("");
-    setResult(null);
-
+  async function runAnalysis(jobText: string, url?: string) {
     const session = readIntakeSession();
     const candidate = buildCandidateContextFromSession({
       resumeText: session.resumeText,
@@ -94,44 +69,77 @@ export function JobFitAnalyzer() {
       wizardAnswers: session.wizardAnswers,
     });
 
-    try {
-      const response = await fetch("/api/job-fit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobDescription: text,
-          jobUrl: jobUrl.trim() || undefined,
-          candidate,
-        }),
-      });
+    const response = await fetch("/api/job-fit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jobDescription: jobText,
+        jobUrl: url,
+        candidate,
+      }),
+    });
 
-      const payload = (await response.json()) as {
-        result?: JobFitResult;
-        analyzedText?: string;
-        error?: string;
-      };
+    const payload = (await response.json()) as {
+      result?: JobFitResult;
+      error?: string;
+    };
 
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Analysis failed.");
-      }
+    if (!response.ok) {
+      throw new Error(payload.error ?? "Analysis failed.");
+    }
 
-      if (payload.result) {
-        setResult(payload.result);
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem(JOB_FIT_JD_STORAGE_KEY, text);
-        }
-      }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Analysis failed.");
-    } finally {
-      setIsAnalyzing(false);
+    if (!payload.result) {
+      throw new Error("Analysis failed.");
+    }
+
+    setJobDescription(jobText);
+    setResult(payload.result);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(JOB_FIT_JD_STORAGE_KEY, jobText);
     }
   }
 
-  function handleTailorResume() {
-    if (typeof window !== "undefined" && jobDescription.trim()) {
-      sessionStorage.setItem(JOB_FIT_JD_STORAGE_KEY, jobDescription.trim());
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+
+    const url = jobUrl.trim();
+    let text = jobDescription.trim();
+
+    setError("");
+    setResult(null);
+    setIsWorking(true);
+
+    try {
+      if (usingUrl && url) {
+        text = await fetchPostingText(url);
+      }
+
+      if (text.length < 80) {
+        throw new Error(
+          usingUrl
+            ? "Could not get enough text from that URL. Try pasting the description instead."
+            : "Paste at least a few sentences of the job description.",
+        );
+      }
+
+      await runAnalysis(text, url || undefined);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Something went wrong.");
+    } finally {
+      setIsWorking(false);
     }
+  }
+
+  function switchToPaste() {
+    setPasteMode(true);
+    setJobUrl("");
+    setError("");
+  }
+
+  function switchToUrl() {
+    setPasteMode(false);
+    setJobDescription("");
+    setError("");
   }
 
   return (
@@ -145,8 +153,8 @@ export function JobFitAnalyzer() {
           Can you win this job?
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-          Paste a job description or fetch from a career page URL. We compare required skills and levels
-          to your intake brief and résumé when available.
+          Paste a job description or enter a career-page URL. We compare required skills and levels to
+          your intake brief and résumé when available.
         </p>
         {!hasIntakeSession ? (
           <p className="text-sm text-muted-foreground">
@@ -159,12 +167,12 @@ export function JobFitAnalyzer() {
         ) : null}
       </header>
 
-      <form onSubmit={(e) => void handleAnalyze(e)} className="flex flex-col gap-6">
+      <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-6">
         <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="job-url">Job posting URL (optional)</Label>
-              <div className="flex flex-col gap-2 sm:flex-row">
+            {!pasteMode ? (
+              <div className="space-y-2">
+                <Label htmlFor="job-url">Job posting URL</Label>
                 <Input
                   id="job-url"
                   type="url"
@@ -172,41 +180,51 @@ export function JobFitAnalyzer() {
                   value={jobUrl}
                   onChange={(e) => setJobUrl(e.target.value)}
                   className="h-11 rounded-xl"
+                  disabled={isWorking}
                 />
-                <Button
+                <p className="text-xs text-muted-foreground">
+                  Works best on Greenhouse, Lever, and company career pages. LinkedIn usually requires
+                  paste.
+                </p>
+                <button
                   type="button"
-                  variant="outline"
-                  className="h-11 shrink-0 rounded-xl"
-                  disabled={isFetching || !jobUrl.trim()}
-                  onClick={() => void handleFetch()}
+                  className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+                  onClick={switchToPaste}
+                  disabled={isWorking}
                 >
-                  {isFetching ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      Fetching…
-                    </>
-                  ) : (
-                    "Fetch posting"
-                  )}
-                </Button>
+                  Paste description instead
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Works best on Greenhouse, Lever, and company career pages. LinkedIn usually requires paste.
-              </p>
-            </div>
+            ) : null}
 
-            <div className="space-y-2">
-              <Label htmlFor="job-description">Job description</Label>
-              <Textarea
-                id="job-description"
-                placeholder="Paste the full job description here…"
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                rows={12}
-                className="min-h-[200px] rounded-2xl font-mono text-sm"
-              />
-              {fetchNote ? <p className="text-sm text-muted-foreground">{fetchNote}</p> : null}
-            </div>
+            {showTextarea ? (
+              <div className="space-y-2">
+                <Label htmlFor="job-description">Job description</Label>
+                <Textarea
+                  id="job-description"
+                  placeholder="Paste the full job description here…"
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  rows={12}
+                  className="min-h-[200px] rounded-2xl font-mono text-sm"
+                  disabled={isWorking}
+                />
+                {pasteMode ? (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
+                    onClick={switchToUrl}
+                    disabled={isWorking}
+                  >
+                    Use a URL instead
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            {usingUrl && isWorking ? (
+              <p className="text-sm text-muted-foreground">Reading the posting and analyzing your fit…</p>
+            ) : null}
           </div>
         </section>
 
@@ -220,84 +238,53 @@ export function JobFitAnalyzer() {
           type="submit"
           size="lg"
           className="cta-glow h-14 w-full rounded-2xl text-base font-semibold sm:w-auto sm:px-10"
-          disabled={isAnalyzing}
+          disabled={isWorking || (usingUrl ? !jobUrl.trim() : jobDescription.trim().length < 80)}
         >
-          {isAnalyzing ? (
+          {isWorking ? (
             <>
               <Loader2 className="size-5 animate-spin" />
-              Analyzing fit…
+              {usingUrl ? "Analyzing…" : "Analyzing fit…"}
             </>
           ) : (
             <>
-              Analyze job fit
+              Analyze my fit
               <ArrowRight className="size-5 opacity-90" />
             </>
           )}
         </Button>
       </form>
 
-      {result ? <JobFitResultsCard result={result} onTailorClick={handleTailorResume} /> : null}
+      {result ? <JobFitResultsCard result={result} /> : null}
     </div>
   );
 }
 
-function JobFitResultsCard({
-  result,
-  onTailorClick,
-}: {
-  result: JobFitResult;
-  onTailorClick: () => void;
-}) {
-  const statusBySkill = useMemo(() => {
-    const map = new Map<string, (typeof result.candidateSkills)[number]>();
-    for (const c of result.candidateSkills) {
-      map.set(c.skill.toLowerCase(), c);
-    }
-    return map;
-  }, [result.candidateSkills]);
-
+function JobFitResultsCard({ result }: { result: JobFitResult }) {
   return (
     <section className="flex flex-col gap-6">
       <VerdictBanner verdict={result.verdict} headline={result.headline} summary={result.summary} />
 
       <div className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          Role
+          Fit matrix
         </p>
         <h2 className="mt-1 text-xl font-bold text-foreground">{result.roleTitle}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{result.seniority}</p>
 
         <div className="mt-8 overflow-x-auto">
-          <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-border/60 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <th className="pb-3 pr-4">Skill</th>
-                <th className="pb-3 pr-4">Required</th>
-                <th className="pb-3 pr-4">Your fit</th>
-                <th className="pb-3">Status</th>
+                <th className="pb-3 pr-4">Criteria</th>
+                <th className="pb-3 pr-4">Job post</th>
+                <th className="pb-3 pr-4">Your briefing</th>
+                <th className="pb-3">Fit</th>
               </tr>
             </thead>
             <tbody>
-              {result.requirements.map((req) => {
-                const match =
-                  statusBySkill.get(req.skill.toLowerCase()) ??
-                  result.candidateSkills.find((c) =>
-                    c.skill.toLowerCase().includes(req.skill.toLowerCase().slice(0, 6)),
-                  );
-                return (
-                  <tr key={req.skill} className="border-b border-border/40 last:border-0">
-                    <td className="py-3 pr-4 font-medium text-foreground">{req.skill}</td>
-                    <td className="py-3 pr-4 capitalize text-muted-foreground">
-                      {req.level}
-                      {req.importance === "preferred" ? " · preferred" : ""}
-                    </td>
-                    <td className="py-3 pr-4 text-muted-foreground">{match?.note || "—"}</td>
-                    <td className="py-3">
-                      <StatusBadge status={match?.status ?? "missing"} />
-                    </td>
-                  </tr>
-                );
-              })}
+              {result.fitMatrix.map((row) => (
+                <FitMatrixTableRow key={row.criteria} row={row} />
+              ))}
             </tbody>
           </table>
         </div>
@@ -316,10 +303,32 @@ function JobFitResultsCard({
         </div>
       ) : null}
 
-      <Button asChild variant="outline" className="h-12 w-fit rounded-2xl" onClick={onTailorClick}>
-        <Link href="/tailor-resume">Tailor résumé for this job</Link>
+      <Button
+        asChild
+        size="lg"
+        className="cta-glow h-14 w-full rounded-2xl text-base font-semibold sm:text-lg"
+      >
+        <Link href="/project-sprints">
+          Explore Project Pathways to enhance your skills
+          <ArrowRight className="size-5 opacity-90" />
+        </Link>
       </Button>
     </section>
+  );
+}
+
+function FitMatrixTableRow({ row }: { row: FitMatrixRow }) {
+  const status = row.status ?? "missing";
+
+  return (
+    <tr className="border-b border-border/40 last:border-0">
+      <td className="py-3 pr-4 align-top font-medium text-foreground">{row.criteria}</td>
+      <td className="py-3 pr-4 align-top text-muted-foreground">{row.jobPost}</td>
+      <td className="py-3 pr-4 align-top text-muted-foreground">{row.yourBriefing}</td>
+      <td className="py-3 align-top">
+        <StatusBadge status={status} />
+      </td>
+    </tr>
   );
 }
 
