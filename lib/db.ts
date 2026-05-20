@@ -3,10 +3,29 @@ import postgres from "postgres";
 let sqlClient: ReturnType<typeof postgres> | null = null;
 let cachedDatabaseUrl: string | undefined | null = null;
 
+function sanitizeEnv(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  let next = value.trim();
+  if (
+    (next.startsWith('"') && next.endsWith('"')) ||
+    (next.startsWith("'") && next.endsWith("'"))
+  ) {
+    next = next.slice(1, -1).trim();
+  }
+
+  return next || undefined;
+}
+
 function isValidPostgresUrl(url: string) {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "postgresql:" || parsed.protocol === "postgres:";
+    if (parsed.protocol !== "postgresql:" && parsed.protocol !== "postgres:") {
+      return false;
+    }
+    return Boolean(parsed.hostname);
   } catch {
     return false;
   }
@@ -40,36 +59,46 @@ function repairPostgresUrl(url: string) {
 }
 
 function buildUrlFromParts() {
-  const password = process.env.DATABASE_PASSWORD;
-  const host = process.env.DATABASE_HOST;
-  if (!password?.trim() || !host?.trim()) {
+  const password = sanitizeEnv(process.env.DATABASE_PASSWORD);
+  const host = sanitizeEnv(process.env.DATABASE_HOST);
+  if (!password || !host) {
     return undefined;
   }
 
-  const user = process.env.DATABASE_USER?.trim() || "postgres";
-  const port = process.env.DATABASE_PORT?.trim() || "6543";
-  const database = process.env.DATABASE_NAME?.trim() || "postgres";
+  if (host.includes("://")) {
+    return undefined;
+  }
 
-  return `postgresql://${user}:${encodeURIComponent(password.trim())}@${host.trim()}:${port}/${database}`;
+  const user = sanitizeEnv(process.env.DATABASE_USER) || "postgres";
+  const port = sanitizeEnv(process.env.DATABASE_PORT) || "5432";
+  const database = sanitizeEnv(process.env.DATABASE_NAME) || "postgres";
+
+  return `postgresql://${user}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
 }
 
 function resolveDatabaseUrl(): string | undefined {
+  const raw = sanitizeEnv(process.env.DATABASE_URL) || sanitizeEnv(process.env.POSTGRES_URL);
+  if (raw) {
+    if (raw.startsWith("https://") && raw.includes("supabase.co")) {
+      return undefined;
+    }
+
+    if (isValidPostgresUrl(raw)) {
+      return raw;
+    }
+
+    const repaired = repairPostgresUrl(raw);
+    if (repaired) {
+      return repaired;
+    }
+  }
+
   const fromParts = buildUrlFromParts();
   if (fromParts && isValidPostgresUrl(fromParts)) {
     return fromParts;
   }
 
-  const raw = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-  if (!raw?.trim()) {
-    return undefined;
-  }
-
-  const trimmed = raw.trim();
-  if (isValidPostgresUrl(trimmed)) {
-    return trimmed;
-  }
-
-  return repairPostgresUrl(trimmed);
+  return undefined;
 }
 
 export function getDatabaseUrl() {
@@ -78,6 +107,38 @@ export function getDatabaseUrl() {
   }
 
   return cachedDatabaseUrl;
+}
+
+export type DatabaseDiagnostics = {
+  configured: boolean;
+  host?: string;
+  port?: string;
+  user?: string;
+  source?: "DATABASE_URL" | "split-env";
+};
+
+export function getDatabaseDiagnostics(): DatabaseDiagnostics {
+  const url = getDatabaseUrl();
+  if (!url) {
+    return { configured: false };
+  }
+
+  try {
+    const parsed = new URL(url);
+    const usesSplitEnv = Boolean(
+      sanitizeEnv(process.env.DATABASE_HOST) && sanitizeEnv(process.env.DATABASE_PASSWORD),
+    );
+
+    return {
+      configured: true,
+      host: parsed.hostname,
+      port: parsed.port || "5432",
+      user: decodeURIComponent(parsed.username),
+      source: usesSplitEnv ? "split-env" : "DATABASE_URL",
+    };
+  } catch {
+    return { configured: true, host: "(could not parse URL)" };
+  }
 }
 
 export function isDatabaseConfigured() {
@@ -101,7 +162,6 @@ export function getSql() {
     sqlClient = postgres(databaseUrl, {
       max: 1,
       ssl: isLocalhost ? false : "require",
-      // Required for Supabase transaction pooler (PgBouncer) on Vercel.
       prepare: isLocalhost && !usesPooler && !isSupabase,
       connect_timeout: 30,
       idle_timeout: 20,
@@ -112,24 +172,29 @@ export function getSql() {
 }
 
 export function getDatabaseErrorMessage(error: unknown) {
+  const diagnostics = getDatabaseDiagnostics();
+
   if (!(error instanceof Error)) {
     return "Database connection failed.";
   }
 
   if (error.message.includes("Invalid URL") || (error as NodeJS.ErrnoException).code === "ERR_INVALID_URL") {
-    return "DATABASE_URL is malformed. URL-encode special characters in your database password (@ → %40, # → %23, ! → %21), or set DATABASE_HOST + DATABASE_PASSWORD separately on Vercel.";
+    return "DATABASE_URL is malformed. It must start with postgresql:// and use a URL-encoded password, or set DATABASE_HOST + DATABASE_PASSWORD.";
   }
 
   if (error.message.includes("password authentication failed")) {
-    return "Database password rejected. Reset it in Supabase and update DATABASE_URL on Vercel.";
+    return "Database password rejected. Copy a fresh connection string from Supabase and update Vercel.";
   }
 
   if (error.message.includes("ENOTFOUND") || error.message.includes("getaddrinfo")) {
-    return "Database host not found. Check DATABASE_URL on Vercel (use the Supabase pooler URI for production).";
+    const hostHint = diagnostics.host
+      ? ` The app tried to reach host “${diagnostics.host}”.`
+      : "";
+    return `Database host not found.${hostHint} In Vercel, delete extra vars (DATABASE_HOST, etc.), set only DATABASE_URL to the full Supabase URI (postgresql://…), and redeploy.`;
   }
 
   if (error.message.includes("Timed out") || error.message.includes("timeout")) {
-    return "Database connection timed out. On Vercel, use Supabase Connection string → Transaction pooler (port 6543).";
+    return "Database connection timed out. Try the other Supabase connection mode (Direct vs pooler) from Project Settings → Database.";
   }
 
   return error.message;

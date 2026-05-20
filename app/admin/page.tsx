@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ADMIN_COOKIE_NAME, isValidAdminPassword } from "@/lib/admin";
 import { intakeQuestions } from "@/lib/jobclaw";
 import { AdminJobListings } from "@/app/components/AdminJobListings";
-import { getDatabaseErrorMessage } from "@/lib/db";
+import { getDatabaseDiagnostics, getDatabaseErrorMessage } from "@/lib/db";
 import { getJobListingsStoreLabel, listJobListings } from "@/lib/job-listings";
 import { getSubmissionStoreLabel, listSubmissions } from "@/lib/submissions";
 import type { JobListing } from "@/lib/job-listings";
@@ -128,6 +128,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     databaseError = getDatabaseErrorMessage(error);
   }
 
+  const dbDiagnostics = getDatabaseDiagnostics();
   const submissionStoreLabel = getSubmissionStoreLabel();
   const jobListingsStoreLabel = getJobListingsStoreLabel();
   const contactedCount = submissions.filter(
@@ -158,11 +159,18 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
               <CardDescription className="text-base leading-relaxed text-foreground">
                 {databaseError}
               </CardDescription>
+              {dbDiagnostics.host ? (
+                <p className="text-sm text-muted-foreground">
+                  Configured host: <code className="text-foreground">{dbDiagnostics.host}</code>
+                  {dbDiagnostics.port ? `:${dbDiagnostics.port}` : null}
+                  {dbDiagnostics.source ? ` (from ${dbDiagnostics.source})` : null}
+                </p>
+              ) : null}
               <p className="text-sm text-muted-foreground">
-                On Vercel, fix <strong>DATABASE_URL</strong>: use the Supabase <strong>Transaction pooler</strong>{" "}
-                URI (port 6543) and URL-encode the password (<code>@</code> → <code>%40</code>). Or set{" "}
-                <strong>DATABASE_HOST</strong> + <strong>DATABASE_PASSWORD</strong> (raw password, no encoding),
-                then redeploy.
+                In Vercel → Environment Variables: remove <strong>DATABASE_HOST</strong> /{" "}
+                <strong>DATABASE_PASSWORD</strong> if you added them. Set only <strong>DATABASE_URL</strong> to the
+                full <code>postgresql://…</code> string from Supabase → Settings → Database → Connection string →
+                URI → <strong>Direct</strong>. Encode only the password, redeploy.
               </p>
             </CardHeader>
           </Card>
