@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, Loader2, Target } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -18,22 +17,11 @@ import {
   type JobFitVerdict,
 } from "@/lib/job-fit";
 import { readIntakeSession } from "@/lib/intake-session";
-import type { JobListing } from "@/lib/job-listings";
 import { cn } from "@/lib/utils";
 
 const JOB_FIT_JD_STORAGE_KEY = "jobclaw.job-fit.jd.v1";
 
-function listingLabel(listing: JobListing) {
-  const parts = [listing.title];
-  if (listing.company.trim()) {
-    parts.push(listing.company.trim());
-  }
-  return parts.join(" · ");
-}
-
 export function JobFitAnalyzer() {
-  const searchParams = useSearchParams();
-  const appliedListingRef = useRef<string | null>(null);
   const [jobUrl, setJobUrl] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [pasteMode, setPasteMode] = useState(false);
@@ -41,104 +29,14 @@ export function JobFitAnalyzer() {
   const [error, setError] = useState("");
   const [result, setResult] = useState<JobFitResult | null>(null);
   const [hasIntakeSession, setHasIntakeSession] = useState(false);
-  const [libraryListings, setLibraryListings] = useState<JobListing[]>([]);
-  const [libraryLoading, setLibraryLoading] = useState(true);
-  const [selectedListingId, setSelectedListingId] = useState("");
-  const [loadedListingTitle, setLoadedListingTitle] = useState("");
 
   const usingUrl = Boolean(jobUrl.trim()) && !pasteMode;
   const showTextarea = !usingUrl;
-
-  function applyLibraryListing(listing: JobListing) {
-    setJobDescription(listing.description);
-    setJobUrl(listing.sourceUrl.trim());
-    setPasteMode(true);
-    setResult(null);
-    setError("");
-    setSelectedListingId(listing.id);
-    setLoadedListingTitle(listingLabel(listing));
-  }
-
-  async function analyzeLibraryListing(listing: JobListing) {
-    applyLibraryListing(listing);
-    const text = listing.description.trim();
-
-    if (text.length < 80) {
-      setError("This library entry is too short to analyze. Edit it in admin or paste a longer description.");
-      return;
-    }
-
-    setIsWorking(true);
-    setError("");
-
-    try {
-      await runAnalysis(text, {
-        inputType: "library",
-        url: listing.sourceUrl.trim() || undefined,
-        listing,
-      });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Something went wrong.");
-    } finally {
-      setIsWorking(false);
-    }
-  }
 
   useEffect(() => {
     const session = readIntakeSession();
     setHasIntakeSession(Boolean(session.result?.summary || session.resumeText?.trim()));
   }, []);
-
-  useEffect(() => {
-    setLibraryLoading(true);
-    void fetch("/api/job-listings")
-      .then((response) => response.json())
-      .then((payload: { listings?: JobListing[] }) => {
-        setLibraryListings(payload.listings ?? []);
-      })
-      .catch(() => {
-        setLibraryListings([]);
-      })
-      .finally(() => {
-        setLibraryLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    const listingId = searchParams.get("listing");
-    if (!listingId || appliedListingRef.current === listingId) {
-      return;
-    }
-
-    const fromList = libraryListings.find((item) => item.id === listingId);
-    if (fromList) {
-      appliedListingRef.current = listingId;
-      void analyzeLibraryListing(fromList);
-      return;
-    }
-
-    if (libraryLoading) {
-      return;
-    }
-
-    void fetch(`/api/job-listings/${listingId}`)
-      .then((response) => response.json())
-      .then((payload: { listing?: JobListing; error?: string }) => {
-        if (!payload.listing) {
-          return;
-        }
-        appliedListingRef.current = listingId;
-        setLibraryListings((current) =>
-          current.some((item) => item.id === payload.listing?.id)
-            ? current
-            : [...current, payload.listing as JobListing],
-        );
-        void analyzeLibraryListing(payload.listing);
-      })
-      .catch(() => {
-        // ignore — user can still paste manually
-      });
-  }, [searchParams, libraryListings, libraryLoading]);
 
   async function fetchPostingText(url: string): Promise<string> {
     const response = await fetch("/api/job-post-fetch", {
@@ -165,9 +63,8 @@ export function JobFitAnalyzer() {
   async function runAnalysis(
     jobText: string,
     source: {
-      inputType: "url" | "paste" | "library";
+      inputType: "url" | "paste";
       url?: string;
-      listing?: JobListing;
     },
   ) {
     const session = readIntakeSession();
@@ -187,8 +84,6 @@ export function JobFitAnalyzer() {
         candidate,
         submissionMeta: {
           inputType: source.inputType,
-          listingId: source.listing?.id,
-          listingTitle: source.listing ? listingLabel(source.listing) : undefined,
           intakeSubmissionId: session.submissionId || undefined,
           submitterName: session.contact.name,
           submitterEmail: session.contact.email,
@@ -289,52 +184,6 @@ export function JobFitAnalyzer() {
       </header>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-6">
-        <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
-            <div className="space-y-2">
-              <Label htmlFor="job-listing-library">Choose from library</Label>
-              <select
-                id="job-listing-library"
-                value={selectedListingId}
-                onChange={(event) => {
-                  const listingId = event.target.value;
-                  if (!listingId) {
-                    setSelectedListingId("");
-                    setLoadedListingTitle("");
-                    return;
-                  }
-                  const listing = libraryListings.find((item) => item.id === listingId);
-                  if (listing) {
-                    void analyzeLibraryListing(listing);
-                  }
-                }}
-                className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground shadow-sm"
-                disabled={isWorking || libraryLoading || libraryListings.length === 0}
-              >
-                <option value="">
-                  {libraryLoading
-                    ? "Loading library…"
-                    : libraryListings.length === 0
-                      ? "No active listings — add one in admin"
-                      : "Select a job to analyze…"}
-                </option>
-                {libraryListings.map((listing) => (
-                  <option key={listing.id} value={listing.id}>
-                    {listingLabel(listing)}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground">
-                Pick a job to run fit analysis immediately. Listings must be marked{" "}
-                <strong className="font-medium text-foreground">Active</strong> in admin.
-              </p>
-              {loadedListingTitle && !isWorking ? (
-                <p className="text-sm text-foreground">
-                  Loaded <strong>{loadedListingTitle}</strong>. Edit below or choose another listing.
-                </p>
-              ) : null}
-            </div>
-        </section>
-
         <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
           <div className="space-y-4">
             {!pasteMode ? (

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
 
 import { JobFitAnalyzer } from "@/app/components/JobFitAnalyzer";
 import { Button } from "@/components/ui/button";
@@ -33,13 +32,7 @@ export default function JobFitPage() {
         </div>
       </nav>
       <div className="mx-auto w-full max-w-3xl px-4 pb-20 sm:px-8">
-        <Suspense
-          fallback={
-            <p className="text-sm text-muted-foreground">Loading job fit analyzer…</p>
-          }
-        >
-          <JobFitAnalyzer />
-        </Suspense>
+        <JobFitAnalyzer />
       </div>
     </main>
   );
