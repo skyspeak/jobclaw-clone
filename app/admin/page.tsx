@@ -159,8 +159,9 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
                 {databaseError}
               </CardDescription>
               <p className="text-sm text-muted-foreground">
-                In Vercel → Settings → Environment Variables, set <strong>DATABASE_URL</strong> to your
-                Supabase <strong>Transaction pooler</strong> URI (port 6543) with a URL-encoded password,
+                On Vercel, fix <strong>DATABASE_URL</strong>: use the Supabase <strong>Transaction pooler</strong>{" "}
+                URI (port 6543) and URL-encode the password (<code>@</code> → <code>%40</code>). Or set{" "}
+                <strong>DATABASE_HOST</strong> + <strong>DATABASE_PASSWORD</strong> (raw password, no encoding),
                 then redeploy.
               </p>
             </CardHeader>

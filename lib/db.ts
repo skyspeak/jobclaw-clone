@@ -1,19 +1,92 @@
 import postgres from "postgres";
 
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-
 let sqlClient: ReturnType<typeof postgres> | null = null;
+let cachedDatabaseUrl: string | undefined | null = null;
+
+function isValidPostgresUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "postgresql:" || parsed.protocol === "postgres:";
+  } catch {
+    return false;
+  }
+}
+
+/** Fix postgresql://user:pass@host when pass contains unencoded @ # ! etc. */
+function repairPostgresUrl(url: string) {
+  const prefix = "postgresql://";
+  if (!url.startsWith(prefix)) {
+    return undefined;
+  }
+
+  const rest = url.slice(prefix.length);
+  const atIndex = rest.lastIndexOf("@");
+  if (atIndex < 0) {
+    return undefined;
+  }
+
+  const credentials = rest.slice(0, atIndex);
+  const hostPart = rest.slice(atIndex + 1);
+  const colonIndex = credentials.indexOf(":");
+  if (colonIndex < 0) {
+    return undefined;
+  }
+
+  const user = credentials.slice(0, colonIndex);
+  const password = credentials.slice(colonIndex + 1);
+  const repaired = `${prefix}${user}:${encodeURIComponent(password)}@${hostPart}`;
+
+  return isValidPostgresUrl(repaired) ? repaired : undefined;
+}
+
+function buildUrlFromParts() {
+  const password = process.env.DATABASE_PASSWORD;
+  const host = process.env.DATABASE_HOST;
+  if (!password?.trim() || !host?.trim()) {
+    return undefined;
+  }
+
+  const user = process.env.DATABASE_USER?.trim() || "postgres";
+  const port = process.env.DATABASE_PORT?.trim() || "6543";
+  const database = process.env.DATABASE_NAME?.trim() || "postgres";
+
+  return `postgresql://${user}:${encodeURIComponent(password.trim())}@${host.trim()}:${port}/${database}`;
+}
+
+function resolveDatabaseUrl(): string | undefined {
+  const fromParts = buildUrlFromParts();
+  if (fromParts && isValidPostgresUrl(fromParts)) {
+    return fromParts;
+  }
+
+  const raw = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (!raw?.trim()) {
+    return undefined;
+  }
+
+  const trimmed = raw.trim();
+  if (isValidPostgresUrl(trimmed)) {
+    return trimmed;
+  }
+
+  return repairPostgresUrl(trimmed);
+}
 
 export function getDatabaseUrl() {
-  return databaseUrl;
+  if (cachedDatabaseUrl === null) {
+    cachedDatabaseUrl = resolveDatabaseUrl();
+  }
+
+  return cachedDatabaseUrl;
 }
 
 export function isDatabaseConfigured() {
-  return Boolean(databaseUrl);
+  return Boolean(getDatabaseUrl());
 }
 
 /** Postgres client tuned for Supabase + Vercel serverless. */
 export function getSql() {
+  const databaseUrl = getDatabaseUrl();
   if (!databaseUrl) {
     throw new Error("DATABASE_URL or POSTGRES_URL is required for Postgres.");
   }
@@ -44,7 +117,7 @@ export function getDatabaseErrorMessage(error: unknown) {
   }
 
   if (error.message.includes("Invalid URL") || (error as NodeJS.ErrnoException).code === "ERR_INVALID_URL") {
-    return "DATABASE_URL is malformed. URL-encode special characters in your database password (@ → %40, # → %23, ! → %21).";
+    return "DATABASE_URL is malformed. URL-encode special characters in your database password (@ → %40, # → %23, ! → %21), or set DATABASE_HOST + DATABASE_PASSWORD separately on Vercel.";
   }
 
   if (error.message.includes("password authentication failed")) {
