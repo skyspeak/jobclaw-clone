@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { ArrowRight, Loader2, Target } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -17,11 +18,22 @@ import {
   type JobFitVerdict,
 } from "@/lib/job-fit";
 import { readIntakeSession } from "@/lib/intake-session";
+import type { JobListing } from "@/lib/job-listings";
 import { cn } from "@/lib/utils";
 
 const JOB_FIT_JD_STORAGE_KEY = "jobclaw.job-fit.jd.v1";
 
+function listingLabel(listing: JobListing) {
+  const parts = [listing.title];
+  if (listing.company.trim()) {
+    parts.push(listing.company.trim());
+  }
+  return parts.join(" · ");
+}
+
 export function JobFitAnalyzer() {
+  const searchParams = useSearchParams();
+  const appliedListingRef = useRef<string | null>(null);
   const [jobUrl, setJobUrl] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [pasteMode, setPasteMode] = useState(false);
@@ -29,14 +41,51 @@ export function JobFitAnalyzer() {
   const [error, setError] = useState("");
   const [result, setResult] = useState<JobFitResult | null>(null);
   const [hasIntakeSession, setHasIntakeSession] = useState(false);
+  const [libraryListings, setLibraryListings] = useState<JobListing[]>([]);
+  const [selectedListingId, setSelectedListingId] = useState("");
 
   const usingUrl = Boolean(jobUrl.trim()) && !pasteMode;
   const showTextarea = !usingUrl;
+
+  function applyLibraryListing(listing: JobListing) {
+    setJobDescription(listing.description);
+    setJobUrl(listing.sourceUrl.trim());
+    setPasteMode(true);
+    setResult(null);
+    setError("");
+    setSelectedListingId(listing.id);
+  }
 
   useEffect(() => {
     const session = readIntakeSession();
     setHasIntakeSession(Boolean(session.result?.summary || session.resumeText?.trim()));
   }, []);
+
+  useEffect(() => {
+    void fetch("/api/job-listings")
+      .then((response) => response.json())
+      .then((payload: { listings?: JobListing[] }) => {
+        setLibraryListings(payload.listings ?? []);
+      })
+      .catch(() => {
+        setLibraryListings([]);
+      });
+  }, []);
+
+  useEffect(() => {
+    const listingId = searchParams.get("listing");
+    if (!listingId || libraryListings.length === 0) {
+      return;
+    }
+    if (appliedListingRef.current === listingId) {
+      return;
+    }
+    const listing = libraryListings.find((item) => item.id === listingId);
+    if (listing) {
+      appliedListingRef.current = listingId;
+      applyLibraryListing(listing);
+    }
+  }, [searchParams, libraryListings]);
 
   async function fetchPostingText(url: string): Promise<string> {
     const response = await fetch("/api/job-post-fetch", {
@@ -168,6 +217,41 @@ export function JobFitAnalyzer() {
       </header>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-6">
+        {libraryListings.length > 0 ? (
+          <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
+            <div className="space-y-2">
+              <Label htmlFor="job-listing-library">Choose from library</Label>
+              <select
+                id="job-listing-library"
+                value={selectedListingId}
+                onChange={(event) => {
+                  const listingId = event.target.value;
+                  setSelectedListingId(listingId);
+                  if (!listingId) {
+                    return;
+                  }
+                  const listing = libraryListings.find((item) => item.id === listingId);
+                  if (listing) {
+                    applyLibraryListing(listing);
+                  }
+                }}
+                className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground shadow-sm"
+                disabled={isWorking}
+              >
+                <option value="">Paste a URL or description…</option>
+                {libraryListings.map((listing) => (
+                  <option key={listing.id} value={listing.id}>
+                    {listingLabel(listing)}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Listings are managed on the admin page. Selecting one fills the description below.
+              </p>
+            </div>
+          </section>
+        ) : null}
+
         <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
           <div className="space-y-4">
             {!pasteMode ? (

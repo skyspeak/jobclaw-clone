@@ -18,3 +18,16 @@ export function readCookieValue(cookieHeader: string | null, name: string) {
 
   return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : null;
 }
+
+export function isAdminRequest(request: Request) {
+  const authorization = request.headers.get("authorization");
+  const bearerToken = authorization?.match(/^Bearer (.+)$/i)?.[1];
+  const queryToken = new URL(request.url).searchParams.get("token");
+  const cookieToken = readCookieValue(request.headers.get("cookie"), ADMIN_COOKIE_NAME);
+
+  return (
+    isValidAdminPassword(bearerToken) ||
+    isValidAdminPassword(queryToken) ||
+    isValidAdminPassword(cookieToken)
+  );
+}

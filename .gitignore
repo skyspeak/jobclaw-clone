@@ -5,4 +5,5 @@ tsconfig.tsbuildinfo
 .env*.local
 data/intake-submissions.json
 data/track-commits.json
+data/job-listings.json
 node_modules

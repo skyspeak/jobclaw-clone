@@ -8,7 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ADMIN_COOKIE_NAME, isValidAdminPassword } from "@/lib/admin";
 import { intakeQuestions } from "@/lib/jobclaw";
+import { AdminJobListings } from "@/app/components/AdminJobListings";
+import { getDatabaseErrorMessage } from "@/lib/db";
+import { getJobListingsStoreLabel, listJobListings } from "@/lib/job-listings";
 import { getSubmissionStoreLabel, listSubmissions } from "@/lib/submissions";
+import type { JobListing } from "@/lib/job-listings";
+import type { IntakeSubmission } from "@/lib/submissions";
 
 export const dynamic = "force-dynamic";
 
@@ -111,8 +116,20 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
     );
   }
 
-  const submissions = await listSubmissions();
+  let submissions: IntakeSubmission[] = [];
+  let jobListings: JobListing[] = [];
+  let databaseError = "";
+
+  try {
+    submissions = await listSubmissions();
+    jobListings = await listJobListings({ includeInactive: true });
+  } catch (error) {
+    console.error("Admin dashboard database error:", error);
+    databaseError = getDatabaseErrorMessage(error);
+  }
+
   const submissionStoreLabel = getSubmissionStoreLabel();
+  const jobListingsStoreLabel = getJobListingsStoreLabel();
   const contactedCount = submissions.filter(
     (submission) => submission.contact.name || submission.contact.email || submission.contact.phone,
   ).length;
@@ -134,6 +151,22 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       </nav>
 
       <section className="mx-auto grid w-full max-w-[1180px] gap-14">
+        {databaseError ? (
+          <Card className="border-destructive/40 bg-destructive/5 shadow-sm">
+            <CardHeader className="space-y-2 p-8">
+              <CardTitle className="text-xl text-destructive">Database connection failed</CardTitle>
+              <CardDescription className="text-base leading-relaxed text-foreground">
+                {databaseError}
+              </CardDescription>
+              <p className="text-sm text-muted-foreground">
+                In Vercel → Settings → Environment Variables, set <strong>DATABASE_URL</strong> to your
+                Supabase <strong>Transaction pooler</strong> URI (port 6543) with a URL-encoded password,
+                then redeploy.
+              </p>
+            </CardHeader>
+          </Card>
+        ) : null}
+
         <Card className="border-border/70 shadow-sm">
           <CardHeader className="space-y-5 p-10">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -162,6 +195,8 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
             </div>
           </CardContent>
         </Card>
+
+        <AdminJobListings initialListings={jobListings} storeLabel={jobListingsStoreLabel} />
 
         {submissions.length > 0 ? (
           <Card className="border-border/70 shadow-sm">

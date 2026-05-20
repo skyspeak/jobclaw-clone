@@ -1,8 +1,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import postgres from "postgres";
 import { z } from "zod";
+
+import { getDatabaseUrl, getSql as getSharedSql } from "@/lib/db";
 
 import {
   defaultSearchDefaults,
@@ -80,9 +81,8 @@ export const submissionRequestSchema = z.object({
 });
 
 const submissionsFilePath = path.join(process.cwd(), "data", "intake-submissions.json");
-const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+const databaseUrl = getDatabaseUrl();
 const isHostedRuntime = Boolean(process.env.VERCEL);
-let sqlClient: ReturnType<typeof postgres> | null = null;
 
 type SubmissionRow = {
   id: string;
@@ -231,21 +231,12 @@ async function upsertDatabaseSubmission(
 }
 
 async function getSql() {
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL or POSTGRES_URL is required for Postgres submissions.");
-  }
-
-  sqlClient ??= postgres(databaseUrl, {
-    max: 1,
-    ssl: databaseUrl.includes("localhost") ? false : "require",
-  });
-
-  await ensureSubmissionsTable(sqlClient);
-
-  return sqlClient;
+  const sql = getSharedSql();
+  await ensureSubmissionsTable(sql);
+  return sql;
 }
 
-async function ensureSubmissionsTable(sql: ReturnType<typeof postgres>) {
+async function ensureSubmissionsTable(sql: ReturnType<typeof getSharedSql>) {
   await sql`
     create table if not exists intake_submissions (
       id text primary key,
