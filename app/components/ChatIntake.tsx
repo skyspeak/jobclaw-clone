@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { IntakeGeneratingScreen } from "@/app/components/IntakeGeneratingScreen";
+import { ChatIntakeConversation } from "@/app/components/ChatIntakeConversation";
 import { IntakeWizard } from "@/app/components/IntakeWizard";
 import {
   defaultSearchDefaults,
@@ -160,7 +161,11 @@ function readStoredSession(): IntakeWizardSession {
 const PROFILE_GATE_HINT =
   "Add at least one of: LinkedIn profile URL, an uploaded résumé (text-based file), email, or phone number before continuing.";
 
-export function ChatIntake() {
+type ChatIntakeProps = {
+  variant?: "wizard" | "chat";
+};
+
+export function ChatIntake({ variant = "wizard" }: ChatIntakeProps) {
   const router = useRouter();
   const [storedSession] = useState(readStoredSession);
   const [submissionId, setSubmissionId] = useState(storedSession.submissionId);
@@ -525,33 +530,64 @@ export function ChatIntake() {
           {error}
         </p>
       ) : null}
-      <IntakeWizard
-      step={wizardStep}
-      totalSteps={totalSteps}
-      currentAnswer={currentAnswer}
-      onCurrentAnswerChange={handleCurrentAnswerChange}
-      answerError={answerError}
-      prefsForm={prefsForm}
-      linkedInUrl={linkedInUrl}
-      onLinkedInUrlChange={setLinkedInUrl}
-      resumeFileName={resumeFileName}
-      onResumeFile={readResumeFile}
-      isReadingResume={isReadingResume}
-      contactEmail={contact.email}
-      onContactEmailChange={(value) =>
-        setContact((current) => ({ ...current, email: value }))
-      }
-      contactPhone={contact.phone}
-      onContactPhoneChange={(value) =>
-        setContact((current) => ({ ...current, phone: value }))
-      }
-      profileCompleteForGenerate={profileCompleteForGenerate}
-      profileIncompleteHint={PROFILE_GATE_HINT}
-      onBack={handleBack}
-      onNext={handleNext}
-      onGenerate={() => void handleGenerateBrief()}
-      isGenerating={isGenerating}
-    />
+      {variant === "chat" ? (
+        <ChatIntakeConversation
+          step={wizardStep}
+          totalSteps={totalSteps}
+          currentAnswer={currentAnswer}
+          onCurrentAnswerChange={handleCurrentAnswerChange}
+          answerError={answerError}
+          prefsForm={prefsForm}
+          linkedInUrl={linkedInUrl}
+          onLinkedInUrlChange={setLinkedInUrl}
+          resumeFileName={resumeFileName}
+          onResumeFile={readResumeFile}
+          isReadingResume={isReadingResume}
+          contactEmail={contact.email}
+          onContactEmailChange={(value) =>
+            setContact((current) => ({ ...current, email: value }))
+          }
+          contactPhone={contact.phone}
+          onContactPhoneChange={(value) =>
+            setContact((current) => ({ ...current, phone: value }))
+          }
+          profileCompleteForGenerate={profileCompleteForGenerate}
+          profileIncompleteHint={PROFILE_GATE_HINT}
+          wizardAnswers={wizardAnswers}
+          onBack={handleBack}
+          onNext={handleNext}
+          onGenerate={() => void handleGenerateBrief()}
+          isGenerating={isGenerating}
+        />
+      ) : (
+        <IntakeWizard
+          step={wizardStep}
+          totalSteps={totalSteps}
+          currentAnswer={currentAnswer}
+          onCurrentAnswerChange={handleCurrentAnswerChange}
+          answerError={answerError}
+          prefsForm={prefsForm}
+          linkedInUrl={linkedInUrl}
+          onLinkedInUrlChange={setLinkedInUrl}
+          resumeFileName={resumeFileName}
+          onResumeFile={readResumeFile}
+          isReadingResume={isReadingResume}
+          contactEmail={contact.email}
+          onContactEmailChange={(value) =>
+            setContact((current) => ({ ...current, email: value }))
+          }
+          contactPhone={contact.phone}
+          onContactPhoneChange={(value) =>
+            setContact((current) => ({ ...current, phone: value }))
+          }
+          profileCompleteForGenerate={profileCompleteForGenerate}
+          profileIncompleteHint={PROFILE_GATE_HINT}
+          onBack={handleBack}
+          onNext={handleNext}
+          onGenerate={() => void handleGenerateBrief()}
+          isGenerating={isGenerating}
+        />
+      )}
     </div>
   );
 }

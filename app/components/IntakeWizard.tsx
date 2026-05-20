@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ChangeEvent } from "react";
 import type { UseFormReturn } from "react-hook-form";
-import { ArrowLeft, ArrowRight, Check, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { appendChip, type PrefsValues, QUESTIONS } from "@/lib/intake-questions";
+import { type PrefsValues, QUESTIONS } from "@/lib/intake-questions";
 
+import { IntakeOptionChips } from "./IntakeOptionChips";
 import { VoiceTextarea } from "./VoiceTextarea";
 
 type IntakeWizardProps = {
@@ -78,12 +79,20 @@ export function IntakeWizard({
             </span>
           </div>
           <Progress value={((step + 1) / totalSteps) * 100} className="h-1.5 sm:h-2" />
-          <Link
-            href="/"
-            className="w-fit text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          >
-            ← Back to home
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <Link
+              href="/"
+              className="font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              ← Back to home
+            </Link>
+            <Link
+              href="/intake/chat"
+              className="font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Switch to chat view
+            </Link>
+          </div>
         </header>
 
         <div className="animate-in fade-in slide-in-from-bottom-4 flex flex-1 flex-col duration-500" key={step}>
@@ -114,38 +123,12 @@ export function IntakeWizard({
                 {answerError ? <p className="text-sm font-medium text-destructive">{answerError}</p> : null}
               </div>
 
-              <div className="space-y-2.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:text-sm">
-                  Or pick a starting point
-                </Label>
-                <div className="flex flex-wrap gap-2">
-                  {currentQuestion.options.map((opt) => {
-                    const isSelected = currentAnswer.toLowerCase().includes(opt.toLowerCase());
-                    return (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => onCurrentAnswerChange(appendChip(currentAnswer, opt))}
-                        data-testid={`chip-q${step + 1}-${opt.replace(/\s+/g, "-").toLowerCase()}`}
-                        className={[
-                          "inline-flex touch-manipulation items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-all",
-                          "active:scale-[0.97]",
-                          isSelected
-                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                            : "border-border/70 bg-card text-foreground hover:border-primary/60 hover:bg-primary/5",
-                        ].join(" ")}
-                      >
-                        {isSelected ? (
-                          <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                        ) : (
-                          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
-                        )}
-                        <span>{opt}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <IntakeOptionChips
+                options={currentQuestion.options}
+                value={currentAnswer}
+                onChange={onCurrentAnswerChange}
+                stepIndex={step}
+              />
             </div>
           ) : null}
 
