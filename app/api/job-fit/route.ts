@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { analyzeJobFit, jobFitCandidateContextSchema, jobFitRequestSchema } from "@/lib/job-fit";
+import { createJobFitSubmission } from "@/lib/job-fit-submissions";
 import { fetchJobPostingFromUrl, resolveJobDescriptionText } from "@/lib/job-post-fetch";
 
 export async function POST(request: Request) {
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { jobDescription, jobUrl, candidate: candidateInput } = parsed.data;
+  const { jobDescription, jobUrl, candidate: candidateInput, submissionMeta } = parsed.data;
   const candidate = jobFitCandidateContextSchema.parse(candidateInput ?? {});
   let resolvedText = jobDescription.trim();
 
@@ -42,6 +43,27 @@ export async function POST(request: Request) {
       jobText: resolved.text,
       candidate,
     });
+
+    if (submissionMeta) {
+      try {
+        await createJobFitSubmission({
+          inputType: submissionMeta.inputType,
+          listingId: submissionMeta.listingId,
+          listingTitle: submissionMeta.listingTitle,
+          intakeSubmissionId: submissionMeta.intakeSubmissionId,
+          submitterName: submissionMeta.submitterName ?? "",
+          submitterEmail: submissionMeta.submitterEmail ?? "",
+          submitterPhone: submissionMeta.submitterPhone ?? "",
+          jobUrl: jobUrl.trim(),
+          jobDescription: resolved.text,
+          roleTitle: result.roleTitle,
+          verdict: result.verdict,
+          resultHeadline: result.headline,
+        });
+      } catch (saveError) {
+        console.error("job-fit submission save failed", saveError);
+      }
+    }
 
     return NextResponse.json({
       result,

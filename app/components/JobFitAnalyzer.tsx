@@ -72,7 +72,11 @@ export function JobFitAnalyzer() {
     setError("");
 
     try {
-      await runAnalysis(text, listing.sourceUrl.trim() || undefined);
+      await runAnalysis(text, {
+        inputType: "library",
+        url: listing.sourceUrl.trim() || undefined,
+        listing,
+      });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong.");
     } finally {
@@ -158,7 +162,14 @@ export function JobFitAnalyzer() {
     return payload.text.trim();
   }
 
-  async function runAnalysis(jobText: string, url?: string) {
+  async function runAnalysis(
+    jobText: string,
+    source: {
+      inputType: "url" | "paste" | "library";
+      url?: string;
+      listing?: JobListing;
+    },
+  ) {
     const session = readIntakeSession();
     const candidate = buildCandidateContextFromSession({
       resumeText: session.resumeText,
@@ -172,8 +183,17 @@ export function JobFitAnalyzer() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         jobDescription: jobText,
-        jobUrl: url,
+        jobUrl: source.url ?? "",
         candidate,
+        submissionMeta: {
+          inputType: source.inputType,
+          listingId: source.listing?.id,
+          listingTitle: source.listing ? listingLabel(source.listing) : undefined,
+          intakeSubmissionId: session.submissionId || undefined,
+          submitterName: session.contact.name,
+          submitterEmail: session.contact.email,
+          submitterPhone: session.contact.phone,
+        },
       }),
     });
 
@@ -220,7 +240,10 @@ export function JobFitAnalyzer() {
         );
       }
 
-      await runAnalysis(text, url || undefined);
+      await runAnalysis(text, {
+        inputType: usingUrl && url ? "url" : "paste",
+        url: usingUrl && url ? url : undefined,
+      });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong.");
     } finally {

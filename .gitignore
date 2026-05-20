@@ -6,4 +6,5 @@ tsconfig.tsbuildinfo
 data/intake-submissions.json
 data/track-commits.json
 data/job-listings.json
+data/job-fit-submissions.json
 node_modules

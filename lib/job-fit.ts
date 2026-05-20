@@ -119,6 +119,17 @@ export const jobFitRequestSchema = z.object({
   jobDescription: z.string().optional().default(""),
   jobUrl: z.string().optional().default(""),
   candidate: jobFitCandidateContextSchema.optional(),
+  submissionMeta: z
+    .object({
+      inputType: z.enum(["url", "paste", "library"]),
+      listingId: z.string().max(100).optional(),
+      listingTitle: z.string().max(300).optional(),
+      intakeSubmissionId: z.string().max(100).optional(),
+      submitterName: z.string().max(200).optional(),
+      submitterEmail: z.string().max(320).optional(),
+      submitterPhone: z.string().max(80).optional(),
+    })
+    .optional(),
 });
 
 const JOB_FIT_SYSTEM = `You are JobClaw, a career coach for new graduates.
