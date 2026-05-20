@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/admin";
 import {
   deleteJobListing,
+  getJobListingById,
   jobListingUpdateSchema,
   updateJobListing,
 } from "@/lib/job-listings";
@@ -12,6 +13,21 @@ export const runtime = "nodejs";
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+export async function GET(request: Request, context: RouteContext) {
+  const { id } = await context.params;
+  const listing = await getJobListingById(id);
+
+  if (!listing) {
+    return NextResponse.json({ error: "Job listing not found." }, { status: 404 });
+  }
+
+  if (!listing.active && !isAdminRequest(request)) {
+    return NextResponse.json({ error: "Job listing not found." }, { status: 404 });
+  }
+
+  return NextResponse.json({ listing });
+}
 
 export async function PATCH(request: Request, context: RouteContext) {
   if (!isAdminRequest(request)) {

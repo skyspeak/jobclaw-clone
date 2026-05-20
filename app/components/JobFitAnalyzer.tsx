@@ -42,7 +42,9 @@ export function JobFitAnalyzer() {
   const [result, setResult] = useState<JobFitResult | null>(null);
   const [hasIntakeSession, setHasIntakeSession] = useState(false);
   const [libraryListings, setLibraryListings] = useState<JobListing[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(true);
   const [selectedListingId, setSelectedListingId] = useState("");
+  const [loadedListingTitle, setLoadedListingTitle] = useState("");
 
   const usingUrl = Boolean(jobUrl.trim()) && !pasteMode;
   const showTextarea = !usingUrl;
@@ -54,6 +56,28 @@ export function JobFitAnalyzer() {
     setResult(null);
     setError("");
     setSelectedListingId(listing.id);
+    setLoadedListingTitle(listingLabel(listing));
+  }
+
+  async function analyzeLibraryListing(listing: JobListing) {
+    applyLibraryListing(listing);
+    const text = listing.description.trim();
+
+    if (text.length < 80) {
+      setError("This library entry is too short to analyze. Edit it in admin or paste a longer description.");
+      return;
+    }
+
+    setIsWorking(true);
+    setError("");
+
+    try {
+      await runAnalysis(text, listing.sourceUrl.trim() || undefined);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Something went wrong.");
+    } finally {
+      setIsWorking(false);
+    }
   }
 
   useEffect(() => {
@@ -62,6 +86,7 @@ export function JobFitAnalyzer() {
   }, []);
 
   useEffect(() => {
+    setLibraryLoading(true);
     void fetch("/api/job-listings")
       .then((response) => response.json())
       .then((payload: { listings?: JobListing[] }) => {
@@ -69,23 +94,47 @@ export function JobFitAnalyzer() {
       })
       .catch(() => {
         setLibraryListings([]);
+      })
+      .finally(() => {
+        setLibraryLoading(false);
       });
   }, []);
 
   useEffect(() => {
     const listingId = searchParams.get("listing");
-    if (!listingId || libraryListings.length === 0) {
+    if (!listingId || appliedListingRef.current === listingId) {
       return;
     }
-    if (appliedListingRef.current === listingId) {
-      return;
-    }
-    const listing = libraryListings.find((item) => item.id === listingId);
-    if (listing) {
+
+    const fromList = libraryListings.find((item) => item.id === listingId);
+    if (fromList) {
       appliedListingRef.current = listingId;
-      applyLibraryListing(listing);
+      void analyzeLibraryListing(fromList);
+      return;
     }
-  }, [searchParams, libraryListings]);
+
+    if (libraryLoading) {
+      return;
+    }
+
+    void fetch(`/api/job-listings/${listingId}`)
+      .then((response) => response.json())
+      .then((payload: { listing?: JobListing; error?: string }) => {
+        if (!payload.listing) {
+          return;
+        }
+        appliedListingRef.current = listingId;
+        setLibraryListings((current) =>
+          current.some((item) => item.id === payload.listing?.id)
+            ? current
+            : [...current, payload.listing as JobListing],
+        );
+        void analyzeLibraryListing(payload.listing);
+      })
+      .catch(() => {
+        // ignore — user can still paste manually
+      });
+  }, [searchParams, libraryListings, libraryLoading]);
 
   async function fetchPostingText(url: string): Promise<string> {
     const response = await fetch("/api/job-post-fetch", {
@@ -217,8 +266,7 @@ export function JobFitAnalyzer() {
       </header>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-6">
-        {libraryListings.length > 0 ? (
-          <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
+        <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
             <div className="space-y-2">
               <Label htmlFor="job-listing-library">Choose from library</Label>
               <select
@@ -226,19 +274,26 @@ export function JobFitAnalyzer() {
                 value={selectedListingId}
                 onChange={(event) => {
                   const listingId = event.target.value;
-                  setSelectedListingId(listingId);
                   if (!listingId) {
+                    setSelectedListingId("");
+                    setLoadedListingTitle("");
                     return;
                   }
                   const listing = libraryListings.find((item) => item.id === listingId);
                   if (listing) {
-                    applyLibraryListing(listing);
+                    void analyzeLibraryListing(listing);
                   }
                 }}
                 className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground shadow-sm"
-                disabled={isWorking}
+                disabled={isWorking || libraryLoading || libraryListings.length === 0}
               >
-                <option value="">Paste a URL or description…</option>
+                <option value="">
+                  {libraryLoading
+                    ? "Loading library…"
+                    : libraryListings.length === 0
+                      ? "No active listings — add one in admin"
+                      : "Select a job to analyze…"}
+                </option>
                 {libraryListings.map((listing) => (
                   <option key={listing.id} value={listing.id}>
                     {listingLabel(listing)}
@@ -246,11 +301,16 @@ export function JobFitAnalyzer() {
                 ))}
               </select>
               <p className="text-xs text-muted-foreground">
-                Listings are managed on the admin page. Selecting one fills the description below.
+                Pick a job to run fit analysis immediately. Listings must be marked{" "}
+                <strong className="font-medium text-foreground">Active</strong> in admin.
               </p>
+              {loadedListingTitle && !isWorking ? (
+                <p className="text-sm text-foreground">
+                  Loaded <strong>{loadedListingTitle}</strong>. Edit below or choose another listing.
+                </p>
+              ) : null}
             </div>
-          </section>
-        ) : null}
+        </section>
 
         <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
           <div className="space-y-4">
