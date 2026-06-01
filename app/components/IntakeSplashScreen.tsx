@@ -34,7 +34,8 @@ export function IntakeSplashScreen({ onStart }: IntakeSplashScreenProps) {
           ready for the next opportunity.
         </h1>
         <p className="mt-4 text-sm text-muted-foreground sm:text-base">
-          You&apos;ll answer a short quiz, then we&apos;ll personalize your search and next steps.
+          We&apos;ll triage your target, vet your profile, and route you into the right track — toward proof-of-work
+          and your first offer.
         </p>
         <div className="mt-7 flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end">
           <p className="text-xs text-muted-foreground sm:mr-auto">Press Enter to start</p>
@@ -44,7 +45,7 @@ export function IntakeSplashScreen({ onStart }: IntakeSplashScreenProps) {
             data-testid="button-start-quiz"
             onClick={onStart}
           >
-            Start quiz <ArrowRight className="ml-1.5 h-4 w-4" />
+            Start intake <ArrowRight className="ml-1.5 h-4 w-4" />
           </Button>
         </div>
       </div>

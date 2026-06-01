@@ -1,4 +1,9 @@
 import {
+  defaultCcAgentFlowState,
+  type CcAgentFlowState,
+  type CcAgentStepId,
+} from "@/lib/cc-agent-flow";
+import {
   buildSearchQueryFromRequest,
   defaultSearchDefaults,
   type IntakeAnswers,
@@ -9,7 +14,7 @@ import {
 import type { GeneratedResume } from "@/lib/resume";
 import type { ResumeSnapshot } from "@/lib/submissions";
 
-export const INTAKE_WIZARD_STORAGE_KEY = "jobclaw.intake-wizard.v2";
+export const INTAKE_WIZARD_STORAGE_KEY = "jobclaw.intake-wizard.v3";
 
 export type IntakeContactInfo = {
   raw: string;
@@ -59,6 +64,9 @@ export type IntakeWizardSession = {
   linkedInUrl: string;
   resumeText: string;
   resumeFileName: string;
+  /** CC Agent flow (triage → vetting → nurture) */
+  ccAgent: CcAgentFlowState;
+  targetJobUrl: string;
 };
 
 const emptyContact: IntakeContactInfo = {
@@ -98,6 +106,8 @@ export function readFreshIntakeSession(): IntakeWizardSession {
     linkedInUrl: "",
     resumeText: "",
     resumeFileName: "",
+    ccAgent: defaultCcAgentFlowState(),
+    targetJobUrl: "",
   };
 }
 
@@ -144,6 +154,11 @@ export function readIntakeSession(): IntakeWizardSession {
     next.linkedInUrl = typeof parsed.linkedInUrl === "string" ? parsed.linkedInUrl : "";
     next.resumeText = typeof parsed.resumeText === "string" ? parsed.resumeText : "";
     next.resumeFileName = typeof parsed.resumeFileName === "string" ? parsed.resumeFileName : "";
+    next.targetJobUrl = typeof parsed.targetJobUrl === "string" ? parsed.targetJobUrl : "";
+    next.ccAgent = {
+      ...defaultCcAgentFlowState(),
+      ...(parsed.ccAgent && typeof parsed.ccAgent === "object" ? parsed.ccAgent : {}),
+    };
 
     if (parsed.wizardAnswers && Array.isArray(parsed.wizardAnswers) && parsed.wizardAnswers.length === 5) {
       next.wizardAnswers = parsed.wizardAnswers.map((s) => String(s ?? ""));
@@ -157,11 +172,15 @@ export function readIntakeSession(): IntakeWizardSession {
       ];
     }
 
-    if (typeof parsed.wizardStep === "number") {
+    if (parsed.ccAgent?.flowStep) {
+      next.ccAgent.flowStep = parsed.ccAgent.flowStep as CcAgentStepId;
+    } else if (typeof parsed.wizardStep === "number") {
       next.wizardStep = Math.min(Math.max(parsed.wizardStep, 0), 6);
+      next.ccAgent.flowStep = legacyWizardStepToFlowStep(parsed.wizardStep);
     } else if (typeof parsed.currentStep === "number") {
       const cs = parsed.currentStep;
       next.wizardStep = cs <= 4 ? cs : 5;
+      next.ccAgent.flowStep = legacyWizardStepToFlowStep(next.wizardStep);
     }
 
     next.currentAnswer =
@@ -221,6 +240,16 @@ export function hasMinimumProfileEvidence(
   _phone?: string,
 ): boolean {
   return linkedInUrl.trim().length > 0 || resumeText.trim().length > 0;
+}
+
+function legacyWizardStepToFlowStep(wizardStep: number): CcAgentStepId {
+  if (wizardStep <= 4) {
+    return "quiz";
+  }
+  if (wizardStep === 5) {
+    return "resume";
+  }
+  return "search-filters";
 }
 
 export function hasResumeOrLinkedInInput(

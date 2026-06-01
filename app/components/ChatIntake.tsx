@@ -9,13 +9,24 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { IntakeGeneratingScreen } from "@/app/components/IntakeGeneratingScreen";
 import { ChatIntakeConversation } from "@/app/components/ChatIntakeConversation";
 import { IntakeSplashScreen } from "@/app/components/IntakeSplashScreen";
-import { IntakeWizard } from "@/app/components/IntakeWizard";
 import {
   defaultSearchDefaults,
   IntakeAnswers,
   JobClawResponse,
   SearchDefaults,
 } from "@/lib/jobclaw";
+import {
+  defaultCcAgentFlowState,
+  type CcAgentFlowState,
+  type VettingResult,
+} from "@/lib/cc-agent-flow";
+import {
+  advanceCcAgentState,
+  canProceedFromStep,
+  retreatCcAgentState,
+  setKnowsTargetJob,
+} from "@/lib/cc-agent-intake-nav";
+import { getFlowProgressIndex, getTotalFlowSteps } from "@/lib/cc-agent-flow";
 import {
   buildResumeSnapshot,
   hasMinimumProfileEvidence,
@@ -29,7 +40,6 @@ import type { ParsedProfileInsight } from "@/lib/profile-parse";
 import {
   prefsSchema,
   prefsValuesToSearchDefaults,
-  questionSchema,
   searchDefaultsToPrefsValues,
   wizardRowsToIntakeAnswers,
   type PrefsValues,
@@ -77,6 +87,8 @@ function readFreshSession(): IntakeWizardSession {
     linkedInUrl: "",
     resumeText: "",
     resumeFileName: "",
+    ccAgent: defaultCcAgentFlowState(),
+    targetJobUrl: "",
   };
 }
 
@@ -123,6 +135,11 @@ function readStoredSession(): IntakeWizardSession {
     next.linkedInUrl = typeof parsed.linkedInUrl === "string" ? parsed.linkedInUrl : "";
     next.resumeText = typeof parsed.resumeText === "string" ? parsed.resumeText : "";
     next.resumeFileName = typeof parsed.resumeFileName === "string" ? parsed.resumeFileName : "";
+    next.targetJobUrl = typeof parsed.targetJobUrl === "string" ? parsed.targetJobUrl : "";
+    next.ccAgent = {
+      ...defaultCcAgentFlowState(),
+      ...(parsed.ccAgent && typeof parsed.ccAgent === "object" ? parsed.ccAgent : {}),
+    };
 
     if (parsed.wizardAnswers && Array.isArray(parsed.wizardAnswers) && parsed.wizardAnswers.length === 5) {
       next.wizardAnswers = parsed.wizardAnswers.map((s) => String(s ?? ""));
@@ -170,9 +187,10 @@ type ChatIntakeProps = {
 
 function hasIntakeProgress(session: IntakeWizardSession) {
   return (
-    session.wizardStep > 0 ||
+    session.ccAgent.flowStep !== "hook" ||
+    session.ccAgent.knowsTargetJob !== null ||
     session.wizardAnswers.some((answer) => answer.trim().length > 0) ||
-    Boolean(session.linkedInUrl.trim() || session.resumeText.trim())
+    Boolean(session.linkedInUrl.trim() || session.resumeText.trim() || session.targetJobUrl.trim())
   );
 }
 
@@ -181,6 +199,8 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   const [storedSession] = useState(readStoredSession);
   const [quizStarted, setQuizStarted] = useState(() => hasIntakeProgress(storedSession));
   const [submissionId, setSubmissionId] = useState(storedSession.submissionId);
+  const [ccAgent, setCcAgent] = useState<CcAgentFlowState>(storedSession.ccAgent);
+  const [targetJobUrl, setTargetJobUrl] = useState(storedSession.targetJobUrl);
   const [wizardStep, setWizardStep] = useState(storedSession.wizardStep);
   const [wizardAnswers, setWizardAnswers] = useState<string[]>(storedSession.wizardAnswers);
   const [currentAnswer, setCurrentAnswer] = useState(storedSession.currentAnswer);
@@ -197,6 +217,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   const [resumeFileName, setResumeFileName] = useState(storedSession.resumeFileName);
   const [isReadingResume, setIsReadingResume] = useState(false);
   const [isParsingProfile, setIsParsingProfile] = useState(false);
+  const [isRunningTriage, setIsRunningTriage] = useState(false);
   const [profileInsight, setProfileInsight] = useState<ParsedProfileInsight | null>(null);
   const [isGeneratingProfile, setIsGeneratingProfile] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -207,7 +228,9 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     defaultValues: searchDefaultsToPrefsValues(storedSession.defaults),
   });
 
-  const totalSteps = 7;
+  const totalSteps = getTotalFlowSteps(ccAgent.knowsTargetJob);
+  const progressStep = getFlowProgressIndex(ccAgent);
+  const flowStep = ccAgent.flowStep;
 
   const profileCompleteForGenerate = useMemo(
     () => hasMinimumProfileEvidence(linkedInUrl, resumeText),
@@ -238,10 +261,13 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
       linkedInUrl,
       resumeText,
       resumeFileName,
+      ccAgent,
+      targetJobUrl,
     };
 
     window.localStorage.setItem(storageKey, JSON.stringify(session));
   }, [
+    ccAgent,
     contact,
     currentAnswer,
     defaults,
@@ -252,6 +278,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     resumeText,
     result,
     submissionId,
+    targetJobUrl,
     wizardAnswers,
     wizardStep,
   ]);
@@ -292,10 +319,63 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     }));
   }
 
-  async function parseProfileAndAdvance() {
+  async function runTriage(): Promise<VettingResult | null> {
+    setIsRunningTriage(true);
+    setError("");
+
+    try {
+      const nextAnswers = wizardRowsToIntakeAnswers(wizardAnswers);
+      const response = await fetch("/api/cc-agent/triage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          knowsTargetJob: ccAgent.knowsTargetJob === true,
+          usWorkEligible: ccAgent.usWorkEligible,
+          linkedInUrl,
+          resumeText,
+          resumeFileName,
+          targetJobUrl,
+          selectedRoleId: ccAgent.selectedRoleId,
+          answers: nextAnswers,
+        }),
+      });
+
+      const payload = (await response.json()) as {
+        vetting: VettingResult;
+        profileInsight: ParsedProfileInsight | null;
+        roleSuggestions: string[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to run vetting.");
+      }
+
+      if (payload.profileInsight) {
+        setProfileInsight(payload.profileInsight);
+      }
+
+      setCcAgent((current) => ({
+        ...current,
+        vettingResult: payload.vetting,
+        roleSuggestions: payload.roleSuggestions,
+        selectedRoleId: current.selectedRoleId || payload.vetting.inferredRoleId,
+      }));
+
+      return payload.vetting;
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Unable to run vetting.";
+      setError(message);
+      return null;
+    } finally {
+      setIsRunningTriage(false);
+    }
+  }
+
+  async function parseProfileForFilters() {
     if (!hasResumeOrLinkedInInput(linkedInUrl, resumeText, resumeFileName)) {
       setError(PROFILE_GATE_HINT);
-      return;
+      return false;
     }
 
     setIsParsingProfile(true);
@@ -322,68 +402,94 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
 
       setProfileInsight(payload);
       applyProfileInsight(payload);
-      setWizardStep(6);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      return true;
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : "Unable to parse your profile.";
       setError(message);
+      return false;
     } finally {
       setIsParsingProfile(false);
     }
   }
 
-  function handleNext() {
-    if (wizardStep >= 6) {
+  async function handleNext() {
+    if (flowStep === "search-filters") {
       return;
     }
 
-    if (wizardStep < 5) {
-      const validated = questionSchema.safeParse({ answer: currentAnswer });
-      if (!validated.success) {
-        setAnswerError(validated.error.issues[0]?.message ?? "Please share a bit more.");
-        return;
-      }
+    const gate = canProceedFromStep(flowStep, {
+      ccAgent,
+      targetJobUrl,
+      linkedInUrl,
+      resumeText,
+      resumeFileName,
+      currentAnswer,
+      wizardAnswers,
+    });
 
-      setAnswerError("");
-      const nextRows = [...wizardAnswers];
-      nextRows[wizardStep] = currentAnswer;
-      setWizardAnswers(nextRows);
-      setCurrentAnswer(nextRows[wizardStep + 1] ?? "");
-      setWizardStep((s) => s + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
-    if (wizardStep === 5) {
-      void parseProfileAndAdvance();
-    }
-  }
-
-  function handleBack() {
-    if (wizardStep === 0) {
-      return;
-    }
-
-    if (wizardStep === 6) {
-      setWizardStep(5);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    if (!gate.ok) {
+      setAnswerError(gate.message ?? "Please complete this step.");
       return;
     }
 
     setAnswerError("");
-    const nextRows = [...wizardAnswers];
 
-    if (wizardStep < 5) {
-      nextRows[wizardStep] = currentAnswer;
-      setWizardAnswers(nextRows);
-      setCurrentAnswer(nextRows[wizardStep - 1] ?? "");
-    } else if (wizardStep === 5) {
-      setCurrentAnswer(wizardAnswers[4] ?? "");
+    if (flowStep === "hook" && ccAgent.knowsTargetJob !== null) {
+      const nextAgent = setKnowsTargetJob(ccAgent, ccAgent.knowsTargetJob);
+      setCcAgent(nextAgent);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
     }
 
-    setWizardStep((s) => s - 1);
+    const { next, nextCurrentAnswer, nextWizardAnswers } = advanceCcAgentState(
+      ccAgent,
+      wizardAnswers,
+      currentAnswer,
+    );
+
+    let merged: CcAgentFlowState = next;
+
+    if (next.flowStep === "vetting-result" && !next.vettingResult) {
+      const vetting = await runTriage();
+      if (!vetting) {
+        return;
+      }
+      merged = { ...next, vettingResult: vetting };
+    }
+
+    if (next.flowStep === "search-filters" && !profileInsight) {
+      const ok = await parseProfileForFilters();
+      if (!ok) {
+        return;
+      }
+    }
+
+    setWizardAnswers(nextWizardAnswers);
+    setCcAgent(merged);
+    setCurrentAnswer(nextCurrentAnswer);
+
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleBack() {
+    if (flowStep === "hook") {
+      return;
+    }
+
+    setAnswerError("");
+    const { next, nextCurrentAnswer } = retreatCcAgentState(ccAgent, wizardAnswers, currentAnswer);
+    setCcAgent(next);
+    setCurrentAnswer(nextCurrentAnswer);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleKnowsTargetJob(knows: boolean) {
+    setCcAgent((current) => ({ ...current, knowsTargetJob: knows }));
+  }
+
+  function handleSelectRole(roleId: string) {
+    setCcAgent((current) => ({ ...current, selectedRoleId: roleId }));
   }
 
   async function readResumeFile(event: ChangeEvent<HTMLInputElement>) {
@@ -623,14 +729,24 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
       ) : null}
       {variant === "chat" ? (
         <ChatIntakeConversation
-          step={wizardStep}
+          flowStep={flowStep}
+          progressStep={progressStep}
           totalSteps={totalSteps}
+          ccAgent={ccAgent}
+          targetJobUrl={targetJobUrl}
+          onTargetJobUrlChange={setTargetJobUrl}
+          onKnowsTargetJobChange={handleKnowsTargetJob}
+          onUsWorkEligibleChange={(value) =>
+            setCcAgent((current) => ({ ...current, usWorkEligible: value }))
+          }
+          onSelectRole={handleSelectRole}
           currentAnswer={currentAnswer}
           onCurrentAnswerChange={handleCurrentAnswerChange}
           answerError={answerError}
           prefsForm={prefsForm}
           linkedInUrl={linkedInUrl}
           onLinkedInUrlChange={setLinkedInUrl}
+          resumeText={resumeText}
           resumeFileName={resumeFileName}
           onResumeFile={readResumeFile}
           isReadingResume={isReadingResume}
@@ -638,35 +754,15 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
           profileIncompleteHint={PROFILE_GATE_HINT}
           profileInsight={profileInsight}
           wizardAnswers={wizardAnswers}
+          quizIndex={ccAgent.quizIndex}
           onBack={handleBack}
-          onNext={handleNext}
+          onNext={() => void handleNext()}
           onGenerate={() => void handleGenerateBrief()}
           isGenerating={isGenerating}
           isParsingProfile={isParsingProfile}
+          isRunningTriage={isRunningTriage}
         />
-      ) : (
-        <IntakeWizard
-          step={wizardStep}
-          totalSteps={totalSteps}
-          currentAnswer={currentAnswer}
-          onCurrentAnswerChange={handleCurrentAnswerChange}
-          answerError={answerError}
-          prefsForm={prefsForm}
-          linkedInUrl={linkedInUrl}
-          onLinkedInUrlChange={setLinkedInUrl}
-          resumeFileName={resumeFileName}
-          onResumeFile={readResumeFile}
-          isReadingResume={isReadingResume}
-          profileCompleteForGenerate={profileCompleteForGenerate}
-          profileIncompleteHint={PROFILE_GATE_HINT}
-          profileInsight={profileInsight}
-          onBack={handleBack}
-          onNext={handleNext}
-          onGenerate={() => void handleGenerateBrief()}
-          isGenerating={isGenerating}
-          isParsingProfile={isParsingProfile}
-        />
-      )}
+      ) : null}
     </div>
   );
 }

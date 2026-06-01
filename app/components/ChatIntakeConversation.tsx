@@ -6,25 +6,42 @@ import type { UseFormReturn } from "react-hook-form";
 import { useEffect, useMemo, useRef } from "react";
 import { ArrowLeft, ArrowRight, Bot, Loader2, Send } from "lucide-react";
 
+import {
+  IntakeHookPanel,
+  IntakeNurtureTrackPanel,
+  IntakeResumePanel,
+  IntakeRoleSuggestionsPanel,
+  IntakeTargetJobPanel,
+  IntakeVettingResultPanel,
+} from "@/app/components/IntakeCcAgentPanels";
 import { IntakeOptionChips } from "@/app/components/IntakeOptionChips";
 import { IntakePrefsFields } from "@/app/components/IntakePrefsFields";
-import { IntakeProfileFields } from "@/app/components/IntakeProfileFields";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import type { CcAgentFlowState, CcAgentStepId } from "@/lib/cc-agent-flow";
+import { getFlowStepSequence } from "@/lib/cc-agent-flow";
 import { QUESTIONS, type PrefsValues } from "@/lib/intake-questions";
 import type { ParsedProfileInsight } from "@/lib/profile-parse";
 import { cn } from "@/lib/utils";
 
 type ChatIntakeConversationProps = {
-  step: number;
+  flowStep: CcAgentStepId;
+  progressStep: number;
   totalSteps: number;
+  ccAgent: CcAgentFlowState;
+  targetJobUrl: string;
+  onTargetJobUrlChange: (value: string) => void;
+  onKnowsTargetJobChange: (knows: boolean) => void;
+  onUsWorkEligibleChange: (value: boolean) => void;
+  onSelectRole: (roleId: string) => void;
   currentAnswer: string;
   onCurrentAnswerChange: (value: string) => void;
   answerError: string;
   prefsForm: UseFormReturn<PrefsValues>;
   linkedInUrl: string;
   onLinkedInUrlChange: (value: string) => void;
+  resumeText: string;
   resumeFileName: string;
   onResumeFile: (event: ChangeEvent<HTMLInputElement>) => void;
   isReadingResume: boolean;
@@ -32,51 +49,111 @@ type ChatIntakeConversationProps = {
   profileIncompleteHint: string;
   profileInsight: ParsedProfileInsight | null;
   wizardAnswers: string[];
+  quizIndex: number;
   onBack: () => void;
   onNext: () => void;
   onGenerate: () => void;
   isGenerating: boolean;
   isParsingProfile: boolean;
+  isRunningTriage: boolean;
 };
 
 type ChatTurn =
   | { id: string; role: "assistant"; kind: "welcome" }
+  | { id: string; role: "assistant"; kind: "hook" }
+  | { id: string; role: "assistant"; kind: "target-job" }
+  | { id: string; role: "assistant"; kind: "resume" }
+  | { id: string; role: "assistant"; kind: "linkedin" }
   | { id: string; role: "assistant"; kind: "question"; step: number }
   | { id: string; role: "user"; kind: "answer"; step: number; content: string }
-  | { id: string; role: "assistant"; kind: "prefs" }
-  | { id: string; role: "assistant"; kind: "profile" };
+  | { id: string; role: "assistant"; kind: "role-suggestions" }
+  | { id: string; role: "assistant"; kind: "vetting" }
+  | { id: string; role: "assistant"; kind: "nurture" }
+  | { id: string; role: "assistant"; kind: "prefs" };
 
-function buildTurns(wizardAnswers: string[], step: number): ChatTurn[] {
-  const turns: ChatTurn[] = [{ id: "welcome", role: "assistant", kind: "welcome" }];
+function stepReached(
+  sequence: CcAgentStepId[],
+  current: CcAgentStepId,
+  target: CcAgentStepId,
+): boolean {
+  const currentIndex = sequence.indexOf(current);
+  const targetIndex = sequence.indexOf(target);
+  if (currentIndex < 0 || targetIndex < 0) {
+    return false;
+  }
+  return currentIndex >= targetIndex;
+}
 
-  for (let i = 0; i < 5; i++) {
-    const answered = Boolean(wizardAnswers[i]?.trim());
-    const isCurrent = step === i && step < 5;
-    const isPast = i < step || (i === step && answered && step > i);
+function buildTurns(
+  wizardAnswers: string[],
+  flowStep: CcAgentStepId,
+  knowsTargetJob: boolean | null,
+  quizIndex: number,
+): ChatTurn[] {
+  const sequence = getFlowStepSequence(knowsTargetJob);
+  const turns: ChatTurn[] = [
+    {
+      id: "welcome",
+      role: "assistant",
+      kind: "welcome",
+    },
+  ];
 
-    if (!answered && !isCurrent && i > step) {
-      break;
-    }
+  if (stepReached(sequence, flowStep, "hook")) {
+    turns.push({ id: "hook", role: "assistant", kind: "hook" });
+  }
 
-    turns.push({ id: `q-${i}`, role: "assistant", kind: "question", step: i });
+  if (knowsTargetJob === true && stepReached(sequence, flowStep, "target-job-url")) {
+    turns.push({ id: "target-job", role: "assistant", kind: "target-job" });
+  }
 
-    if (answered && (isPast || isCurrent)) {
-      turns.push({
-        id: `a-${i}`,
-        role: "user",
-        kind: "answer",
-        step: i,
-        content: wizardAnswers[i],
-      });
-    } else if (isCurrent && !answered) {
-      break;
+  if (stepReached(sequence, flowStep, "resume")) {
+    turns.push({ id: "resume", role: "assistant", kind: "resume" });
+  }
+
+  if (knowsTargetJob === false && stepReached(sequence, flowStep, "quiz")) {
+    for (let i = 0; i < 5; i++) {
+      const answered = Boolean(wizardAnswers[i]?.trim());
+      const isPast = i < quizIndex || (flowStep !== "quiz" && stepReached(sequence, flowStep, "role-suggestions"));
+      const isCurrent = flowStep === "quiz" && i === quizIndex;
+
+      if (!answered && !isCurrent && i > quizIndex && flowStep === "quiz") {
+        break;
+      }
+
+      turns.push({ id: `q-${i}`, role: "assistant", kind: "question", step: i });
+
+      if (answered && (isPast || isCurrent)) {
+        turns.push({
+          id: `a-${i}`,
+          role: "user",
+          kind: "answer",
+          step: i,
+          content: wizardAnswers[i],
+        });
+      } else if (isCurrent && !answered) {
+        break;
+      }
     }
   }
 
-  if (step >= 5) {
-    turns.push({ id: "profile", role: "assistant", kind: "profile" });
+  if (stepReached(sequence, flowStep, "role-suggestions")) {
+    turns.push({ id: "role-suggestions", role: "assistant", kind: "role-suggestions" });
   }
-  if (step >= 6) {
+
+  if (stepReached(sequence, flowStep, "linkedin") && sequence.includes("linkedin")) {
+    turns.push({ id: "linkedin", role: "assistant", kind: "linkedin" });
+  }
+
+  if (stepReached(sequence, flowStep, "vetting-result")) {
+    turns.push({ id: "vetting", role: "assistant", kind: "vetting" });
+  }
+
+  if (stepReached(sequence, flowStep, "nurture-track")) {
+    turns.push({ id: "nurture", role: "assistant", kind: "nurture" });
+  }
+
+  if (stepReached(sequence, flowStep, "search-filters")) {
     turns.push({ id: "prefs", role: "assistant", kind: "prefs" });
   }
 
@@ -121,7 +198,7 @@ function AssistantBubble({
             isWelcome ? "text-primary" : "text-muted-foreground",
           )}
         >
-          JobClaw
+          CC Agent
         </p>
         <div
           className={cn(
@@ -149,14 +226,22 @@ function UserBubble({ children }: { children: ReactNode }) {
 }
 
 export function ChatIntakeConversation({
-  step,
+  flowStep,
+  progressStep,
   totalSteps,
+  ccAgent,
+  targetJobUrl,
+  onTargetJobUrlChange,
+  onKnowsTargetJobChange,
+  onUsWorkEligibleChange,
+  onSelectRole,
   currentAnswer,
   onCurrentAnswerChange,
   answerError,
   prefsForm,
   linkedInUrl,
   onLinkedInUrlChange,
+  resumeText,
   resumeFileName,
   onResumeFile,
   isReadingResume,
@@ -164,22 +249,27 @@ export function ChatIntakeConversation({
   profileIncompleteHint,
   profileInsight,
   wizardAnswers,
+  quizIndex,
   onBack,
   onNext,
   onGenerate,
   isGenerating,
   isParsingProfile,
+  isRunningTriage,
 }: ChatIntakeConversationProps) {
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
-  const currentQuestion = step < 5 ? QUESTIONS[step] : null;
-  const turns = useMemo(() => buildTurns(wizardAnswers, step), [wizardAnswers, step]);
+  const currentQuestion = flowStep === "quiz" ? QUESTIONS[quizIndex] : null;
+  const turns = useMemo(
+    () => buildTurns(wizardAnswers, flowStep, ccAgent.knowsTargetJob, quizIndex),
+    [wizardAnswers, flowStep, ccAgent.knowsTargetJob, quizIndex],
+  );
 
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [turns, step, currentAnswer]);
+  }, [turns, flowStep, currentAnswer]);
 
   function handleSendAnswer() {
-    if (step >= 5 || !currentAnswer.trim()) {
+    if (flowStep !== "quiz" || !currentAnswer.trim()) {
       return;
     }
     onNext();
@@ -194,7 +284,8 @@ export function ChatIntakeConversation({
     }
   }
 
-  const showQuestionComposer = step < 5 && currentQuestion;
+  const showQuestionComposer = flowStep === "quiz" && currentQuestion;
+  const isBusy = isGenerating || isParsingProfile || isRunningTriage;
 
   return (
     <div className="flex min-h-[100dvh] flex-col brand-bg selection:bg-primary selection:text-primary-foreground">
@@ -205,10 +296,10 @@ export function ChatIntakeConversation({
               JOBCLAW
             </Link>
             <span>
-              Step {step + 1} of {totalSteps}
+              Step {progressStep} of {totalSteps}
             </span>
           </div>
-          <Progress value={((step + 1) / totalSteps) * 100} className="h-1.5 sm:h-2" />
+          <Progress value={(progressStep / totalSteps) * 100} className="h-1.5 sm:h-2" />
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <Link
               href="/"
@@ -233,9 +324,94 @@ export function ChatIntakeConversation({
               return (
                 <AssistantBubble key={turn.id} variant="welcome">
                   <p>
-                    Hi — I&apos;m here to help shape your career brief. I&apos;ll ask five short questions; tap the
-                    chips below anytime to build your answer, or type in your own words.
+                    Hi — I&apos;m CC Agent. We&apos;ll triage your target, vet your profile, and route you into the
+                    right nurture track toward proof-of-work and your first offer.
                   </p>
+                </AssistantBubble>
+              );
+            }
+
+            if (turn.kind === "hook") {
+              return (
+                <AssistantBubble key={turn.id} className="items-start">
+                  <p className="font-medium">Do you know what job you want?</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    If yes, paste a target job URL next. If not, we&apos;ll use your résumé and a short quiz to suggest
+                    roles.
+                  </p>
+                  <div className="mt-4 border-t border-border/50 pt-4">
+                    <IntakeHookPanel
+                      knowsTargetJob={ccAgent.knowsTargetJob}
+                      onKnowsTargetJobChange={onKnowsTargetJobChange}
+                      usWorkEligible={ccAgent.usWorkEligible}
+                      onUsWorkEligibleChange={onUsWorkEligibleChange}
+                    />
+                  </div>
+                </AssistantBubble>
+              );
+            }
+
+            if (turn.kind === "target-job") {
+              return (
+                <AssistantBubble key={turn.id} className="items-start">
+                  <p className="font-medium">Paste your target job</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    We&apos;ll parse the posting to build a required-skill vector for gap analysis.
+                  </p>
+                  <div className="mt-4 border-t border-border/50 pt-4">
+                    <IntakeTargetJobPanel
+                      targetJobUrl={targetJobUrl}
+                      onTargetJobUrlChange={onTargetJobUrlChange}
+                    />
+                  </div>
+                </AssistantBubble>
+              );
+            }
+
+            if (turn.kind === "resume") {
+              return (
+                <AssistantBubble key={turn.id} className="items-start">
+                  <p className="font-medium">Upload your résumé</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    We parse it for your skill graph and vetting signals.
+                  </p>
+                  <div className="mt-4 border-t border-border/50 pt-4">
+                    <IntakeResumePanel
+                      linkedInUrl={linkedInUrl}
+                      onLinkedInUrlChange={onLinkedInUrlChange}
+                      resumeFileName={resumeFileName}
+                      resumeText={resumeText}
+                      onResumeFile={onResumeFile}
+                      isReadingResume={isReadingResume}
+                      profileCompleteForGenerate={Boolean(resumeText.trim() || resumeFileName)}
+                      profileIncompleteHint="Upload a text-based résumé to continue."
+                      showLinkedIn={false}
+                    />
+                  </div>
+                </AssistantBubble>
+              );
+            }
+
+            if (turn.kind === "linkedin") {
+              return (
+                <AssistantBubble key={turn.id} className="items-start">
+                  <p className="font-medium">LinkedIn profile</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Used for location, network strength, and verification alongside your résumé.
+                  </p>
+                  <div className="mt-4 border-t border-border/50 pt-4">
+                    <IntakeResumePanel
+                      linkedInUrl={linkedInUrl}
+                      onLinkedInUrlChange={onLinkedInUrlChange}
+                      resumeFileName={resumeFileName}
+                      resumeText={resumeText}
+                      onResumeFile={onResumeFile}
+                      isReadingResume={isReadingResume}
+                      profileCompleteForGenerate={profileCompleteForGenerate}
+                      profileIncompleteHint={profileIncompleteHint}
+                      showLinkedIn
+                    />
+                  </div>
                 </AssistantBubble>
               );
             }
@@ -252,6 +428,49 @@ export function ChatIntakeConversation({
 
             if (turn.kind === "answer") {
               return <UserBubble key={turn.id}>{turn.content}</UserBubble>;
+            }
+
+            if (turn.kind === "role-suggestions") {
+              return (
+                <AssistantBubble key={turn.id} className="items-start">
+                  <p className="font-medium">Suggested roles</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Pick the closest MVP vetted role. We&apos;ll run the Samantha filter next.
+                  </p>
+                  <div className="mt-4 border-t border-border/50 pt-4">
+                    <IntakeRoleSuggestionsPanel
+                      roleSuggestions={ccAgent.roleSuggestions}
+                      selectedRoleId={ccAgent.selectedRoleId}
+                      onSelectRole={onSelectRole}
+                    />
+                  </div>
+                </AssistantBubble>
+              );
+            }
+
+            if (turn.kind === "vetting" && ccAgent.vettingResult) {
+              return (
+                <AssistantBubble key={turn.id} className="items-start">
+                  <p className="font-medium">Vetting results</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Both tracks continue; vetted status unlocks mentorship after your team sprint.
+                  </p>
+                  <div className="mt-4 border-t border-border/50 pt-4">
+                    <IntakeVettingResultPanel vetting={ccAgent.vettingResult} />
+                  </div>
+                </AssistantBubble>
+              );
+            }
+
+            if (turn.kind === "nurture" && ccAgent.vettingResult) {
+              return (
+                <AssistantBubble key={turn.id} className="items-start">
+                  <p className="font-medium">Your nurture track</p>
+                  <div className="mt-4 border-t border-border/50 pt-4">
+                    <IntakeNurtureTrackPanel trackId={ccAgent.vettingResult.nurtureTrack} />
+                  </div>
+                </AssistantBubble>
+              );
             }
 
             if (turn.kind === "prefs") {
@@ -274,29 +493,6 @@ export function ChatIntakeConversation({
               );
             }
 
-            if (turn.kind === "profile") {
-              return (
-                <AssistantBubble key={turn.id} className="items-start">
-                  <p className="font-medium">Share your LinkedIn or résumé</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Add your LinkedIn profile URL or upload a text-based résumé. We&apos;ll use it to suggest search
-                    filters in the next step.
-                  </p>
-                  <div className="mt-4 border-t border-border/50 pt-4">
-                    <IntakeProfileFields
-                      linkedInUrl={linkedInUrl}
-                      onLinkedInUrlChange={onLinkedInUrlChange}
-                      resumeFileName={resumeFileName}
-                      onResumeFile={onResumeFile}
-                      isReadingResume={isReadingResume}
-                      profileCompleteForGenerate={profileCompleteForGenerate}
-                      profileIncompleteHint={profileIncompleteHint}
-                    />
-                  </div>
-                </AssistantBubble>
-              );
-            }
-
             return null;
           })}
           <div ref={scrollAnchorRef} className="h-px shrink-0" aria-hidden />
@@ -312,15 +508,15 @@ export function ChatIntakeConversation({
                   options={currentQuestion.options}
                   value={currentAnswer}
                   onChange={onCurrentAnswerChange}
-                  stepIndex={step}
+                  stepIndex={quizIndex}
                 />
               </div>
 
               <div className="flex items-end gap-2">
                 <VoiceTextarea
-                  key={`chat-q-${step}`}
+                  key={`chat-q-${quizIndex}`}
                   placeholder="Type or speak your answer…"
-                  data-testid={`textarea-q${step + 1}`}
+                  data-testid={`textarea-q${quizIndex + 1}`}
                   value={currentAnswer}
                   onValueChange={onCurrentAnswerChange}
                   onKeyDown={handleComposerKeyDown}
@@ -333,7 +529,7 @@ export function ChatIntakeConversation({
                   type="button"
                   size="icon"
                   onClick={handleSendAnswer}
-                  disabled={isGenerating || !currentAnswer.trim()}
+                  disabled={isBusy || !currentAnswer.trim()}
                   className="h-12 w-12 shrink-0 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90"
                   aria-label="Send answer"
                   data-testid="button-send"
@@ -349,7 +545,7 @@ export function ChatIntakeConversation({
                   type="button"
                   variant="outline"
                   onClick={onBack}
-                  disabled={step === 0 || isGenerating}
+                  disabled={isBusy}
                   className="h-11 rounded-2xl px-4"
                   data-testid="button-back"
                 >
@@ -364,26 +560,26 @@ export function ChatIntakeConversation({
                 type="button"
                 variant="outline"
                 onClick={onBack}
-                disabled={step === 0 || isGenerating}
+                disabled={flowStep === "hook" || isBusy}
                 className="h-12 rounded-2xl px-5"
                 data-testid="button-back"
               >
                 <ArrowLeft className="mr-1.5 h-4 w-4" /> Back
               </Button>
 
-              {step < 6 ? (
+              {flowStep !== "search-filters" ? (
                 <Button
                   type="button"
                   onClick={onNext}
-                  disabled={
-                    isGenerating ||
-                    isParsingProfile ||
-                    (step === 5 && !profileCompleteForGenerate)
-                  }
+                  disabled={isBusy}
                   className="cta-glow h-12 flex-1 rounded-2xl bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary/90 sm:flex-none sm:px-8"
                   data-testid="button-next"
                 >
-                  {isParsingProfile ? (
+                  {isRunningTriage ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Running vetting…
+                    </>
+                  ) : isParsingProfile ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing profile…
                     </>
@@ -397,7 +593,7 @@ export function ChatIntakeConversation({
                 <Button
                   type="button"
                   onClick={onGenerate}
-                  disabled={isGenerating || !profileCompleteForGenerate}
+                  disabled={isBusy || !profileCompleteForGenerate}
                   className="cta-glow h-12 flex-1 rounded-2xl bg-primary px-5 font-semibold text-primary-foreground hover:bg-primary/90 sm:px-8"
                   data-testid="button-submit"
                 >
