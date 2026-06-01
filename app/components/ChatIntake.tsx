@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { IntakeGeneratingScreen } from "@/app/components/IntakeGeneratingScreen";
 import { ChatIntakeConversation } from "@/app/components/ChatIntakeConversation";
+import { IntakeSplashScreen } from "@/app/components/IntakeSplashScreen";
 import { IntakeWizard } from "@/app/components/IntakeWizard";
 import {
   defaultSearchDefaults,
@@ -165,9 +166,18 @@ type ChatIntakeProps = {
   variant?: "wizard" | "chat";
 };
 
-export function ChatIntake({ variant = "wizard" }: ChatIntakeProps) {
+function hasIntakeProgress(session: IntakeWizardSession) {
+  return (
+    session.wizardStep > 0 ||
+    session.wizardAnswers.some((answer) => answer.trim().length > 0) ||
+    Boolean(session.linkedInUrl.trim() || session.resumeText.trim())
+  );
+}
+
+export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   const router = useRouter();
   const [storedSession] = useState(readStoredSession);
+  const [quizStarted, setQuizStarted] = useState(() => hasIntakeProgress(storedSession));
   const [submissionId, setSubmissionId] = useState(storedSession.submissionId);
   const [wizardStep, setWizardStep] = useState(storedSession.wizardStep);
   const [wizardAnswers, setWizardAnswers] = useState<string[]>(storedSession.wizardAnswers);
@@ -522,6 +532,16 @@ export function ChatIntake({ variant = "wizard" }: ChatIntakeProps) {
     return <IntakeGeneratingScreen />;
   }
 
+  if (!quizStarted) {
+    return (
+      <IntakeSplashScreen
+        onStart={() => {
+          setQuizStarted(true);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-[100dvh] flex-col brand-bg selection:bg-primary selection:text-primary-foreground">

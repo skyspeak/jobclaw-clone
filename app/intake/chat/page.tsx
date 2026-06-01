@@ -1,5 +1,5 @@
-import { ChatIntake } from "@/app/components/ChatIntake";
+import { redirect } from "next/navigation";
 
-export default function IntakeChatPage() {
-  return <ChatIntake variant="chat" />;
+export default function IntakeChatRedirectPage() {
+  redirect("/intake");
 }

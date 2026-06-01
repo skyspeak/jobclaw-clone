@@ -1,5 +1,5 @@
-import { Landing } from "@/app/components/Landing";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <Landing />;
+  redirect("/intake");
 }

@@ -87,7 +87,7 @@ export function IntakeWizard({
               ← Back to home
             </Link>
             <Link
-              href="/intake/chat"
+              href="/intake"
               className="font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             >
               Switch to chat view

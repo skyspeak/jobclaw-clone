@@ -182,7 +182,7 @@ export function ChatIntakeConversation({
   }, [turns, step, currentAnswer]);
 
   function handleSendAnswer() {
-    if (step >= 5) {
+    if (step >= 5 || !currentAnswer.trim()) {
       return;
     }
     onNext();
@@ -191,7 +191,9 @@ export function ChatIntakeConversation({
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      handleSendAnswer();
+      if (currentAnswer.trim()) {
+        handleSendAnswer();
+      }
     }
   }
 
@@ -218,7 +220,7 @@ export function ChatIntakeConversation({
               ← Home
             </Link>
             <Link
-              href="/intake"
+              href="/intake/form"
               className="font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             >
               Switch to step-by-step form
@@ -331,7 +333,7 @@ export function ChatIntakeConversation({
                   type="button"
                   size="icon"
                   onClick={handleSendAnswer}
-                  disabled={isGenerating}
+                  disabled={isGenerating || !currentAnswer.trim()}
                   className="h-12 w-12 shrink-0 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90"
                   aria-label="Send answer"
                   data-testid="button-send"
