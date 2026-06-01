@@ -12,7 +12,7 @@ export default function MicroInternshipsPage() {
         className="mx-auto flex w-full max-w-6xl items-center px-6 py-6"
       >
         <Link className="text-sm font-bold tracking-tight text-foreground underline-offset-4 hover:underline sm:text-base" href="/">
-          JobClaw
+          dear[CC]
         </Link>
       </nav>
 
@@ -25,7 +25,7 @@ export default function MicroInternshipsPage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 Turn-taking intake
               </p>
-              <CardTitle className="text-lg">Answer the five JobClaw prompts.</CardTitle>
+              <CardTitle className="text-lg">Answer the five dear[CC] prompts.</CardTitle>
               <CardDescription>
                 Same chat flow this micro-internship walkthrough references — save answers before you
                 run the matcher.

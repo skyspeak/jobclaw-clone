@@ -7,7 +7,7 @@ import { getTrackById } from "@/lib/ai-tracks-commit";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Commit to your AI track — JobClaw",
+  title: "Commit to your AI track — dear[CC]",
   description: "Confirm your two-week AI track commitment and add it to your calendar.",
 };
 
@@ -46,7 +46,7 @@ export default function AiTrackCommitPage({ searchParams }: CommitPageProps) {
 
         <header className="space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            JobClaw · Track commitment
+            dear[CC] · Track commitment
           </p>
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Lock in your two weeks

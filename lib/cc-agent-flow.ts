@@ -1,6 +1,6 @@
 /**
- * CC Agent intake flow: triage → vetting → nurture track → proof-of-work path.
- * @see Product spec: CC Agent — Land Your First Job
+ * dear[CC] intake flow: triage → vetting → nurture track → proof-of-work path.
+ * @see Product spec: dear[CC] — Land Your First Job
  */
 
 import type { IntakeAnswers } from "@/lib/jobclaw";

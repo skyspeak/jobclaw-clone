@@ -51,11 +51,11 @@ export function buildTrackCommitCalendarUrl(
   const finishDate = startOfDay(addDays(startDate, TRACK_COMMIT_WINDOW_DAYS));
   const endExclusive = addDays(finishDate, 1);
 
-  const text = `JobClaw: ${track.title} — 2-week track`;
+  const text = `dear[CC]: ${track.title} — 2-week track`;
   const details = [
     `Track ${track.number}: ${track.subtitle}`,
     "",
-    "You committed to a two-week solo AI track through JobClaw.",
+    "You committed to a two-week solo AI track through dear[CC].",
     `Start: ${formatTrackDate(startDate)}`,
     `Finish line: ${formatTrackDate(finishDate)}`,
     "",

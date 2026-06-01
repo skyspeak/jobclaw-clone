@@ -72,7 +72,7 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": siteUrl,
-        "X-Title": "DearCC presents JobClaw",
+        "X-Title": "dear[CC]",
       },
       body: JSON.stringify({
         model,
@@ -201,7 +201,7 @@ function previewText(text: unknown, maxLength = 1000) {
 
 function buildFallbackProfile(request: z.infer<typeof profileRequestSchema>): LinkedInProfileDraft {
   const answers = request.answers;
-  const summary = request.searchSummary ?? "Generated a JobClaw search request.";
+  const summary = request.searchSummary ?? "Generated a dear[CC] search request.";
   const targetTitle = inferTargetTitle(summary);
 
   return {
@@ -229,7 +229,7 @@ function buildFallbackProfile(request: z.infer<typeof profileRequestSchema>): Li
     },
     idealJob: {
       title: targetTitle,
-      why: "This target comes from the structured JobClaw search request and the candidate's intake answers.",
+      why: "This target comes from the structured dear[CC] search request and the candidate's intake answers.",
       adjacentTitles: [
         "Program Coordinator",
         "Operations Assistant",
@@ -292,7 +292,7 @@ ${JSON.stringify(answers, null, 2)}
 Search defaults:
 ${JSON.stringify(request.defaults ?? {}, null, 2)}
 
-Existing JobClaw search summary:
+Existing dear[CC] search summary:
 ${request.searchSummary ?? "None"}
 
 Return JSON with this exact shape:

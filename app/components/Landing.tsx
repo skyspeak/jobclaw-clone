@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, GraduationCap, MessageCircle, Target } from "lucide-react";
 
 import { HumanHandoffVisual } from "@/app/components/HumanHandoffVisual";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 
 export function Landing() {
@@ -16,7 +17,7 @@ export function Landing() {
       >
         <div className="flex w-full max-w-3xl items-center justify-between text-xs font-semibold text-muted-foreground sm:text-sm">
           <Link className="tracking-wide text-foreground underline-offset-4 hover:underline" href="/">
-            JOBCLAW
+            {BRAND_NAME}
           </Link>
           <span className="hidden uppercase tracking-wide sm:inline">For new graduates</span>
         </div>
@@ -29,7 +30,7 @@ export function Landing() {
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pb-28 pt-24 sm:px-6 sm:pb-32 sm:pt-10 md:px-12">
         <div className="mx-auto flex w-full max-w-2xl flex-col items-center text-center">
           <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:mb-6 sm:text-sm">
-            Career signal, on demand
+            {BRAND_TAGLINE}
           </p>
 
           <HumanHandoffVisual className="mb-8 sm:mb-10" />

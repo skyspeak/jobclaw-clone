@@ -11,7 +11,7 @@ export default function MatchedInternshipsPage() {
           className="text-sm font-bold tracking-tight text-foreground underline-offset-4 hover:underline sm:text-base"
           href="/"
         >
-          JobClaw
+          dear[CC]
         </Link>
         <Button asChild variant="outline" size="sm" className="rounded-2xl">
           <Link href="/project-sprints">Project sprints</Link>

@@ -140,7 +140,7 @@ function initialMessages(): ChatMessage[] {
       id: "micro-system",
       role: "system",
       content:
-        "Walk through micro-internships the same way as the JobClaw intake—one beat at a time.",
+        "Walk through micro-internships the same way as the dear[CC] intake—one beat at a time.",
     },
     {
       id: "micro-intro-0",

@@ -6,7 +6,7 @@ disable-model-invocation: false
 metadata: {"openclaw":{"emoji":"🧭"}}
 ---
 
-# DearCC JobClaw
+# DearCC dear[CC]
 
 Use this skill for the full DearCC flow in one step:
 

@@ -64,7 +64,7 @@ export type IntakeWizardSession = {
   linkedInUrl: string;
   resumeText: string;
   resumeFileName: string;
-  /** CC Agent flow (triage → vetting → nurture) */
+  /** dear[CC] flow (triage → vetting → nurture) */
   ccAgent: CcAgentFlowState;
   targetJobUrl: string;
 };
@@ -276,7 +276,7 @@ export function buildBriefShareText(
   profile: IntakeProfileDraft | null,
   summary: string | undefined,
 ): string {
-  const lines: string[] = ["My JobClaw brief"];
+  const lines: string[] = ["My dear[CC] brief"];
 
   if (profile?.archetype.name) {
     lines.push("", `${profile.archetype.name}`, profile.archetype.summary);

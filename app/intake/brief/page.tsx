@@ -5,7 +5,7 @@ import { IntakeBriefResults } from "@/app/components/IntakeBriefResults";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "My brief — JobClaw",
+  title: "My brief — dear[CC]",
   description: "Your completed intake brief and next steps.",
 };
 
@@ -16,7 +16,7 @@ export default function IntakeBriefPage() {
         <header className="flex flex-col gap-4">
           <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:text-sm">
             <Link className="text-foreground underline-offset-4 hover:underline" href="/">
-              JOBCLAW
+              dear[CC]
             </Link>
           </div>
           <Button variant="outline" asChild className="w-fit rounded-2xl">

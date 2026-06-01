@@ -1,4 +1,4 @@
-# DearCC JobClaw
+# DearCC dear[CC]
 
 Instructions for installing and running `dearcc-jobclaw`.
 

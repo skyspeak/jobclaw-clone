@@ -12,6 +12,7 @@ import {
   type NurtureTrackId,
   type VettingResult,
 } from "@/lib/cc-agent-flow";
+import { BRAND_NAME } from "@/lib/brand";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -47,7 +48,7 @@ export function IntakeHookPanel({
         <div className="space-y-0.5 pr-4">
           <Label className="text-sm">US work eligibility (MVP)</Label>
           <p className="text-xs text-muted-foreground">
-            CC Agent MVP is US-only with no visa sponsorship cases.
+            The {BRAND_NAME} MVP is US-only with no visa sponsorship cases.
           </p>
         </div>
         <Switch
@@ -61,7 +62,7 @@ export function IntakeHookPanel({
       ) : null}
       {!usWorkEligible ? (
         <p className="text-sm font-medium text-destructive" role="alert">
-          Confirm US work eligibility to use CC Agent vetting for this pilot.
+          Confirm US work eligibility to use {BRAND_NAME} vetting for this pilot.
         </p>
       ) : null}
     </div>

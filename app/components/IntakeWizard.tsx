@@ -70,7 +70,7 @@ export function IntakeWizard({
         <header className="mb-6 flex flex-col gap-3 sm:mb-10">
           <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground sm:text-sm">
             <Link className="tracking-wide text-foreground underline-offset-4 hover:underline" href="/">
-              JOBCLAW
+              dear[CC]
             </Link>
             <span>
               Step {step + 1} of {totalSteps}

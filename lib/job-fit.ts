@@ -132,7 +132,7 @@ export const jobFitRequestSchema = z.object({
     .optional(),
 });
 
-const JOB_FIT_SYSTEM = `You are JobClaw, a career coach for new graduates.
+const JOB_FIT_SYSTEM = `You are dear[CC], a career coach for new graduates.
 
 Given a job description and candidate context (resume, survey, profile draft), fill a fit matrix comparing the JOB POST to the candidate's BRIEFING (materials).
 
@@ -536,7 +536,7 @@ async function analyzeWithOpenRouter(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": siteUrl,
-        "X-Title": "DearCC presents JobClaw",
+        "X-Title": "dear[CC]",
       },
       body: JSON.stringify({
         model,
@@ -709,7 +709,7 @@ export function buildFallbackJobFit(
     headline: "",
     summary: options?.aiConfigured
       ? "AI analysis did not complete (often when a fetched posting is very long). This is a rough keyword scan—try again or paste a shorter job description for a full analysis."
-      : "This is a quick skills scan without an AI key configured. Add GEMINI_API_KEY or OPENROUTER_API_KEY in jobclaw/.env.local (next to package.json) for a deeper analysis.",
+      : "This is a quick skills scan without an AI key configured. Add GEMINI_API_KEY or OPENROUTER_API_KEY in .env.local for a deeper analysis.",
     gapsToClose: candidateSkills
       .filter((c) => c.status === "missing")
       .map((c) => c.skill)

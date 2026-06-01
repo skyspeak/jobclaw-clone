@@ -37,7 +37,7 @@ export function canProceedFromStep(
         return { ok: false, message: "Tell us whether you have a target job in mind." };
       }
       if (!ccAgent.usWorkEligible) {
-        return { ok: false, message: "CC Agent MVP requires US work eligibility." };
+        return { ok: false, message: "dear[CC] MVP requires US work eligibility." };
       }
       return { ok: true };
 

@@ -291,7 +291,7 @@ export function ResumeTailor() {
           Finish the survey first.
         </h1>
         <p className="max-w-xl text-[1.05rem] leading-relaxed text-muted-foreground">
-          JobClaw needs a completed survey match before it can tailor a resume to a target job.
+          dear[CC] needs a completed survey match before it can tailor a resume to a target job.
         </p>
         <Button asChild className="w-fit rounded-2xl cta-glow">
           <Link href="/intake">Go to survey</Link>
@@ -314,7 +314,7 @@ export function ResumeTailor() {
             Tailor your resume to matched jobs.
           </h1>
           <p className="mt-5 max-w-xl text-[1.05rem] leading-relaxed text-muted-foreground">
-            Upload or paste your resume, confirm your email, then pick 1 to 3 matched jobs. JobClaw will
+            Upload or paste your resume, confirm your email, then pick 1 to 3 matched jobs. dear[CC] will
             identify required skills and rewrite your resume for each target.
           </p>
         </div>
@@ -374,7 +374,7 @@ export function ResumeTailor() {
                     No resume yet?
                   </span>
                   <p className="mt-3 text-sm text-muted-foreground">
-                    Answer a few student-focused questions and JobClaw will draft a truthful starter resume you
+                    Answer a few student-focused questions and dear[CC] will draft a truthful starter resume you
                     can review and tailor.
                   </p>
                 </div>

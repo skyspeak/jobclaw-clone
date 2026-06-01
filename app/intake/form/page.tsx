@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Form wizard defers to chat intake until CC Agent steps are mirrored there. */
+/** Step-by-step intake is the chat experience at /intake. */
 export default function IntakeFormPage() {
   redirect("/intake");
 }

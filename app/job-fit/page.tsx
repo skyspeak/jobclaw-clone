@@ -5,7 +5,7 @@ import { JobFitAnalyzer } from "@/app/components/JobFitAnalyzer";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Job fit — JobClaw",
+  title: "Job fit — dear[CC]",
   description: "Compare a job description to your skills and see if you can win the role.",
 };
 
@@ -20,7 +20,7 @@ export default function JobFitPage() {
           className="text-sm font-bold tracking-tight text-foreground underline-offset-4 hover:underline"
           href="/"
         >
-          JobClaw
+          dear[CC]
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" asChild size="sm" className="rounded-xl">

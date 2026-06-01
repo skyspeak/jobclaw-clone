@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 
+import { BRAND_PAGE_TITLE } from "@/lib/brand";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "JobClaw — Career signal, on demand",
+  title: BRAND_PAGE_TITLE,
   description:
-    "For new graduates: the best internships, referrals, and offers come from understanding roles and people—not mass applying. Build a brief that moves real conversations forward.",
+    "For new graduates: the best internships, referrals, and offers come from understanding roles and people—not mass applying.",
 };
 
 export default function RootLayout({

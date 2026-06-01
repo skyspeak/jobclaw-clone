@@ -82,7 +82,7 @@ export function buildAiTracksGuideHtml(options: { canonicalUrl?: string } = {}):
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(AI_TRACKS_GUIDE_TITLE)} — JobClaw</title>
+  <title>${escapeHtml(AI_TRACKS_GUIDE_TITLE)} — dear[CC]</title>
   <meta name="description" content="Six two-week solo AI tracks for AI-first roles: artifact + proof document for each." />
   ${canonicalLink}
   <style>
@@ -218,7 +218,7 @@ export function buildAiTracksGuideHtml(options: { canonicalUrl?: string } = {}):
 <body>
   <div class="wrap">
     <header class="hero">
-      <p class="eyebrow">JobClaw · AI tracks</p>
+      <p class="eyebrow">dear[CC] · AI tracks</p>
       <h1>${escapeHtml(AI_TRACKS_GUIDE_TITLE)}</h1>
       ${p(intro.lead)}
       ${p(intro.throughline)}
@@ -245,7 +245,7 @@ export function buildAiTracksGuideHtml(options: { canonicalUrl?: string } = {}):
     </section>
 
     <p class="foot">
-      Generated from JobClaw&apos;s AI tracks guide.
+      Generated from dear[CC]&apos;s AI tracks guide.
       <a class="brand" href="https://dearcc.org">New Work Foundation</a>
     </p>
   </div>

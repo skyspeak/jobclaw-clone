@@ -101,7 +101,7 @@ async function fetchViaDirectHtml(url: string): Promise<JobPostFetchResult> {
     const response = await fetch(url, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; JobClaw/1.0; +https://dearcc.org)",
+          "Mozilla/5.0 (compatible; dear[CC]/1.0; +https://dearcc.org)",
         Accept: "text/html,application/xhtml+xml",
       },
       cache: "no-store",

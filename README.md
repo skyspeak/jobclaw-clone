@@ -1,13 +1,13 @@
-# JobClaw
+# dear[CC]
 
 AI job-search agent for new graduates — built by [New Work Foundation](https://dearcc.org), a nonprofit committed to keeping this free, forever.
 
-JobClaw reads a short intake questionnaire and derives a structured job search request matched to your actual strengths — not just keywords. Built as an [OpenClaw](https://openclaw.ai) skill.
+dear[CC] reads a short intake questionnaire and derives a structured job search request matched to your actual strengths — not just keywords. Built as an [OpenClaw](https://openclaw.ai) skill.
 
 ## What It Does
 
 1. You fill out a five-question intake file about who you are and what you actually want
-2. JobClaw derives a search brief from your answers internally
+2. dear[CC] derives a search brief from your answers internally
 3. It returns a structured JSON search request for use with any OpenClaw-compatible browser agent
 
 ## Requirements
@@ -15,9 +15,9 @@ JobClaw reads a short intake questionnaire and derives a structured job search r
 - [OpenClaw](https://openclaw.ai) installed
 - A compatible browser agent for executing job searches
 
-## DearCC presents JobClaw
+## dear[CC]
 
-This repo also includes DearCC presents JobClaw, a Next.js app that wraps the intake in a chat UI and
+This repo also includes dear[CC], a Next.js app that wraps the intake in a chat UI and
 generates the same structured search request contract from `SKILL.md`.
 
 ```bash
@@ -25,7 +25,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000` to use the chat intake. DearCC presents JobClaw stores progress in
+Open `http://localhost:3000` to use the chat intake. dear[CC] stores progress in
 browser local storage and does not run live job-board searches yet. See
 `docs/SAAS.md` for the hosting plan, accounts needed, environment variables, and
 search-runner options.

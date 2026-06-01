@@ -11,7 +11,7 @@ export default function TailorResumePage() {
         className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-6 md:gap-6"
       >
         <Link className="text-sm font-bold tracking-tight text-foreground underline-offset-4 hover:underline sm:text-base" href="/">
-          JobClaw
+          dear[CC]
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" asChild size="sm" className="rounded-xl">

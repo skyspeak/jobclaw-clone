@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": siteUrl,
-        "X-Title": "DearCC presents JobClaw",
+        "X-Title": "dear[CC]",
       },
       body: JSON.stringify({
         model,
@@ -189,7 +189,7 @@ function buildFallbackTailoring(
           "EXPERIENCE AND PROJECTS TO EMPHASIZE",
           resumePreview || "Add resume experience here, then emphasize projects and responsibilities that connect to the target role.",
         ].join("\n"),
-        coverNote: `I am interested in the ${job.title} role because it connects to the work style and strengths I described in my JobClaw survey. I would emphasize ${requiredSkills.slice(0, 3).join(", ")} and use my resume to show evidence for those skills.`,
+        coverNote: `I am interested in the ${job.title} role because it connects to the work style and strengths I described in my dear[CC] survey. I would emphasize ${requiredSkills.slice(0, 3).join(", ")} and use my resume to show evidence for those skills.`,
       };
     }),
   };

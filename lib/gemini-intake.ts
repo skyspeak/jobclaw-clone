@@ -14,7 +14,7 @@ import {
 const GEMINI_PRIMARY = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 const GEMINI_FALLBACK = "gemini-2.5-flash-lite";
 
-const JOBCLAW_GEMINI_SYSTEM = `You are JobClaw, an AI job-search assistant for new graduates.
+const DEAR_CC_GEMINI_SYSTEM = `You are dear[CC], an AI job-search assistant for new graduates.
 
 Read the five intake answers and optional search preferences below. Produce:
 1. A short "summary" in FIRST PERSON only ("I am...", "I'm looking for..."). Never third person. 2–4 sentences.
@@ -107,7 +107,7 @@ async function callGeminiModel(model: string, userText: string): Promise<string>
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const body = {
-    systemInstruction: { parts: [{ text: JOBCLAW_GEMINI_SYSTEM }] },
+    systemInstruction: { parts: [{ text: DEAR_CC_GEMINI_SYSTEM }] },
     contents: [{ role: "user", parts: [{ text: userText }] }],
     generationConfig: {
       temperature: 0.65,

@@ -75,7 +75,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
       <main className="min-h-[100dvh] brand-bg px-4 py-10 sm:px-8">
         <nav aria-label="Main links" className="mx-auto mb-10 flex w-full max-w-3xl">
           <Link className="text-sm font-bold text-foreground underline-offset-4 hover:underline sm:text-base" href="/">
-            JobClaw
+            dear[CC]
           </Link>
         </nav>
         <section className="mx-auto grid w-full max-w-3xl gap-12">
@@ -146,7 +146,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
         className="mx-auto mb-12 flex w-full max-w-[1180px] flex-wrap items-center justify-between gap-4"
       >
         <Link className="text-sm font-bold text-foreground underline-offset-4 hover:underline sm:text-base" href="/">
-          JobClaw
+          dear[CC]
         </Link>
         <form action={signOutAdmin}>
           <Button type="submit" variant="outline" className="rounded-2xl">
@@ -411,7 +411,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
             </CardHeader>
             <CardContent className="px-12 pb-2 pt-4">
               <CardDescription className="text-[1rem] leading-relaxed">
-                Completed chat intakes will appear here after someone finishes the contact step and JobClaw
+                Completed chat intakes will appear here after someone finishes the contact step and dear[CC]
                 generates an assessment.
               </CardDescription>
             </CardContent>

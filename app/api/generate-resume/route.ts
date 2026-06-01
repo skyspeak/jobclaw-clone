@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": siteUrl,
-        "X-Title": "DearCC presents JobClaw",
+        "X-Title": "dear[CC]",
       },
       body: JSON.stringify({
         model,
@@ -98,7 +98,7 @@ function buildPrompt(request: z.infer<typeof generateStarterResumeRequestSchema>
 Student facts:
 ${JSON.stringify(request.intake, null, 2)}
 
-Existing JobClaw survey summary:
+Existing dear[CC] survey summary:
 ${request.surveySummary || "No survey summary provided."}
 
 Existing profile draft context:

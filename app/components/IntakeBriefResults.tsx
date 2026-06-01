@@ -111,7 +111,7 @@ export function IntakeBriefResults() {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: "My JobClaw brief",
+          title: "My dear[CC] brief",
           text,
           url,
         });
@@ -195,7 +195,7 @@ function briefIdealRole(
     title,
     why:
       summary.trim() ||
-      "Based on your JobClaw intake and the roles you are exploring.",
+      "Based on your dear[CC] intake and the roles you are exploring.",
   };
 }
 
@@ -212,7 +212,7 @@ function briefDraftContent(
 
   return {
     headline: `Early-career candidate exploring ${title} roles`,
-    about: summary.trim() || "Your JobClaw brief summarizes how you want to show up in conversations.",
+    about: summary.trim() || "Your dear[CC] brief summarizes how you want to show up in conversations.",
     skills: searchRequest.keywords.filter((keyword) => keyword.trim().length > 0).slice(0, 8),
   };
 }

@@ -13,7 +13,7 @@ export function ImprovementNotesTabs() {
 
   return (
     <aside
-      aria-label="JobClaw implementation notes"
+      aria-label="dear[CC] implementation notes"
       className="sticky top-6 flex flex-col gap-8 self-start rounded-3xl border border-border bg-card p-8 shadow-sm"
     >
       <CardHeader className="space-y-4 p-0">

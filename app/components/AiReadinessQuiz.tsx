@@ -218,7 +218,7 @@ export function AiReadinessQuiz() {
             Six two-week solo AI tracks
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-[0.9375rem]">
-            Same playbook as JobClaw&apos;s AI tracks guide: one focused build per AI-first lane, ending in a
+            Same playbook as dear[CC]&apos;s AI tracks guide: one focused build per AI-first lane, ending in a
             shareable artifact plus the doc that proves you understood what you shipped.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
