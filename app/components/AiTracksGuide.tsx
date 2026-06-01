@@ -5,6 +5,12 @@ import {
   AI_TRACKS_GUIDE_INTRO,
   AI_TRACKS_GUIDE_TITLE,
   AI_TRACKS_PATTERN,
+  AI_PROJECT_SPRINTS,
+  AI_PROJECT_SPRINTS_INTRO,
+  AI_PROJECT_SPRINTS_PATTERN,
+  type AiTrack,
+  type AiTracksGuideIntro,
+  type AiTracksGuidePattern,
 } from "@/lib/ai-tracks-data";
 import { TrackCommitButton } from "@/app/components/TrackCommitButton";
 import { Button } from "@/components/ui/button";
@@ -13,14 +19,21 @@ export type AiTracksGuideProps = {
   eyebrow: string;
   title?: string;
   itemLabel?: "Track" | "Sprint";
+  tracks?: AiTrack[];
+  intro?: AiTracksGuideIntro;
+  pattern?: AiTracksGuidePattern;
+  showDownload?: boolean;
 };
 
 export function AiTracksGuide({
   eyebrow,
   title = AI_TRACKS_GUIDE_TITLE,
   itemLabel = "Track",
+  tracks = AI_TRACKS,
+  intro = AI_TRACKS_GUIDE_INTRO,
+  pattern = AI_TRACKS_PATTERN,
+  showDownload = true,
 }: AiTracksGuideProps) {
-  const intro = AI_TRACKS_GUIDE_INTRO;
   return (
     <main className="min-h-[100dvh] brand-bg px-4 py-6 selection:bg-primary selection:text-primary-foreground sm:px-8">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-24">
@@ -37,16 +50,18 @@ export function AiTracksGuide({
           </h1>
           <p className="mt-4 max-w-2xl text-[1.05rem] leading-relaxed text-muted-foreground">{intro.lead}</p>
           <p className="mt-3 max-w-2xl text-[1.05rem] leading-relaxed text-muted-foreground">{intro.throughline}</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild className="cta-glow rounded-2xl">
-              <a href="/api/ai-tracks-guide?download=1">Download HTML guide</a>
-            </Button>
-            <Button asChild variant="outline" className="rounded-2xl">
-              <a href="/api/ai-tracks-guide" rel="noreferrer" target="_blank">
-                Open raw HTML
-              </a>
-            </Button>
-          </div>
+          {showDownload ? (
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button asChild className="cta-glow rounded-2xl">
+                <a href="/api/ai-tracks-guide?download=1">Download HTML guide</a>
+              </Button>
+              <Button asChild variant="outline" className="rounded-2xl">
+                <a href="/api/ai-tracks-guide" rel="noreferrer" target="_blank">
+                  Open raw HTML
+                </a>
+              </Button>
+            </div>
+          ) : null}
         </header>
 
         <section className="rounded-3xl border border-border/70 bg-card p-8 shadow-sm sm:p-10">
@@ -80,7 +95,7 @@ export function AiTracksGuide({
           </p>
         </section>
 
-        {AI_TRACKS.map((track) => (
+        {tracks.map((track) => (
           <article
             key={track.id}
             id={track.id}
@@ -164,7 +179,7 @@ export function AiTracksGuide({
         ))}
 
         <section className="rounded-3xl border border-border/70 bg-card p-8 shadow-sm sm:p-10">
-          <h2 className="text-xl font-bold tracking-tight text-foreground">{AI_TRACKS_PATTERN.title}</h2>
+          <h2 className="text-xl font-bold tracking-tight text-foreground">{pattern.title}</h2>
           <div className="mt-5 overflow-hidden rounded-2xl border border-border">
             <table className="w-full border-collapse text-left text-sm">
               <thead>
@@ -181,7 +196,7 @@ export function AiTracksGuide({
                 </tr>
               </thead>
               <tbody>
-                {AI_TRACKS_PATTERN.rows.map((row) => (
+                {pattern.rows.map((row) => (
                   <tr key={row.sector} className="border-b border-border/80 last:border-0">
                     <td className="px-4 py-3 font-medium text-foreground">{row.sector}</td>
                     <td className="px-4 py-3 text-muted-foreground">{row.build}</td>
@@ -191,7 +206,7 @@ export function AiTracksGuide({
               </tbody>
             </table>
           </div>
-          <p className="mt-6 text-sm leading-relaxed text-muted-foreground">{AI_TRACKS_PATTERN.closing}</p>
+          <p className="mt-6 text-sm leading-relaxed text-muted-foreground">{pattern.closing}</p>
         </section>
       </div>
     </main>

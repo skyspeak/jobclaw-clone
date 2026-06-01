@@ -13,6 +13,7 @@ import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { QUESTIONS, type PrefsValues } from "@/lib/intake-questions";
+import type { ParsedProfileInsight } from "@/lib/profile-parse";
 import { cn } from "@/lib/utils";
 
 type ChatIntakeConversationProps = {
@@ -27,17 +28,15 @@ type ChatIntakeConversationProps = {
   resumeFileName: string;
   onResumeFile: (event: ChangeEvent<HTMLInputElement>) => void;
   isReadingResume: boolean;
-  contactEmail: string;
-  onContactEmailChange: (value: string) => void;
-  contactPhone: string;
-  onContactPhoneChange: (value: string) => void;
   profileCompleteForGenerate: boolean;
   profileIncompleteHint: string;
+  profileInsight: ParsedProfileInsight | null;
   wizardAnswers: string[];
   onBack: () => void;
   onNext: () => void;
   onGenerate: () => void;
   isGenerating: boolean;
+  isParsingProfile: boolean;
 };
 
 type ChatTurn =
@@ -75,10 +74,10 @@ function buildTurns(wizardAnswers: string[], step: number): ChatTurn[] {
   }
 
   if (step >= 5) {
-    turns.push({ id: "prefs", role: "assistant", kind: "prefs" });
+    turns.push({ id: "profile", role: "assistant", kind: "profile" });
   }
   if (step >= 6) {
-    turns.push({ id: "profile", role: "assistant", kind: "profile" });
+    turns.push({ id: "prefs", role: "assistant", kind: "prefs" });
   }
 
   return turns;
@@ -161,17 +160,15 @@ export function ChatIntakeConversation({
   resumeFileName,
   onResumeFile,
   isReadingResume,
-  contactEmail,
-  onContactEmailChange,
-  contactPhone,
-  onContactPhoneChange,
   profileCompleteForGenerate,
   profileIncompleteHint,
+  profileInsight,
   wizardAnswers,
   onBack,
   onNext,
   onGenerate,
   isGenerating,
+  isParsingProfile,
 }: ChatIntakeConversationProps) {
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
   const currentQuestion = step < 5 ? QUESTIONS[step] : null;
@@ -262,8 +259,14 @@ export function ChatIntakeConversation({
                 <AssistantBubble key={turn.id} className="items-start">
                   <p className="font-medium">Almost there — any search filters?</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Optional preferences to narrow down roles. Skip anything that doesn&apos;t matter.
+                    {profileInsight?.filtersIntro ??
+                      "Optional preferences to narrow down roles. Skip anything that doesn't matter."}
                   </p>
+                  {profileInsight?.suggestedRoles?.length ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Example roles: {profileInsight.suggestedRoles.join(" · ")}
+                    </p>
+                  ) : null}
                   <div className="mt-4 border-t border-border/50 pt-4">
                     <IntakePrefsFields prefsForm={prefsForm} isGenerating={isGenerating} compact />
                   </div>
@@ -274,9 +277,10 @@ export function ChatIntakeConversation({
             if (turn.kind === "profile") {
               return (
                 <AssistantBubble key={turn.id} className="items-start">
-                  <p className="font-medium">Last step — how can we reach you?</p>
+                  <p className="font-medium">Share your LinkedIn or résumé</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Add LinkedIn, a text résumé, email, or phone. You need at least one before we generate your brief.
+                    Add your LinkedIn profile URL or upload a text-based résumé. We&apos;ll use it to suggest search
+                    filters in the next step.
                   </p>
                   <div className="mt-4 border-t border-border/50 pt-4">
                     <IntakeProfileFields
@@ -285,10 +289,6 @@ export function ChatIntakeConversation({
                       resumeFileName={resumeFileName}
                       onResumeFile={onResumeFile}
                       isReadingResume={isReadingResume}
-                      contactEmail={contactEmail}
-                      onContactEmailChange={onContactEmailChange}
-                      contactPhone={contactPhone}
-                      onContactPhoneChange={onContactPhoneChange}
                       profileCompleteForGenerate={profileCompleteForGenerate}
                       profileIncompleteHint={profileIncompleteHint}
                     />
@@ -375,10 +375,23 @@ export function ChatIntakeConversation({
                 <Button
                   type="button"
                   onClick={onNext}
+                  disabled={
+                    isGenerating ||
+                    isParsingProfile ||
+                    (step === 5 && !profileCompleteForGenerate)
+                  }
                   className="cta-glow h-12 flex-1 rounded-2xl bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary/90 sm:flex-none sm:px-8"
                   data-testid="button-next"
                 >
-                  Continue <ArrowRight className="ml-1.5 h-4 w-4" />
+                  {isParsingProfile ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing profile…
+                    </>
+                  ) : (
+                    <>
+                      Continue <ArrowRight className="ml-1.5 h-4 w-4" />
+                    </>
+                  )}
                 </Button>
               ) : (
                 <Button

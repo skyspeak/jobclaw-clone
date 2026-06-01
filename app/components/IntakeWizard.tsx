@@ -13,8 +13,10 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { type PrefsValues, QUESTIONS } from "@/lib/intake-questions";
+import type { ParsedProfileInsight } from "@/lib/profile-parse";
 
 import { IntakeOptionChips } from "./IntakeOptionChips";
+import { IntakeProfileFields } from "./IntakeProfileFields";
 import { VoiceTextarea } from "./VoiceTextarea";
 
 type IntakeWizardProps = {
@@ -29,16 +31,14 @@ type IntakeWizardProps = {
   resumeFileName: string;
   onResumeFile: (event: ChangeEvent<HTMLInputElement>) => void;
   isReadingResume: boolean;
-  contactEmail: string;
-  onContactEmailChange: (value: string) => void;
-  contactPhone: string;
-  onContactPhoneChange: (value: string) => void;
   profileCompleteForGenerate: boolean;
   profileIncompleteHint: string;
+  profileInsight: ParsedProfileInsight | null;
   onBack: () => void;
   onNext: () => void;
   onGenerate: () => void;
   isGenerating: boolean;
+  isParsingProfile: boolean;
 };
 
 export function IntakeWizard({
@@ -53,16 +53,14 @@ export function IntakeWizard({
   resumeFileName,
   onResumeFile,
   isReadingResume,
-  contactEmail,
-  onContactEmailChange,
-  contactPhone,
-  onContactPhoneChange,
   profileCompleteForGenerate,
   profileIncompleteHint,
+  profileInsight,
   onBack,
   onNext,
   onGenerate,
   isGenerating,
+  isParsingProfile,
 }: IntakeWizardProps) {
   const currentQuestion = step < 5 ? QUESTIONS[step] : null;
 
@@ -136,11 +134,41 @@ export function IntakeWizard({
             <div className="space-y-6 sm:space-y-8">
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
+                  LinkedIn or résumé
+                </h2>
+                <p className="text-sm text-muted-foreground sm:text-base">
+                  Add your LinkedIn profile URL or upload a text-based résumé. We&apos;ll use it to suggest search
+                  filters in the next step.
+                </p>
+              </div>
+
+              <IntakeProfileFields
+                linkedInUrl={linkedInUrl}
+                onLinkedInUrlChange={onLinkedInUrlChange}
+                resumeFileName={resumeFileName}
+                onResumeFile={onResumeFile}
+                isReadingResume={isReadingResume}
+                profileCompleteForGenerate={profileCompleteForGenerate}
+                profileIncompleteHint={profileIncompleteHint}
+              />
+            </div>
+          ) : null}
+
+          {step === 6 ? (
+            <div className="space-y-6 sm:space-y-8">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
                   Search Preferences
                 </h2>
                 <p className="text-sm text-muted-foreground sm:text-base">
-                  Optional filters to help narrow down the roles.
+                  {profileInsight?.filtersIntro ??
+                    "Optional filters to help narrow down the roles. Skip anything that doesn't matter."}
                 </p>
+                {profileInsight?.suggestedRoles?.length ? (
+                  <p className="text-xs text-muted-foreground">
+                    Example roles: {profileInsight.suggestedRoles.join(" · ")}
+                  </p>
+                ) : null}
               </div>
 
               <Form {...prefsForm}>
@@ -330,92 +358,6 @@ export function IntakeWizard({
               </Form>
             </div>
           ) : null}
-
-          {step === 6 ? (
-            <div className="space-y-6 sm:space-y-8">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
-                  Resume &amp; LinkedIn
-                </h2>
-                <p className="text-sm text-muted-foreground sm:text-base">
-                  Add your LinkedIn profile, a résumé file we can read, and how we can reach you. You must provide at least
-                  one of: LinkedIn URL, uploaded résumé (text-based file), email, or phone number before generating your
-                  brief.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-                <div className="space-y-2">
-                  <Label htmlFor="intake-contact-email">Email</Label>
-                  <Input
-                    id="intake-contact-email"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    placeholder="you@example.com"
-                    className="h-11 rounded-xl"
-                    data-testid="input-contact-email"
-                    value={contactEmail}
-                    onChange={(e) => onContactEmailChange(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="intake-contact-phone">Phone number</Label>
-                  <Input
-                    id="intake-contact-phone"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    placeholder="(555) 123-4567"
-                    className="h-11 rounded-xl"
-                    data-testid="input-contact-phone"
-                    value={contactPhone}
-                    onChange={(e) => onContactPhoneChange(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="intake-linkedin-url">LinkedIn profile URL</Label>
-                <Input
-                  id="intake-linkedin-url"
-                  type="url"
-                  inputMode="url"
-                  autoComplete="url"
-                  placeholder="https://www.linkedin.com/in/your-profile"
-                  className="h-11 rounded-xl"
-                  data-testid="input-linkedin-url"
-                  value={linkedInUrl}
-                  onChange={(e) => onLinkedInUrlChange(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="intake-resume-upload">Upload resume (text-based files)</Label>
-                <Input
-                  id="intake-resume-upload"
-                  type="file"
-                  accept=".txt,.md,.rtf,.csv,.json"
-                  className="h-11 cursor-pointer rounded-xl pt-2.5 file:mr-3"
-                  data-testid="input-resume-file"
-                  onChange={onResumeFile}
-                />
-                {resumeFileName ? (
-                  <p className="text-xs text-muted-foreground">Uploaded: {resumeFileName}</p>
-                ) : null}
-                {isReadingResume ? <p className="text-sm text-muted-foreground">Reading file…</p> : null}
-                <p className="text-xs text-muted-foreground">
-                  Plain text (.txt, .md, …). PDF or Word files are not read here—export to text and upload that file.
-                </p>
-              </div>
-
-              {!profileCompleteForGenerate ? (
-                <p className="text-sm font-medium text-destructive" role="alert">
-                  {profileIncompleteHint}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -437,16 +379,29 @@ export function IntakeWizard({
               <Button
                 type="button"
                 onClick={onNext}
+                disabled={
+                  isGenerating ||
+                  isParsingProfile ||
+                  (step === 5 && !profileCompleteForGenerate)
+                }
                 className="cta-glow h-12 flex-1 rounded-2xl bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary/90 sm:flex-none sm:px-8"
                 data-testid="button-next"
               >
-                Next <ArrowRight className="ml-1.5 h-4 w-4" />
+                {isParsingProfile ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing profile…
+                  </>
+                ) : (
+                  <>
+                    Next <ArrowRight className="ml-1.5 h-4 w-4" />
+                  </>
+                )}
               </Button>
             ) : (
               <Button
                 type="button"
                 onClick={onGenerate}
-                disabled={isGenerating || (step === 6 && !profileCompleteForGenerate)}
+                disabled={isGenerating || !profileCompleteForGenerate}
                 className="cta-glow h-12 flex-1 rounded-2xl bg-primary px-5 font-semibold text-primary-foreground hover:bg-primary/90 sm:px-8"
                 data-testid="button-submit"
               >

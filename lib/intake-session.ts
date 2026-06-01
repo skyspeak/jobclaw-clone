@@ -217,15 +217,10 @@ export function buildResumeSnapshot(
 export function hasMinimumProfileEvidence(
   linkedInUrl: string,
   resumeText: string,
-  email: string,
-  phone: string,
+  _email?: string,
+  _phone?: string,
 ): boolean {
-  return (
-    linkedInUrl.trim().length > 0 ||
-    resumeText.trim().length > 0 ||
-    email.trim().length > 0 ||
-    phone.trim().length > 0
-  );
+  return linkedInUrl.trim().length > 0 || resumeText.trim().length > 0;
 }
 
 export function hasResumeOrLinkedInInput(

@@ -1,4 +1,4 @@
-import { AI_TRACKS, type AiTrack } from "@/lib/ai-tracks-data";
+import { AI_PROJECT_SPRINTS, AI_TRACKS, type AiTrack } from "@/lib/ai-tracks-data";
 
 export const TRACK_COMMIT_WINDOW_DAYS = 14;
 
@@ -31,7 +31,7 @@ export function formatTrackDate(date: Date): string {
 }
 
 export function getTrackById(trackId: string): AiTrack | undefined {
-  return AI_TRACKS.find((track) => track.id === trackId);
+  return [...AI_TRACKS, ...AI_PROJECT_SPRINTS].find((track) => track.id === trackId);
 }
 
 export type TrackCommitCalendar = {

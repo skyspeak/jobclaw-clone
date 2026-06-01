@@ -11,10 +11,6 @@ type IntakeProfileFieldsProps = {
   resumeFileName: string;
   onResumeFile: (event: ChangeEvent<HTMLInputElement>) => void;
   isReadingResume: boolean;
-  contactEmail: string;
-  onContactEmailChange: (value: string) => void;
-  contactPhone: string;
-  onContactPhoneChange: (value: string) => void;
   profileCompleteForGenerate: boolean;
   profileIncompleteHint: string;
 };
@@ -25,46 +21,11 @@ export function IntakeProfileFields({
   resumeFileName,
   onResumeFile,
   isReadingResume,
-  contactEmail,
-  onContactEmailChange,
-  contactPhone,
-  onContactPhoneChange,
   profileCompleteForGenerate,
   profileIncompleteHint,
 }: IntakeProfileFieldsProps) {
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-        <div className="space-y-2">
-          <Label htmlFor="intake-contact-email">Email</Label>
-          <Input
-            id="intake-contact-email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            placeholder="you@example.com"
-            className="h-11 rounded-xl"
-            data-testid="input-contact-email"
-            value={contactEmail}
-            onChange={(e) => onContactEmailChange(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="intake-contact-phone">Phone number</Label>
-          <Input
-            id="intake-contact-phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="(555) 123-4567"
-            className="h-11 rounded-xl"
-            data-testid="input-contact-phone"
-            value={contactPhone}
-            onChange={(e) => onContactPhoneChange(e.target.value)}
-          />
-        </div>
-      </div>
-
       <div className="space-y-2">
         <Label htmlFor="intake-linkedin-url">LinkedIn profile URL</Label>
         <Input
@@ -81,7 +42,7 @@ export function IntakeProfileFields({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="intake-resume-upload">Upload resume (text-based files)</Label>
+        <Label htmlFor="intake-resume-upload">Upload résumé (text-based files)</Label>
         <Input
           id="intake-resume-upload"
           type="file"

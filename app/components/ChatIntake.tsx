@@ -19,11 +19,13 @@ import {
 import {
   buildResumeSnapshot,
   hasMinimumProfileEvidence,
+  hasResumeOrLinkedInInput,
   INTAKE_WIZARD_STORAGE_KEY,
   type IntakeContactInfo,
   type IntakeProfileDraft,
   type IntakeWizardSession,
 } from "@/lib/intake-session";
+import type { ParsedProfileInsight } from "@/lib/profile-parse";
 import {
   prefsSchema,
   prefsValuesToSearchDefaults,
@@ -160,7 +162,7 @@ function readStoredSession(): IntakeWizardSession {
 }
 
 const PROFILE_GATE_HINT =
-  "Add at least one of: LinkedIn profile URL, an uploaded résumé (text-based file), email, or phone number before continuing.";
+  "Add your LinkedIn profile URL or upload a text-based résumé before continuing.";
 
 type ChatIntakeProps = {
   variant?: "wizard" | "chat";
@@ -194,6 +196,8 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   const [resumeText, setResumeText] = useState(storedSession.resumeText);
   const [resumeFileName, setResumeFileName] = useState(storedSession.resumeFileName);
   const [isReadingResume, setIsReadingResume] = useState(false);
+  const [isParsingProfile, setIsParsingProfile] = useState(false);
+  const [profileInsight, setProfileInsight] = useState<ParsedProfileInsight | null>(null);
   const [isGeneratingProfile, setIsGeneratingProfile] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
@@ -206,8 +210,8 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   const totalSteps = 7;
 
   const profileCompleteForGenerate = useMemo(
-    () => hasMinimumProfileEvidence(linkedInUrl, resumeText, contact.email, contact.phone),
-    [linkedInUrl, resumeText, contact.email, contact.phone],
+    () => hasMinimumProfileEvidence(linkedInUrl, resumeText),
+    [linkedInUrl, resumeText],
   );
 
   useEffect(() => {
@@ -259,6 +263,76 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     }
   }
 
+  function applyProfileInsight(insight: ParsedProfileInsight) {
+    const current = prefsForm.getValues();
+
+    if (current.seniority === "Any" || !current.seniority) {
+      prefsForm.setValue("seniority", insight.suggestedSeniority);
+    }
+    if (current.workMode === "Any" || !current.workMode) {
+      prefsForm.setValue("workMode", insight.suggestedWorkMode);
+    }
+    if (!current.location?.trim() && insight.suggestedLocation.trim()) {
+      prefsForm.setValue("location", insight.suggestedLocation);
+    }
+
+    const roleHint = insight.suggestedRoles.join(", ");
+    const notesPrefix = insight.suggestedRoles.length
+      ? `Example roles: ${roleHint}.`
+      : "";
+    const existingNotes = current.notes?.trim() ?? "";
+
+    if (notesPrefix && !existingNotes.toLowerCase().includes("example roles:")) {
+      prefsForm.setValue("notes", existingNotes ? `${existingNotes} ${notesPrefix}` : notesPrefix);
+    }
+
+    setDefaults((prev) => ({
+      ...prev,
+      ...prefsValuesToSearchDefaults(prefsForm.getValues()),
+    }));
+  }
+
+  async function parseProfileAndAdvance() {
+    if (!hasResumeOrLinkedInInput(linkedInUrl, resumeText, resumeFileName)) {
+      setError(PROFILE_GATE_HINT);
+      return;
+    }
+
+    setIsParsingProfile(true);
+    setError("");
+
+    try {
+      const nextAnswers = wizardRowsToIntakeAnswers(wizardAnswers);
+      const response = await fetch("/api/parse-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          linkedInUrl,
+          resumeText,
+          resumeFileName,
+          answers: nextAnswers,
+        }),
+      });
+
+      const payload = (await response.json()) as ParsedProfileInsight & { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to parse your profile.");
+      }
+
+      setProfileInsight(payload);
+      applyProfileInsight(payload);
+      setWizardStep(6);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Unable to parse your profile.";
+      setError(message);
+    } finally {
+      setIsParsingProfile(false);
+    }
+  }
+
   function handleNext() {
     if (wizardStep >= 6) {
       return;
@@ -282,10 +356,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     }
 
     if (wizardStep === 5) {
-      const prefs = prefsForm.getValues();
-      setDefaults({ ...defaults, ...prefsValuesToSearchDefaults(prefs) });
-      setWizardStep(6);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      void parseProfileAndAdvance();
     }
   }
 
@@ -343,7 +414,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   }
 
   async function handleGenerateBrief() {
-    if (!hasMinimumProfileEvidence(linkedInUrl, resumeText, contact.email, contact.phone)) {
+    if (!hasMinimumProfileEvidence(linkedInUrl, resumeText)) {
       return;
     }
 
@@ -371,7 +442,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
       resumeFileName,
     ),
   ) {
-    if (!hasMinimumProfileEvidence(linkedInUrl, resumeText, nextContact.email, nextContact.phone)) {
+    if (!hasMinimumProfileEvidence(linkedInUrl, resumeText)) {
       setError(PROFILE_GATE_HINT);
       return;
     }
@@ -563,21 +634,15 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
           resumeFileName={resumeFileName}
           onResumeFile={readResumeFile}
           isReadingResume={isReadingResume}
-          contactEmail={contact.email}
-          onContactEmailChange={(value) =>
-            setContact((current) => ({ ...current, email: value }))
-          }
-          contactPhone={contact.phone}
-          onContactPhoneChange={(value) =>
-            setContact((current) => ({ ...current, phone: value }))
-          }
           profileCompleteForGenerate={profileCompleteForGenerate}
           profileIncompleteHint={PROFILE_GATE_HINT}
+          profileInsight={profileInsight}
           wizardAnswers={wizardAnswers}
           onBack={handleBack}
           onNext={handleNext}
           onGenerate={() => void handleGenerateBrief()}
           isGenerating={isGenerating}
+          isParsingProfile={isParsingProfile}
         />
       ) : (
         <IntakeWizard
@@ -592,20 +657,14 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
           resumeFileName={resumeFileName}
           onResumeFile={readResumeFile}
           isReadingResume={isReadingResume}
-          contactEmail={contact.email}
-          onContactEmailChange={(value) =>
-            setContact((current) => ({ ...current, email: value }))
-          }
-          contactPhone={contact.phone}
-          onContactPhoneChange={(value) =>
-            setContact((current) => ({ ...current, phone: value }))
-          }
           profileCompleteForGenerate={profileCompleteForGenerate}
           profileIncompleteHint={PROFILE_GATE_HINT}
+          profileInsight={profileInsight}
           onBack={handleBack}
           onNext={handleNext}
           onGenerate={() => void handleGenerateBrief()}
           isGenerating={isGenerating}
+          isParsingProfile={isParsingProfile}
         />
       )}
     </div>

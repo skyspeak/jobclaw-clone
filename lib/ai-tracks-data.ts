@@ -18,8 +18,135 @@ export type AiTrack = {
   outcomes: string;
 };
 
+export type AiTracksGuideIntro = {
+  lead: string;
+  throughline: string;
+  structureIntro: string;
+  structureRows: ReadonlyArray<TrackTableRow>;
+  footnote: string;
+};
+
+export type AiTracksGuidePattern = {
+  title: string;
+  rows: ReadonlyArray<{ sector: string; build: string; proof: string }>;
+  closing: string;
+};
+
 export const AI_TRACKS_GUIDE_TITLE = "6 Two-Week Solo AI Tracks";
-export const AI_SPRINTS_GUIDE_TITLE = "6 Two-Week Solo AI Sprints";
+export const AI_SPRINTS_GUIDE_TITLE = "2 Two-Week Solo AI Sprints";
+
+export const AI_PROJECT_SPRINTS_INTRO = {
+  lead: `Two AI-first roles, each with a two-week solo build that produces the evidence hiring managers actually screen for: not "I used Claude," but "here is a working thing I built that changed how real go-to-market or customer-facing work gets done." Ship the artifact, write the runbook, leave the playbook behind.`,
+  throughline: `The throughline across both: build alongside the work, not above it. AI Marketers prove they can turn messy market signal into validated narratives and campaigns. Forward Deployed Engineers prove they can ship pipelines, agents, and evals that run in production—not localhost demos.`,
+  structureIntro: `How each sprint is structured:`,
+  structureRows: [
+    { name: "The bet", description: "One-sentence framing of the workflow being transformed" },
+    { name: "Week 1 / Week 2", description: "Narrative arc of the build — what gets made, in what order" },
+    { name: "Deliverables", description: "The artifacts that exist at the end" },
+    { name: "Tool stack", description: "What you'll have used in anger, not just clicked through" },
+    { name: "Outcomes", description: "The proof-of-work claim you can make on a resume or in an interview" },
+  ],
+  footnote: `A "sprint" here means a focused two-week solo build, not a Scrum ceremony. Nights and weekends count.`,
+} as const;
+
+export const AI_PROJECT_SPRINTS_PATTERN = {
+  title: "The pattern across both roles",
+  rows: [
+    {
+      sector: "AI Marketer",
+      build: "GTM narrative engine — intel digest, positioning, deck, validated copy",
+      proof: "Skepticism ledger + feedback from five real readers",
+    },
+    {
+      sector: "Forward Deployed Engineer",
+      build: "Deployed AI workflow — RAG, extraction, or automation with evals",
+      proof: "Live URL, eval table, runbook a non-technical friend can rerun",
+    },
+  ],
+  closing: `Every sprint ends with two artifacts: the thing itself (running, viewable, ideally public) and the document that proves you understood what you built (runbook, audit, validation log, or reader feedback). That's the shape of evidence top AI-forward roles look for—scaled to a portfolio piece a new grad can credibly produce in two weeks.`,
+} as const;
+
+export const AI_PROJECT_SPRINTS: AiTrack[] = [
+  {
+    id: "ai-marketer",
+    number: 1,
+    title: "AI Marketer",
+    subtitle: "Turn market signal into campaigns people trust",
+    bet: `Growth and strategy teams spend weeks rebuilding the same competitive scan, persona doc, and deck from scratch. You'll compress that into a repeatable AI-augmented GTM engine—with a skepticism ledger that shows what you validated yourself.`,
+    week1: `Pick a real category or mission you care about—e.g., a mid-market SaaS vertical, a regional F&B loyalty play, or a nonprofit coalition you follow. Run an AI-assisted competitive scan and market-sizing pass (Claude + Perplexity), triangulating two or three public signal sources. Draft personas, objections, and proof-point ladders; annotate every hallucination-risk line. Wire a lightweight monitor—transcript diffs, regulatory RSS, or sector news—that lands a daily digest in your inbox or Slack.`,
+    week2: `Ship the outward-facing artifacts: an eight-slide executive deck, a one-page positioning memo with KPIs tied to your narrative, and a first-draft sector update or newsletter issue generated from your intel pipeline. Record a three-minute Loom where you walk through what AI drafted versus what you rewrote after validation. Send the memo or deck to five real people in the field; capture their critiques and iterate once. Bonus: time how long a non-technical friend needs to rerun your research playbook.`,
+    deliverables: [
+      {
+        name: "Positioning memo + talking points",
+        description: "Promise, pillars, and QA'd copy synced to your target keywords—every bold claim footnoted",
+      },
+      {
+        name: "Eight-slide GTM deck",
+        description: "Executive-style output that looks like consulting or in-house strategy, not a student portfolio",
+      },
+      {
+        name: "Running intel digest",
+        description: "Daily or weekly competitive/regulatory/news summary with tagged risk areas and source links",
+      },
+      {
+        name: "Evidence-backed landscape memo",
+        description: "4–5 pages synthesizing your beat, with annotated bibliography and prompting log",
+      },
+      {
+        name: "Reader feedback notes",
+        description: "Five practitioners, their critiques, and what you changed after the first pass",
+      },
+    ],
+    tools: [
+      { name: "Claude + Perplexity", description: "Research sweeps, persona drafts, memo generation—with you as editor-in-chief" },
+      { name: "Gamma or Tome", description: "Deck production in hours, not days" },
+      { name: "Make or Zapier", description: "No-code routing from scrapers to Slack, email, or Sheets" },
+      { name: "Federal Register / news RSS / yfinance", description: "Programmatic signal for sector or policy beats" },
+      { name: "Streamlit or Google Sheets", description: "Lightweight dashboard to QA comp tables or digest output" },
+    ],
+    outcomes: `Built an AI-augmented go-to-market engine—competitive intel, positioning, stakeholder-ready content, and a validation ledger showing what I fact-checked vs. what the model inferred. Five practitioners read my output and gave notes I acted on.`,
+  },
+  {
+    id: "forward-deployed-engineer",
+    number: 2,
+    title: "Forward Deployed Engineer",
+    subtitle: "Ship the workflow at the customer boundary—with evals to prove it",
+    bet: `Most candidates talk about AI features. FDE and solutions-engineering roles want someone who deployed a pipeline, measured it, and left a runbook behind. You'll build one end-to-end system—RAG, extraction, or automation—and prove it works on numbers, not vibes.`,
+    week1: `Pick a bounded problem with real public data: classifying support tickets, pulling structured fields from SEC filings or clinical notes, or retrieval over a 150–300 paper corpus (Semantic Scholar / PubMed). Build the core loop—ingest, chunk/embed or extract schema, expose via API or Streamlit. Hand-label 50–100 evaluation examples before iterating on prompts, and hold them out. If your domain fits monitoring (regulatory filings, earnings transcripts), wire a daily cron so the system runs without you.`,
+    week2: `Deploy publicly on Vercel or Replit—not localhost. Add logging for inputs, outputs, and failures. Run two or three prompt variants through Promptfoo or Braintrust and publish a results table. Audit the output: precision/recall on extraction fields, or hand-check three RAG summaries for hallucination and citation accuracy. Write a Markdown runbook so a peer (or a non-technical friend) can rerun the pipeline next cycle. Push to GitHub with a README explaining eval methodology and what changed between v1 and v2.`,
+    deliverables: [
+      {
+        name: "Shipped AI workflow",
+        description: "Live URL—RAG interface, extraction pipeline, or automation agent someone else can click through",
+      },
+      {
+        name: "Eval set (50–100 examples)",
+        description: "Labeled holdout set, kept separate from prompt iteration",
+      },
+      {
+        name: "Results + validation table",
+        description: "Quality scores across prompt versions, or precision/recall/F1 per extracted field",
+      },
+      {
+        name: "Runbook / leave-behind playbook",
+        description: "Step-by-step doc a non-technical person can follow to rerun the system",
+      },
+      {
+        name: "Methods or bias audit note",
+        description: "2–3 pages on hallucination checks, failure modes, and what you'd monitor in production",
+      },
+    ],
+    tools: [
+      { name: "Claude API", description: "Production wiring—extraction, RAG synthesis, agent loops—not playground prompts" },
+      { name: "Promptfoo or Braintrust", description: "Eval harness with version-tracked runs" },
+      { name: "LlamaIndex + Chroma (or SQLite)", description: "Chunking, embedding, retrieval for domain RAG builds" },
+      { name: "SEC EDGAR / PubMed / Federal Register APIs", description: "Real corpora for finance, research, or policy pipelines" },
+      { name: "Vercel / Replit + Python cron", description: "Actually deployed, with scheduled runs where the use case needs them" },
+      { name: "GitHub", description: "Public repo, logging layer, and eval artifacts recruiters can inspect" },
+    ],
+    outcomes: `Deployed an AI workflow end-to-end with labeled evals, a public runbook, and an accuracy audit on a held-out set. I can talk model behavior in numbers—precision, recall, or eval scores—not adjectives.`,
+  },
+];
 
 export const AI_TRACKS_GUIDE_INTRO = {
   lead: `One track per AI-first role. Each is designed to produce the kind of evidence serious AI-forward roles screen for: not "I used Claude," but "here is a working thing I built that changed how real work gets done." Ship the artifact, write the runbook, leave the playbook behind.`,
