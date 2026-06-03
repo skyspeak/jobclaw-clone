@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { buildTrackCommitCalendarUrl, getTrackById, isValidPhone } from "@/lib/ai-tracks-commit";
+import {
+  buildTrackCommitCalendarUrl,
+  getTrackById,
+  isValidEmail,
+  isValidPhone,
+} from "@/lib/ai-tracks-commit";
 import { createTrackCommit, trackCommitRequestSchema } from "@/lib/track-commits";
 
 export async function POST(request: Request) {
@@ -22,6 +27,10 @@ export async function POST(request: Request) {
 
   if (!track || track.title !== parsed.data.trackTitle) {
     return NextResponse.json({ error: "Unknown track." }, { status: 400 });
+  }
+
+  if (!isValidEmail(parsed.data.email)) {
+    return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   }
 
   if (!isValidPhone(parsed.data.phone)) {

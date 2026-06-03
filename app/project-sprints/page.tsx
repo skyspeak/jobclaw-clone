@@ -38,28 +38,38 @@ export default function ProjectSprintsHubPage() {
           <p className="mt-3 max-w-2xl text-[1.05rem] leading-relaxed text-muted-foreground">
             {AI_PROJECT_SPRINTS_INTRO.throughline}
           </p>
+          <div className="mt-8">
+            <Button asChild className="cta-glow rounded-2xl">
+              <Link href="/pairing">Find your sprint cohort →</Link>
+            </Button>
+          </div>
         </header>
 
         <section className="grid gap-4 sm:grid-cols-2">
           {AI_PROJECT_SPRINTS.map((sprint) => {
             const slug = sprint.slug as ProjectSprintSlug;
             return (
-              <Link
+              <div
                 key={sprint.id}
-                href={projectSprintPath(slug)}
                 className="group rounded-3xl border border-border/70 bg-card p-6 shadow-sm transition hover:border-primary/40 hover:shadow-md sm:p-8"
               >
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Sprint {sprint.number}
-                </p>
-                <h2 className="mt-2 text-xl font-bold tracking-tight text-foreground group-hover:text-primary">
-                  {sprint.title}
-                </h2>
-                <p className="mt-2 text-sm italic text-muted-foreground">{sprint.subtitle}</p>
-                <p className="mt-4 text-sm font-medium text-primary">
-                  View sprint →
-                </p>
-              </Link>
+                <Link href={projectSprintPath(slug)} className="block">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Sprint {sprint.number}
+                  </p>
+                  <h2 className="mt-2 text-xl font-bold tracking-tight text-foreground group-hover:text-primary">
+                    {sprint.title}
+                  </h2>
+                  <p className="mt-2 text-sm italic text-muted-foreground">{sprint.subtitle}</p>
+                  <p className="mt-4 text-sm font-medium text-primary">View sprint →</p>
+                </Link>
+                <Link
+                  href={`/pairing?track=${slug}`}
+                  className="mt-3 inline-block text-sm font-medium text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+                >
+                  Find cohort →
+                </Link>
+              </div>
             );
           })}
         </section>

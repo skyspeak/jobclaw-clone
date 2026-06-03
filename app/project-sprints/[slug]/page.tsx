@@ -47,6 +47,9 @@ export default async function ProjectSprintPage({ params }: SprintPageProps) {
           <Button variant="ghost" asChild className="rounded-2xl">
             <Link href="/">Home</Link>
           </Button>
+          <Button variant="outline" asChild className="rounded-2xl">
+            <Link href={`/pairing?track=${slug}`}>Find cohort</Link>
+          </Button>
         </div>
       </div>
       <AiTracksGuide

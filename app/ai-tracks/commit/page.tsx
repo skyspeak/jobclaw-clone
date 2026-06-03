@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Commit to your AI track — dear[CC]",
-  description: "Confirm your two-week AI track commitment and add it to your calendar.",
+  description: "Confirm your two-week AI track commitment.",
 };
 
 type CommitPageProps = {
@@ -52,8 +52,7 @@ export default function AiTrackCommitPage({ searchParams }: CommitPageProps) {
             Lock in your two weeks
           </h1>
           <p className="max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-            You said you want to commit. Share a phone number, then add the track to Google Calendar—your finish line
-            is two weeks from today.
+            You said you want to commit. Share your email and phone so we can follow up on your two-week sprint.
           </p>
         </header>
 

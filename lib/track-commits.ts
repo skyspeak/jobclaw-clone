@@ -9,6 +9,7 @@ const isHostedRuntime = Boolean(process.env.VERCEL);
 export const trackCommitRequestSchema = z.object({
   trackId: z.string().min(1),
   trackTitle: z.string().min(1),
+  email: z.string().email().max(200),
   phone: z.string().min(1).max(40),
 });
 
@@ -17,6 +18,7 @@ export type TrackCommitRecord = {
   createdAt: string;
   trackId: string;
   trackTitle: string;
+  email: string;
   phone: string;
   finishDate: string;
 };
@@ -44,6 +46,7 @@ export async function createTrackCommit(
     createdAt: new Date().toISOString(),
     trackId: input.trackId,
     trackTitle: input.trackTitle,
+    email: input.email.trim().toLowerCase(),
     phone: input.phone.trim(),
     finishDate: input.finishDate,
   };

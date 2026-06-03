@@ -95,3 +95,11 @@ export function isValidPhone(phone: string): boolean {
   const digits = phone.replace(/\D/g, "");
   return digits.length >= 10 && digits.length <= 15;
 }
+
+export function isValidEmail(email: string): boolean {
+  const trimmed = email.trim();
+  if (!trimmed || trimmed.length > 200) {
+    return false;
+  }
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+}
