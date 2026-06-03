@@ -15,7 +15,7 @@ export async function GET(request: Request) {
       ...(download
         ? {
             "Content-Disposition":
-              'attachment; filename="jobclaw-six-two-week-ai-tracks.html"',
+              'attachment; filename="dearcc-six-two-week-ai-tracks.html"',
           }
         : {}),
     },

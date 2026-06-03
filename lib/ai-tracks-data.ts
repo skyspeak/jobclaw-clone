@@ -1,16 +1,20 @@
 /**
  * Content derived from "6 AI Sprints - Two Week Solo Builds.md" in the repo root.
- * Presented in-product as AI tracks: two-week solo builds with artifact + proof doc.
+ * Presented in-product as AI tracks: two-week builds with artifact + proof doc.
  */
 
 export type TrackTableRow = { name: string; description: string };
 
 export type AiTrack = {
   id: string;
+  /** URL segment under `/project-sprints/` when this is a project sprint track. */
+  slug?: string;
   number: number;
   title: string;
   subtitle: string;
   bet: string;
+  /** Second paragraph under the bet—concrete work for project sprints. */
+  whatYouDo?: string;
   week1: string;
   week2: string;
   deliverables: TrackTableRow[];
@@ -32,119 +36,222 @@ export type AiTracksGuidePattern = {
   closing: string;
 };
 
-export const AI_TRACKS_GUIDE_TITLE = "6 Two-Week Solo AI Tracks";
-export const AI_SPRINTS_GUIDE_TITLE = "2 Two-Week Solo AI Sprints";
+export const AI_TRACKS_GUIDE_TITLE = "6 Two-Week AI Tracks";
+export const AI_SPRINTS_GUIDE_TITLE = "3 Two-Week Project Sprints";
+
+export const PROJECT_SPRINT_SLUGS = [
+  "sales",
+  "marketing",
+  "forward-deployed-engineer",
+] as const;
+
+export type ProjectSprintSlug = (typeof PROJECT_SPRINT_SLUGS)[number];
+
+export function projectSprintPath(slug: ProjectSprintSlug): string {
+  return `/project-sprints/${slug}`;
+}
+
+export function getProjectSprintBySlug(slug: string): AiTrack | undefined {
+  return AI_PROJECT_SPRINTS.find((track) => track.slug === slug || track.id === slug);
+}
+
+export function projectSprintPathForRoleId(roleId: string): string {
+  switch (roleId) {
+    case "sales":
+      return projectSprintPath("sales");
+    case "marketing":
+      return projectSprintPath("marketing");
+    case "fde":
+      return projectSprintPath("forward-deployed-engineer");
+    case "swe":
+      return "/project-sprints";
+    default:
+      return "/project-sprints";
+  }
+}
 
 export const AI_PROJECT_SPRINTS_INTRO = {
-  lead: `Two AI-first roles, each with a two-week solo build that produces the evidence hiring managers actually screen for: not "I used Claude," but "here is a working thing I built that changed how real go-to-market or customer-facing work gets done." Ship the artifact, write the runbook, leave the playbook behind.`,
-  throughline: `The throughline across both: build alongside the work, not above it. AI Marketers prove they can turn messy market signal into validated narratives and campaigns. Forward Deployed Engineers prove they can ship pipelines, agents, and evals that run in production—not localhost demos.`,
+  lead: `Three two-week sprints—pick the one that matches your target role.`,
+  throughline: `Each sprint ends with something real you can share: a link, a deck, or a pipeline log.`,
   structureIntro: `How each sprint is structured:`,
   structureRows: [
     { name: "The bet", description: "One-sentence framing of the workflow being transformed" },
-    { name: "Week 1 / Week 2", description: "Narrative arc of the build — what gets made, in what order" },
     { name: "Deliverables", description: "The artifacts that exist at the end" },
     { name: "Tool stack", description: "What you'll have used in anger, not just clicked through" },
     { name: "Outcomes", description: "The proof-of-work claim you can make on a resume or in an interview" },
   ],
-  footnote: `A "sprint" here means a focused two-week solo build, not a Scrum ceremony. Nights and weekends count.`,
+  footnote: `A "sprint" here means a focused two-week build, not a Scrum ceremony. Nights and weekends count.`,
 } as const;
 
 export const AI_PROJECT_SPRINTS_PATTERN = {
-  title: "The pattern across both roles",
+  title: "The pattern across all three roles",
   rows: [
     {
-      sector: "AI Marketer",
-      build: "GTM narrative engine — intel digest, positioning, deck, validated copy",
-      proof: "Skepticism ledger + feedback from five real readers",
+      sector: "Sales",
+      build: "50-prospect CRM, 3 outreach sequences, discovery calls booked",
+      proof: "LinkedIn metrics post + Notion/Loom deal room",
+    },
+    {
+      sector: "Marketing",
+      build: "Live multi-channel campaign with landing page and content pipeline",
+      proof: "Metrics dashboard + public campaign retrospective",
     },
     {
       sector: "Forward Deployed Engineer",
-      build: "Deployed AI workflow — RAG, extraction, or automation with evals",
-      proof: "Live URL, eval table, runbook a non-technical friend can rerun",
+      build: "Customer-scoped POC on a live URL with architecture docs",
+      proof: "Public GitHub repo + ≤10 min technical Loom demo",
     },
   ],
-  closing: `Every sprint ends with two artifacts: the thing itself (running, viewable, ideally public) and the document that proves you understood what you built (runbook, audit, validation log, or reader feedback). That's the shape of evidence top AI-forward roles look for—scaled to a portfolio piece a new grad can credibly produce in two weeks.`,
+  closing: `Every sprint ends with two artifacts: the thing itself (running, viewable, ideally public) and the document that proves you understood what you built. That's the shape of evidence top roles look for—scaled to a portfolio piece a new grad can credibly produce in two weeks.`,
 } as const;
 
 export const AI_PROJECT_SPRINTS: AiTrack[] = [
   {
-    id: "ai-marketer",
+    id: "sales",
+    slug: "sales",
     number: 1,
-    title: "AI Marketer",
-    subtitle: "Turn market signal into campaigns people trust",
-    bet: `Growth and strategy teams spend weeks rebuilding the same competitive scan, persona doc, and deck from scratch. You'll compress that into a repeatable AI-augmented GTM engine—with a skepticism ledger that shows what you validated yourself.`,
-    week1: `Pick a real category or mission you care about—e.g., a mid-market SaaS vertical, a regional F&B loyalty play, or a nonprofit coalition you follow. Run an AI-assisted competitive scan and market-sizing pass (Claude + Perplexity), triangulating two or three public signal sources. Draft personas, objections, and proof-point ladders; annotate every hallucination-risk line. Wire a lightweight monitor—transcript diffs, regulatory RSS, or sector news—that lands a daily digest in your inbox or Slack.`,
-    week2: `Ship the outward-facing artifacts: an eight-slide executive deck, a one-page positioning memo with KPIs tied to your narrative, and a first-draft sector update or newsletter issue generated from your intel pipeline. Record a three-minute Loom where you walk through what AI drafted versus what you rewrote after validation. Send the memo or deck to five real people in the field; capture their critiques and iterate once. Bonus: time how long a non-technical friend needs to rerun your research playbook.`,
+    title: "Sales",
+    subtitle: "Go from zero to a verifiable sales outcome with the AI-native stack pros actually use",
+    bet: `In 14 days you will find 50 real prospects, run personalized AI-powered outreach, and book at least 3 discovery calls—or show documented proof of every rep you ran. No fake data. No hypotheticals.`,
+    whatYouDo: `Week 1: pick a vertical and write your ICP, load 50 enriched contacts into HubSpot, build cold email + LinkedIn + call scripts (scored in Lavender), and automate Clay → HubSpot → Instantly. Week 2: launch sequences, run 20+ cold calls, book meetings, build a Notion deal room with a Loom walkthrough, and post your metrics on LinkedIn.`,
+    week1: "",
+    week2: "",
     deliverables: [
       {
-        name: "Positioning memo + talking points",
-        description: "Promise, pillars, and QA'd copy synced to your target keywords—every bold claim footnoted",
+        name: "50 qualified prospects in CRM",
+        description: "ICP-matched contacts with verified email, LinkedIn URL, and trigger event",
       },
       {
-        name: "Eight-slide GTM deck",
-        description: "Executive-style output that looks like consulting or in-house strategy, not a student portfolio",
+        name: "3 live outreach sequences",
+        description: "Cold email (5 steps × 3 variants), LinkedIn cadence, and cold call script with objection tree",
       },
       {
-        name: "Running intel digest",
-        description: "Daily or weekly competitive/regulatory/news summary with tagged risk areas and source links",
+        name: "Discovery calls or send log",
+        description: "≥3 discovery calls booked, or 150+ emails sent with open/reply rates tracked in HubSpot",
       },
       {
-        name: "Evidence-backed landscape memo",
-        description: "4–5 pages synthesizing your beat, with annotated bibliography and prompting log",
+        name: "Notion deal room + Loom",
+        description: "Pipeline view, process doc, and 5-minute walkthrough of your full motion",
       },
       {
-        name: "Reader feedback notes",
-        description: "Five practitioners, their critiques, and what you changed after the first pass",
+        name: "Public LinkedIn post",
+        description: "Day 14 post with screenshots, metrics, and what you'd do differently",
       },
     ],
     tools: [
-      { name: "Claude + Perplexity", description: "Research sweeps, persona drafts, memo generation—with you as editor-in-chief" },
-      { name: "Gamma or Tome", description: "Deck production in hours, not days" },
-      { name: "Make or Zapier", description: "No-code routing from scrapers to Slack, email, or Sheets" },
-      { name: "Federal Register / news RSS / yfinance", description: "Programmatic signal for sector or policy beats" },
-      { name: "Streamlit or Google Sheets", description: "Lightweight dashboard to QA comp tables or digest output" },
+      { name: "Claude", description: "ICP research, email copy, objection handling, call debrief" },
+      { name: "Perplexity", description: "Market research and real-time signal discovery" },
+      { name: "Clay", description: "AI enrichment, waterfall data, personalization at scale" },
+      { name: "Lavender AI", description: "Email coaching, reply prediction, A/B scoring (target ≥90)" },
+      { name: "Instantly.ai", description: "Cold email sequencing, inbox rotation, deliverability" },
+      { name: "HubSpot Free", description: "Pipeline, deal tracking, email logging" },
+      { name: "Apollo.io", description: "Contact discovery and email verification" },
+      { name: "Otter.ai", description: "Call recording, transcription, AI summaries" },
+      { name: "Gong", description: "AI call analysis—talk ratio, keyword moments (free trial)" },
+      { name: "Notion AI", description: "Deal room, process docs, sprint retrospective" },
+      { name: "Reclaim.ai", description: "AI calendar blocking for deep work and call time" },
+      { name: "Loom", description: "Async deal room walkthroughs and follow-up videos" },
+      { name: "Make / Zapier", description: "Clay → HubSpot → Instantly workflow automation" },
     ],
-    outcomes: `Built an AI-augmented go-to-market engine—competitive intel, positioning, stakeholder-ready content, and a validation ledger showing what I fact-checked vs. what the model inferred. Five practitioners read my output and gave notes I acted on.`,
+    outcomes: `By Day 14: publish your LinkedIn post with real open/reply rates, link your Notion deal room and Loom, and be ready to walk an interviewer through your ICP, top sequence, and either 3 booked calls or your full HubSpot activity log.`,
+  },
+  {
+    id: "marketing",
+    slug: "marketing",
+    number: 2,
+    title: "Marketing",
+    subtitle: "Go from zero to a live, measurable campaign with the AI-native stack marketers ship with",
+    bet: `In 14 days you will define a target audience, build a multi-channel campaign, publish it, and report real performance metrics. No decks without distribution. No content that never ships.`,
+    whatYouDo: `Week 1: audience + positioning doc, competitive swipe file, 14-day content calendar with Claude prompt templates, documented brief → draft → publish pipeline, and a live landing page or lead magnet. Week 2: publish 10+ pieces, distribute beyond your own channels, launch a 3-email nurture sequence, build a metrics dashboard, and post your campaign retrospective on LinkedIn.`,
+    week1: "",
+    week2: "",
+    deliverables: [
+      {
+        name: "Audience + positioning doc",
+        description: "ICP, 3 messaging pillars, tone of voice, and how you differ from 2–3 competitors",
+      },
+      {
+        name: "≥10 published content pieces",
+        description: "Posts, email, and short-form video or carousel—through a repeatable AI-assisted pipeline",
+      },
+      {
+        name: "Live landing page or lead magnet",
+        description: "Published URL with opt-in, tracking pixel, and at least one real opt-in",
+      },
+      {
+        name: "Campaign metrics dashboard",
+        description: "Reach, engagement, clicks, email opens, opt-ins—plus best/worst piece and why",
+      },
+      {
+        name: "Public LinkedIn retrospective",
+        description: "What shipped, real numbers, top lessons, links to your best piece and landing page",
+      },
+    ],
+    tools: [
+      { name: "Claude", description: "Strategy, content drafts, email copy, retrospective writing" },
+      { name: "Perplexity", description: "Audience research, competitor content, trend discovery" },
+      { name: "Notion AI", description: "Content calendar, swipe file, briefs, metrics dashboard" },
+      { name: "Canva AI", description: "Social graphics, carousels, landing page visuals" },
+      { name: "Framer AI", description: "AI-generated landing pages—live in under an hour" },
+      { name: "Buffer", description: "Multi-channel post scheduling and basic analytics" },
+      { name: "Taplio", description: "LinkedIn scheduling, engagement analytics, hooks" },
+      { name: "Beehiiv / ConvertKit", description: "Newsletter, nurture sequences, opt-in forms, A/B tests" },
+      { name: "Lavender AI", description: "Email copy scoring and reply rate optimization" },
+      { name: "Descript", description: "AI-assisted video editing, transcription, captions" },
+      { name: "CapCut", description: "Short-form video for Reels, TikTok, Shorts" },
+      { name: "SparkToro", description: "Where your audience actually spends time online" },
+      { name: "Make / Zapier", description: "Brief → draft → publish workflow automation" },
+    ],
+    outcomes: `By Day 14: link your live landing page and best-performing post, screenshot your metrics dashboard, publish the LinkedIn retrospective with real impressions/clicks/opt-ins, and explain one winner and one flop in an interview.`,
   },
   {
     id: "forward-deployed-engineer",
-    number: 2,
+    slug: "forward-deployed-engineer",
+    number: 3,
     title: "Forward Deployed Engineer",
-    subtitle: "Ship the workflow at the customer boundary—with evals to prove it",
-    bet: `Most candidates talk about AI features. FDE and solutions-engineering roles want someone who deployed a pipeline, measured it, and left a runbook behind. You'll build one end-to-end system—RAG, extraction, or automation—and prove it works on numbers, not vibes.`,
-    week1: `Pick a bounded problem with real public data: classifying support tickets, pulling structured fields from SEC filings or clinical notes, or retrieval over a 150–300 paper corpus (Semantic Scholar / PubMed). Build the core loop—ingest, chunk/embed or extract schema, expose via API or Streamlit. Hand-label 50–100 evaluation examples before iterating on prompts, and hold them out. If your domain fits monitoring (regulatory filings, earnings transcripts), wire a daily cron so the system runs without you.`,
-    week2: `Deploy publicly on Vercel or Replit—not localhost. Add logging for inputs, outputs, and failures. Run two or three prompt variants through Promptfoo or Braintrust and publish a results table. Audit the output: precision/recall on extraction fields, or hand-check three RAG summaries for hallucination and citation accuracy. Write a Markdown runbook so a peer (or a non-technical friend) can rerun the pipeline next cycle. Push to GitHub with a README explaining eval methodology and what changed between v1 and v2.`,
+    subtitle: "Go from zero to a customer-facing technical asset with the AI-native stack FDEs use in the field",
+    bet: `In 14 days you will scope a real customer problem, build a working proof-of-concept, and deliver a recorded walkthrough a customer could watch today and say "I want that." No toy examples. No slides without code.`,
+    whatYouDo: `Week 1: customer archetype doc, simulated technical discovery, architecture diagram + ADR, GitHub scaffold, and core integration with real data flowing through. Week 2: deploy a shareable POC, adversarial test and fix top bugs, record a ≤10 min Loom demo, write post-mortem + ADR v2, and publish repo + LinkedIn by Day 14.`,
+    week1: "",
+    week2: "",
     deliverables: [
       {
-        name: "Shipped AI workflow",
-        description: "Live URL—RAG interface, extraction pipeline, or automation agent someone else can click through",
+        name: "PRD-lite + problem statement",
+        description: "Customer archetype, current vs. desired state, constraints, and success criteria",
       },
       {
-        name: "Eval set (50–100 examples)",
-        description: "Labeled holdout set, kept separate from prompt iteration",
+        name: "Live POC + public GitHub repo",
+        description: "Integration, demo env, or automation on a shareable URL—documented and deployable",
       },
       {
-        name: "Results + validation table",
-        description: "Quality scores across prompt versions, or precision/recall/F1 per extracted field",
+        name: "Technical demo (Loom ≤10 min)",
+        description: "Problem framing, architecture overview, live walkthrough, one wow moment",
       },
       {
-        name: "Runbook / leave-behind playbook",
-        description: "Step-by-step doc a non-technical person can follow to rerun the system",
+        name: "Post-mortem + ADR v2",
+        description: "What broke, architecture tradeoffs, and what you'd rebuild differently",
       },
       {
-        name: "Methods or bias audit note",
-        description: "2–3 pages on hallucination checks, failure modes, and what you'd monitor in production",
+        name: "Public LinkedIn post",
+        description: "What you built, why it matters, links to repo and Loom",
       },
     ],
     tools: [
-      { name: "Claude API", description: "Production wiring—extraction, RAG synthesis, agent loops—not playground prompts" },
-      { name: "Promptfoo or Braintrust", description: "Eval harness with version-tracked runs" },
-      { name: "LlamaIndex + Chroma (or SQLite)", description: "Chunking, embedding, retrieval for domain RAG builds" },
-      { name: "SEC EDGAR / PubMed / Federal Register APIs", description: "Real corpora for finance, research, or policy pipelines" },
-      { name: "Vercel / Replit + Python cron", description: "Actually deployed, with scheduled runs where the use case needs them" },
-      { name: "GitHub", description: "Public repo, logging layer, and eval artifacts recruiters can inspect" },
+      { name: "Claude", description: "Architecture design, code review, doc writing, post-mortem" },
+      { name: "Cursor", description: "Primary IDE—autocomplete, inline edits, chat-driven coding" },
+      { name: "GitHub Copilot", description: "In-editor completions, test generation, scaffolding" },
+      { name: "Perplexity", description: "Market context, API docs, tech landscape" },
+      { name: "Notion AI", description: "PRD-lite, ADR, post-mortem, demo script" },
+      { name: "Loom", description: "Technical demo recording and async customer walkthroughs" },
+      { name: "Descript", description: "Trim, caption, and clean up demo recordings" },
+      { name: "Otter.ai", description: "Discovery interview simulation and meeting notes" },
+      { name: "Excalidraw", description: "Architecture sketches, flow diagrams" },
+      { name: "Postman", description: "Test integrations, inspect payloads, mock servers" },
+      { name: "ngrok", description: "Expose local dev to external webhooks during testing" },
+      { name: "Sentry (free)", description: "Log runtime errors and trace failures in deployed POC" },
+      { name: "Vercel / Railway", description: "Ship POC to a live URL in minutes" },
     ],
-    outcomes: `Deployed an AI workflow end-to-end with labeled evals, a public runbook, and an accuracy audit on a held-out set. I can talk model behavior in numbers—precision, recall, or eval scores—not adjectives.`,
+    outcomes: `By Day 14: push final code to a public GitHub repo, publish your Loom demo and LinkedIn post, and practice the narrative arc—problem → friction → solution → wow moment → what's next—in a mock customer or interview setting.`,
   },
 ];
 
@@ -159,7 +266,7 @@ export const AI_TRACKS_GUIDE_INTRO = {
     { name: "Tool stack", description: "What you'll have used in anger, not just clicked through" },
     { name: "Outcomes", description: "The proof-of-work claim you can make on a resume or in an interview" },
   ],
-  footnote: `A "track" here means a focused two-week solo build, not a Scrum ceremony. Nights and weekends count.`,
+  footnote: `A "track" here means a focused two-week build, not a Scrum ceremony. Nights and weekends count.`,
 } as const;
 
 export const AI_TRACKS: AiTrack[] = [

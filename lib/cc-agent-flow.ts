@@ -1,5 +1,5 @@
 /**
- * dear[CC] intake flow: triage → vetting → nurture track → proof-of-work path.
+ * dear[CC] intake flow: triage → vetting → project sprint.
  * @see Product spec: dear[CC] — Land Your First Job
  */
 
@@ -16,19 +16,21 @@ export type NurtureTrackId =
   | "quiz-to-track";
 
 export type CcAgentStepId =
-  | "hook"
   | "target-job-url"
+  | "profile-upload"
   | "resume"
   | "linkedin"
   | "quiz"
   | "role-suggestions"
   | "vetting-result"
-  | "nurture-track"
   | "search-filters";
+
+export const DREAM_JOB_SKIP_CHIP = "I don't have a dream job yet";
+export const PROFILE_SKIP_CHIP = "I don't have a LinkedIn or résumé yet";
+export const QUIZ_PATH_INTRO = "Let's figure out some good options for you";
 
 export type VettingResult = {
   vetted: boolean;
-  usWorkEligible: boolean;
   quantitativeSignal: boolean;
   roleVetted: boolean;
   profileStrength: "strong" | "gap";
@@ -40,9 +42,9 @@ export type VettingResult = {
 
 export type CcAgentFlowState = {
   knowsTargetJob: boolean | null;
+  skippedProfileUpload: boolean;
   targetJobUrl: string;
   selectedRoleId: string;
-  usWorkEligible: boolean;
   flowStep: CcAgentStepId;
   quizIndex: number;
   vettingResult: VettingResult | null;
@@ -65,21 +67,21 @@ export const NURTURE_TRACK_COPY: Record<
     description:
       "You’re vetted with a strong profile match. Next: a 4-week team sprint with peers, a mentor, and a public proof-of-work artifact.",
     ctaHref: "/project-sprints",
-    ctaLabel: "View project sprints",
+    ctaLabel: "View your sprint",
   },
   "skill-up-team": {
     title: "Skill-up + team project",
     description:
       "You have a vetted target role but a profile gap. CC-curated skill-up content, then a team project and re-evaluation for mentorship.",
     ctaHref: "/project-sprints",
-    ctaLabel: "View project sprints",
+    ctaLabel: "View your sprint",
   },
   "self-serve-long-tail": {
-    title: "Self-serve gap plan",
+    title: "Your next steps",
     description:
-      "Your target sits outside our MVP vetted roles (Sales, Marketing, FDE, SWE). You’ll get a Claude-driven gap diff and resource list; community is optional.",
+      "We'll help you close the gap between your target role and your profile with a focused plan and resources.",
     ctaHref: "/intake/brief",
-    ctaLabel: "Continue to your brief",
+    ctaLabel: "View your brief",
   },
   "quiz-to-track": {
     title: "Role discovery → track",
@@ -93,62 +95,50 @@ export const NURTURE_TRACK_COPY: Record<
 export function defaultCcAgentFlowState(): CcAgentFlowState {
   return {
     knowsTargetJob: null,
+    skippedProfileUpload: false,
     targetJobUrl: "",
     selectedRoleId: "",
-    usWorkEligible: false,
-    flowStep: "hook",
+    flowStep: "target-job-url",
     quizIndex: 0,
     vettingResult: null,
     roleSuggestions: [],
   };
 }
 
-export function getFlowStepSequence(knowsTargetJob: boolean | null): CcAgentStepId[] {
-  if (knowsTargetJob === null) {
-    return ["hook"];
-  }
-
-  if (knowsTargetJob) {
-    return [
-      "hook",
-      "target-job-url",
-      "resume",
-      "linkedin",
-      "role-suggestions",
-      "vetting-result",
-      "nurture-track",
-      "search-filters",
-    ];
-  }
-
-  return [
-    "hook",
-    "resume",
-    "quiz",
-    "role-suggestions",
-    "linkedin",
-    "vetting-result",
-    "nurture-track",
-    "search-filters",
-  ];
+export function isQuizPath(state: CcAgentFlowState): boolean {
+  return state.knowsTargetJob === false;
 }
 
-export function getTotalFlowSteps(knowsTargetJob: boolean | null): number {
-  const base = getFlowStepSequence(knowsTargetJob).length;
-  if (knowsTargetJob === false) {
+const POST_PROFILE_STEPS: CcAgentStepId[] = ["vetting-result"];
+
+export function getFlowStepSequence(state: CcAgentFlowState): CcAgentStepId[] {
+  if (state.knowsTargetJob === null) {
+    return ["target-job-url"];
+  }
+
+  if (state.knowsTargetJob === false) {
+    return ["target-job-url", "quiz", "profile-upload", ...POST_PROFILE_STEPS];
+  }
+
+  return ["target-job-url", "profile-upload", ...POST_PROFILE_STEPS];
+}
+
+export function getTotalFlowSteps(state: CcAgentFlowState): number {
+  const base = getFlowStepSequence(state).length;
+  if (isQuizPath(state)) {
     return base + 4;
   }
   return base;
 }
 
 export function getFlowProgressIndex(state: CcAgentFlowState): number {
-  const sequence = getFlowStepSequence(state.knowsTargetJob);
+  const sequence = getFlowStepSequence(state);
   const stepIndex = sequence.indexOf(state.flowStep);
   if (stepIndex < 0) {
     return 1;
   }
 
-  if (state.flowStep === "quiz" && state.knowsTargetJob === false) {
+  if (state.flowStep === "quiz" && isQuizPath(state)) {
     return stepIndex + 1 + state.quizIndex;
   }
 
@@ -156,13 +146,13 @@ export function getFlowProgressIndex(state: CcAgentFlowState): number {
 }
 
 export function getNextFlowStep(state: CcAgentFlowState): CcAgentStepId | null {
-  if (state.flowStep === "quiz" && state.knowsTargetJob === false) {
+  if (state.flowStep === "quiz" && isQuizPath(state)) {
     if (state.quizIndex < 4) {
       return "quiz";
     }
   }
 
-  const sequence = getFlowStepSequence(state.knowsTargetJob);
+  const sequence = getFlowStepSequence(state);
   const index = sequence.indexOf(state.flowStep);
   if (index < 0 || index >= sequence.length - 1) {
     return null;
@@ -172,11 +162,11 @@ export function getNextFlowStep(state: CcAgentFlowState): CcAgentStepId | null {
 }
 
 export function getPrevFlowStep(state: CcAgentFlowState): CcAgentStepId | null {
-  if (state.flowStep === "quiz" && state.knowsTargetJob === false && state.quizIndex > 0) {
+  if (state.flowStep === "quiz" && isQuizPath(state) && state.quizIndex > 0) {
     return "quiz";
   }
 
-  const sequence = getFlowStepSequence(state.knowsTargetJob);
+  const sequence = getFlowStepSequence(state);
   const index = sequence.indexOf(state.flowStep);
   if (index <= 0) {
     return null;
@@ -205,6 +195,41 @@ export function inferRoleFromText(...sources: string[]): {
   }
 
   return { id: "long-tail", label: "Role outside MVP vetted set" };
+}
+
+/** Infer MVP target role from dream job, profile parse, résumé, or quiz — no manual pick. */
+export function inferSelectedRoleId(input: {
+  targetJobUrl: string;
+  linkedInUrl: string;
+  resumeText: string;
+  profileInsight: ParsedProfileInsight | null;
+  answers: IntakeAnswers;
+}): VettedRoleId | "long-tail" {
+  if (input.targetJobUrl.trim()) {
+    const fromTarget = inferRoleFromText(input.targetJobUrl);
+    if (fromTarget.id !== "long-tail") {
+      return fromTarget.id;
+    }
+  }
+
+  for (const role of input.profileInsight?.suggestedRoles ?? []) {
+    const fromInsight = inferRoleFromText(role);
+    if (fromInsight.id !== "long-tail") {
+      return fromInsight.id;
+    }
+  }
+
+  const fromCorpus = inferRoleFromText(
+    input.resumeText,
+    input.linkedInUrl,
+    input.answers.q1,
+    input.answers.q2,
+    input.answers.q3,
+    input.answers.q4,
+    input.answers.q5,
+  );
+
+  return fromCorpus.id;
 }
 
 function hasQuantitativeSignal(resumeText: string, answers: IntakeAnswers): boolean {
@@ -262,7 +287,6 @@ export function assignNurtureTrack(input: {
 
 export function runVetting(input: {
   knowsTargetJob: boolean;
-  usWorkEligible: boolean;
   resumeText: string;
   linkedInUrl: string;
   targetJobUrl: string;
@@ -289,8 +313,7 @@ export function runVetting(input: {
   const roleVetted = role.id !== "long-tail";
   const profileStrength = inferProfileStrength(input.profileInsight, input.knowsTargetJob && Boolean(input.targetJobUrl.trim()));
 
-  const vetted =
-    input.usWorkEligible && quantitativeSignal && roleVetted;
+  const vetted = quantitativeSignal && roleVetted;
 
   const nurtureTrack = assignNurtureTrack({
     knowsTargetJob: input.knowsTargetJob,
@@ -301,12 +324,11 @@ export function runVetting(input: {
   });
 
   const summary = vetted
-    ? `Vetted for ${role.label} — ${profileStrength === "strong" ? "strong profile fit" : "profile gap to close"}. Mentorship unlocks on the team-project track.`
-    : `Not fully vetted for MVP mentorship${!input.usWorkEligible ? " (US work eligibility required for MVP)" : ""}${!quantitativeSignal ? "; add clearer education or impact signals to your résumé" : ""}${!roleVetted ? "; role outside Sales, Marketing, FDE, SWE" : ""}. You can still continue with search filters and your brief.`;
+    ? `Aligned for ${role.label}.`
+    : "";
 
   return {
     vetted,
-    usWorkEligible: input.usWorkEligible,
     quantitativeSignal,
     roleVetted,
     profileStrength,
@@ -337,3 +359,4 @@ export function buildRoleSuggestions(
 
   return [...new Set(merged)].slice(0, 5);
 }
+

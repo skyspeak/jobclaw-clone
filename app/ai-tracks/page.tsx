@@ -6,7 +6,7 @@ import { AI_TRACKS_GUIDE_TITLE } from "@/lib/ai-tracks-data";
 export const metadata: Metadata = {
   title: `${AI_TRACKS_GUIDE_TITLE} — dear[CC]`,
   description:
-    "Six two-week solo AI tracks for AI-first roles: comps pipelines, strategy prototypes, shipped features with evals, domain RAG, regulatory trackers, and audited clinical extraction.",
+    "Six two-week AI tracks for AI-first roles: comps pipelines, strategy prototypes, shipped features with evals, domain RAG, regulatory trackers, and audited clinical extraction.",
 };
 
 export default function AiTracksPage() {

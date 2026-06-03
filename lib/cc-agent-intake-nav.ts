@@ -1,7 +1,8 @@
 import type { CcAgentFlowState, CcAgentStepId } from "@/lib/cc-agent-flow";
-import { getFlowStepSequence, getNextFlowStep, getPrevFlowStep } from "@/lib/cc-agent-flow";
+import { getNextFlowStep, getPrevFlowStep, isQuizPath } from "@/lib/cc-agent-flow";
 import { hasMinimumProfileEvidence, hasResumeOrLinkedInInput } from "@/lib/intake-session";
 import { questionSchema } from "@/lib/intake-questions";
+
 
 export function isValidJobUrl(url: string): boolean {
   const trimmed = url.trim();
@@ -28,22 +29,30 @@ export function canProceedFromStep(
     wizardAnswers: string[];
   },
 ): { ok: boolean; message?: string } {
-  const { ccAgent, targetJobUrl, linkedInUrl, resumeText, resumeFileName, currentAnswer, wizardAnswers } =
-    input;
+  const { ccAgent, targetJobUrl, linkedInUrl, resumeText, resumeFileName, currentAnswer } = input;
 
   switch (flowStep) {
-    case "hook":
-      if (ccAgent.knowsTargetJob === null) {
-        return { ok: false, message: "Tell us whether you have a target job in mind." };
+    case "profile-upload":
+      if (ccAgent.skippedProfileUpload) {
+        return { ok: true };
       }
-      if (!ccAgent.usWorkEligible) {
-        return { ok: false, message: "dear[CC] MVP requires US work eligibility." };
+      if (!hasMinimumProfileEvidence(linkedInUrl, resumeText)) {
+        return {
+          ok: false,
+          message: "Add your LinkedIn URL or upload a résumé—or choose the option if you don't have either.",
+        };
       }
       return { ok: true };
 
     case "target-job-url":
+      if (ccAgent.knowsTargetJob === false) {
+        return { ok: true };
+      }
       if (!isValidJobUrl(targetJobUrl)) {
-        return { ok: false, message: "Paste a valid job posting URL." };
+        return {
+          ok: false,
+          message: "Paste your dream job URL, or choose the option if you don't have one yet.",
+        };
       }
       return { ok: true };
 
@@ -70,18 +79,14 @@ export function canProceedFromStep(
       return { ok: true };
     }
 
-    case "role-suggestions":
-      if (!ccAgent.selectedRoleId.trim()) {
-        return { ok: false, message: "Select a target role to continue." };
-      }
-      return { ok: true };
-
     case "vetting-result":
-    case "nurture-track":
       return { ok: true };
 
     case "search-filters":
-      if (!hasResumeOrLinkedInInput(linkedInUrl, resumeText, resumeFileName)) {
+      if (
+        !ccAgent.skippedProfileUpload &&
+        !hasResumeOrLinkedInInput(linkedInUrl, resumeText, resumeFileName)
+      ) {
         return { ok: false, message: "Profile evidence is required before generating your brief." };
       }
       return { ok: true };
@@ -98,7 +103,7 @@ export function advanceCcAgentState(
 ): { next: CcAgentFlowState; nextCurrentAnswer: string; nextWizardAnswers: string[] } {
   let nextAnswers = wizardAnswers;
 
-  if (ccAgent.flowStep === "quiz" && ccAgent.knowsTargetJob === false) {
+  if (ccAgent.flowStep === "quiz" && isQuizPath(ccAgent)) {
     nextAnswers = [...wizardAnswers];
     nextAnswers[ccAgent.quizIndex] = currentAnswer;
 
@@ -112,7 +117,7 @@ export function advanceCcAgentState(
   }
 
   const nextStep = getNextFlowStep(
-    ccAgent.flowStep === "quiz" && ccAgent.knowsTargetJob === false && ccAgent.quizIndex >= 4
+    ccAgent.flowStep === "quiz" && isQuizPath(ccAgent) && ccAgent.quizIndex >= 4
       ? { ...ccAgent, quizIndex: 4 }
       : ccAgent,
   );
@@ -127,9 +132,45 @@ export function advanceCcAgentState(
       flowStep: nextStep,
       quizIndex: nextStep === "quiz" ? 0 : ccAgent.quizIndex,
     },
-    nextCurrentAnswer:
-      nextStep === "quiz" ? (wizardAnswers[0] ?? "") : currentAnswer,
+    nextCurrentAnswer: nextStep === "quiz" ? (wizardAnswers[0] ?? "") : currentAnswer,
     nextWizardAnswers: nextAnswers,
+  };
+}
+
+export function advanceFromProfileUpload(
+  ccAgent: CcAgentFlowState,
+): { next: CcAgentFlowState; nextCurrentAnswer: string } {
+  const nextStep = getNextFlowStep(ccAgent);
+  if (!nextStep) {
+    return { next: ccAgent, nextCurrentAnswer: "" };
+  }
+
+  return {
+    next: { ...ccAgent, flowStep: nextStep },
+    nextCurrentAnswer: "",
+  };
+}
+
+export function advanceFromDreamJob(
+  ccAgent: CcAgentFlowState,
+  targetJobUrl: string,
+  wizardAnswers: string[],
+): { next: CcAgentFlowState; nextCurrentAnswer: string } {
+  const knowsTargetJob = ccAgent.knowsTargetJob === false ? false : true;
+  const withKnows = { ...ccAgent, knowsTargetJob };
+  const nextStep = getNextFlowStep({ ...withKnows, flowStep: "target-job-url" });
+
+  if (!nextStep) {
+    return { next: withKnows, nextCurrentAnswer: "" };
+  }
+
+  return {
+    next: {
+      ...withKnows,
+      flowStep: nextStep,
+      quizIndex: nextStep === "quiz" ? 0 : withKnows.quizIndex,
+    },
+    nextCurrentAnswer: nextStep === "quiz" ? (wizardAnswers[0] ?? "") : "",
   };
 }
 
@@ -138,7 +179,7 @@ export function retreatCcAgentState(
   wizardAnswers: string[],
   currentAnswer: string,
 ): { next: CcAgentFlowState; nextCurrentAnswer: string } {
-  if (ccAgent.flowStep === "quiz" && ccAgent.knowsTargetJob === false && ccAgent.quizIndex > 0) {
+  if (ccAgent.flowStep === "quiz" && isQuizPath(ccAgent) && ccAgent.quizIndex > 0) {
     const prevIndex = ccAgent.quizIndex - 1;
     return {
       next: { ...ccAgent, quizIndex: prevIndex },
@@ -151,7 +192,6 @@ export function retreatCcAgentState(
     return { next: ccAgent, nextCurrentAnswer: currentAnswer };
   }
 
-  const sequence = getFlowStepSequence(ccAgent.knowsTargetJob);
   const wasQuiz = ccAgent.flowStep === "quiz";
 
   return {
@@ -159,24 +199,15 @@ export function retreatCcAgentState(
       ...ccAgent,
       flowStep: prevStep,
       quizIndex: prevStep === "quiz" && wasQuiz ? 4 : prevStep === "quiz" ? 0 : ccAgent.quizIndex,
+      skippedProfileUpload:
+        prevStep === "profile-upload" ? false : ccAgent.skippedProfileUpload,
+      knowsTargetJob: prevStep === "target-job-url" ? null : ccAgent.knowsTargetJob,
     },
     nextCurrentAnswer:
       prevStep === "quiz"
-        ? (wizardAnswers[prevStep === "quiz" && wasQuiz ? 4 : 0] ?? "")
-        : prevStep === "hook"
+        ? (wizardAnswers[wasQuiz ? 4 : 0] ?? "")
+        : prevStep === "profile-upload" || prevStep === "target-job-url"
           ? ""
           : currentAnswer,
-  };
-}
-
-export function setKnowsTargetJob(ccAgent: CcAgentFlowState, knows: boolean): CcAgentFlowState {
-  const sequence = getFlowStepSequence(knows);
-  const nextStep = sequence[1] ?? "hook";
-
-  return {
-    ...ccAgent,
-    knowsTargetJob: knows,
-    flowStep: nextStep,
-    quizIndex: 0,
   };
 }

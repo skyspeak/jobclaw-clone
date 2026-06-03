@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   buildRoleSuggestions,
   inferRoleFromText,
+  inferSelectedRoleId,
   runVetting,
   type VettedRoleId,
 } from "@/lib/cc-agent-flow";
@@ -11,7 +12,6 @@ import { parseProfile } from "@/lib/profile-parse";
 
 const triageRequestSchema = z.object({
   knowsTargetJob: z.boolean(),
-  usWorkEligible: z.boolean(),
   linkedInUrl: z.string().optional(),
   resumeText: z.string().optional(),
   resumeFileName: z.string().optional(),
@@ -41,7 +41,6 @@ export async function POST(request: Request) {
 
   const {
     knowsTargetJob,
-    usWorkEligible,
     linkedInUrl = "",
     resumeText = "",
     resumeFileName,
@@ -64,20 +63,32 @@ export async function POST(request: Request) {
     ? inferRoleFromText(targetJobUrl)
     : null;
 
+  const intakeAnswers = {
+    q1: answers.q1 ?? "",
+    q2: answers.q2 ?? "",
+    q3: answers.q3 ?? "",
+    q4: answers.q4 ?? "",
+    q5: answers.q5 ?? "",
+  };
+
+  const resolvedRoleId =
+    selectedRoleId && ["sales", "marketing", "fde", "swe", "long-tail"].includes(selectedRoleId)
+      ? selectedRoleId
+      : inferSelectedRoleId({
+          targetJobUrl,
+          linkedInUrl,
+          resumeText,
+          profileInsight,
+          answers: intakeAnswers,
+        }) || roleFromTarget?.id || "";
+
   const vetting = runVetting({
     knowsTargetJob,
-    usWorkEligible,
     resumeText,
     linkedInUrl,
     targetJobUrl,
-    selectedRoleId: selectedRoleId || roleFromTarget?.id || "",
-    answers: {
-      q1: answers.q1 ?? "",
-      q2: answers.q2 ?? "",
-      q3: answers.q3 ?? "",
-      q4: answers.q4 ?? "",
-      q5: answers.q5 ?? "",
-    },
+    selectedRoleId: resolvedRoleId,
+    answers: intakeAnswers,
     profileInsight,
     roleSuggestions: profileInsight?.suggestedRoles ?? [],
   });
@@ -85,8 +96,8 @@ export async function POST(request: Request) {
   const roleSuggestions = buildRoleSuggestions(profileInsight, vetting);
 
   let suggestedRoleId: VettedRoleId | "long-tail" = vetting.inferredRoleId;
-  if (selectedRoleId && ["sales", "marketing", "fde", "swe"].includes(selectedRoleId)) {
-    suggestedRoleId = selectedRoleId as VettedRoleId;
+  if (resolvedRoleId && ["sales", "marketing", "fde", "swe"].includes(resolvedRoleId)) {
+    suggestedRoleId = resolvedRoleId as VettedRoleId;
   }
 
   return NextResponse.json({

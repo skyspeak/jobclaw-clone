@@ -5,11 +5,9 @@ import type { UseFormReturn } from "react-hook-form";
 import { ArrowRight, Loader2, Send } from "lucide-react";
 
 import {
-  IntakeHookPanel,
-  IntakeNurtureTrackPanel,
+  IntakeDreamJobPanel,
+  IntakeProfileUploadPanel,
   IntakeResumePanel,
-  IntakeRoleSuggestionsPanel,
-  IntakeTargetJobPanel,
   IntakeVettingResultPanel,
 } from "@/app/components/IntakeCcAgentPanels";
 import { IntakeOptionChips } from "@/app/components/IntakeOptionChips";
@@ -25,9 +23,9 @@ type IntakeChatComposerProps = {
   ccAgent: CcAgentFlowState;
   targetJobUrl: string;
   onTargetJobUrlChange: (value: string) => void;
-  onKnowsTargetJobChange: (knows: boolean) => void;
-  onUsWorkEligibleChange: (value: boolean) => void;
+  onNoDreamJob: () => void;
   onSelectRole: (roleId: string) => void;
+  onSkipProfileUpload: () => void;
   currentAnswer: string;
   onCurrentAnswerChange: (value: string) => void;
   answerError: string;
@@ -52,9 +50,9 @@ export function IntakeChatComposer({
   ccAgent,
   targetJobUrl,
   onTargetJobUrlChange,
-  onKnowsTargetJobChange,
-  onUsWorkEligibleChange,
+  onNoDreamJob,
   onSelectRole,
+  onSkipProfileUpload,
   currentAnswer,
   onCurrentAnswerChange,
   answerError,
@@ -84,30 +82,31 @@ export function IntakeChatComposer({
     }
   }
 
-  const continueLabel =
-    flowStep === "vetting-result"
-      ? "See my nurture track"
-      : flowStep === "nurture-track"
-        ? "Continue to search filters"
-        : "Continue";
+  const continueLabel = "Continue";
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-3 px-4 pb-4 pt-2 sm:px-0">
       <div className="rounded-2xl border border-border/70 bg-card shadow-lg shadow-black/[0.04]">
         <div className="border-b border-border/50 px-4 py-3 sm:px-5">
-          {flowStep === "hook" ? (
-            <IntakeHookPanel
-              knowsTargetJob={ccAgent.knowsTargetJob}
-              onKnowsTargetJobChange={onKnowsTargetJobChange}
-              usWorkEligible={ccAgent.usWorkEligible}
-              onUsWorkEligibleChange={onUsWorkEligibleChange}
+          {flowStep === "profile-upload" ? (
+            <IntakeProfileUploadPanel
+              linkedInUrl={linkedInUrl}
+              onLinkedInUrlChange={onLinkedInUrlChange}
+              resumeFileName={resumeFileName}
+              resumeText={resumeText}
+              onResumeFile={onResumeFile}
+              isReadingResume={isReadingResume}
+              skippedProfileUpload={ccAgent.skippedProfileUpload}
+              onSkipProfileUpload={onSkipProfileUpload}
             />
           ) : null}
 
           {flowStep === "target-job-url" ? (
-            <IntakeTargetJobPanel
+            <IntakeDreamJobPanel
               targetJobUrl={targetJobUrl}
               onTargetJobUrlChange={onTargetJobUrlChange}
+              noDreamJob={ccAgent.knowsTargetJob === false}
+              onNoDreamJob={onNoDreamJob}
             />
           ) : null}
 
@@ -161,20 +160,13 @@ export function IntakeChatComposer({
             </div>
           ) : null}
 
-          {flowStep === "role-suggestions" ? (
-            <IntakeRoleSuggestionsPanel
-              roleSuggestions={ccAgent.roleSuggestions}
-              selectedRoleId={ccAgent.selectedRoleId}
-              onSelectRole={onSelectRole}
-            />
-          ) : null}
-
           {flowStep === "vetting-result" && ccAgent.vettingResult ? (
-            <IntakeVettingResultPanel vetting={ccAgent.vettingResult} />
-          ) : null}
-
-          {flowStep === "nurture-track" && ccAgent.vettingResult ? (
-            <IntakeNurtureTrackPanel trackId={ccAgent.vettingResult.nurtureTrack} />
+            <IntakeVettingResultPanel
+              vetting={ccAgent.vettingResult}
+              targetJobUrl={targetJobUrl}
+              linkedInUrl={linkedInUrl}
+              resumeFileName={resumeFileName}
+            />
           ) : null}
 
           {flowStep === "search-filters" ? (

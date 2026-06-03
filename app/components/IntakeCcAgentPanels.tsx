@@ -1,97 +1,104 @@
 "use client";
 
-import Link from "next/link";
 import type { ChangeEvent } from "react";
 
 import { IntakeOptionChips } from "@/app/components/IntakeOptionChips";
 import { IntakeProfileFields } from "@/app/components/IntakeProfileFields";
 import {
   CC_AGENT_ROLE_LABELS,
-  NURTURE_TRACK_COPY,
+  DREAM_JOB_SKIP_CHIP,
+  PROFILE_SKIP_CHIP,
   VETTED_ROLE_IDS,
-  type NurtureTrackId,
+  type VettedRoleId,
   type VettingResult,
 } from "@/lib/cc-agent-flow";
 import { BRAND_NAME } from "@/lib/brand";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 
-export function IntakeHookPanel({
-  knowsTargetJob,
-  onKnowsTargetJobChange,
-  usWorkEligible,
-  onUsWorkEligibleChange,
+export function IntakeProfileUploadPanel({
+  linkedInUrl,
+  onLinkedInUrlChange,
+  resumeFileName,
+  resumeText,
+  onResumeFile,
+  isReadingResume,
+  skippedProfileUpload,
+  onSkipProfileUpload,
 }: {
-  knowsTargetJob: boolean | null;
-  onKnowsTargetJobChange: (value: boolean) => void;
-  usWorkEligible: boolean;
-  onUsWorkEligibleChange: (value: boolean) => void;
+  linkedInUrl: string;
+  onLinkedInUrlChange: (value: string) => void;
+  resumeFileName: string;
+  resumeText: string;
+  onResumeFile: (event: ChangeEvent<HTMLInputElement>) => void;
+  isReadingResume: boolean;
+  skippedProfileUpload: boolean;
+  onSkipProfileUpload: () => void;
 }) {
+  const hasProfile = Boolean(linkedInUrl.trim() || resumeText.trim() || resumeFileName);
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
+      <IntakeProfileFields
+        linkedInUrl={linkedInUrl}
+        onLinkedInUrlChange={onLinkedInUrlChange}
+        resumeFileName={resumeFileName}
+        onResumeFile={onResumeFile}
+        isReadingResume={isReadingResume}
+        profileCompleteForGenerate={hasProfile}
+        profileIncompleteHint=""
+      />
       <IntakeOptionChips
-        options={["Yes, I have a target job in mind", "Not yet — help me figure it out"]}
-        value={
-          knowsTargetJob === true
-            ? "Yes, I have a target job in mind"
-            : knowsTargetJob === false
-              ? "Not yet — help me figure it out"
-              : ""
-        }
-        onChange={(value) => {
-          onKnowsTargetJobChange(value.startsWith("Yes"));
-        }}
+        options={[PROFILE_SKIP_CHIP]}
+        value={skippedProfileUpload ? PROFILE_SKIP_CHIP : ""}
+        onChange={() => onSkipProfileUpload()}
         stepIndex={0}
       />
-      <div className="flex flex-row items-center justify-between rounded-2xl border border-border/70 bg-muted/20 p-4">
-        <div className="space-y-0.5 pr-4">
-          <Label className="text-sm">US work eligibility (MVP)</Label>
-          <p className="text-xs text-muted-foreground">
-            The {BRAND_NAME} MVP is US-only with no visa sponsorship cases.
-          </p>
-        </div>
-        <Switch
-          checked={usWorkEligible}
-          onCheckedChange={onUsWorkEligibleChange}
-          data-testid="switch-us-eligible"
-        />
-      </div>
-      {knowsTargetJob === null ? (
-        <p className="text-sm text-muted-foreground">Choose an option above to continue.</p>
-      ) : null}
-      {!usWorkEligible ? (
-        <p className="text-sm font-medium text-destructive" role="alert">
-          Confirm US work eligibility to use {BRAND_NAME} vetting for this pilot.
+      {skippedProfileUpload ? (
+        <p className="text-sm text-muted-foreground">
+          You can still continue — we&apos;ll lean on your quiz answers and role picks for now.
         </p>
       ) : null}
     </div>
   );
 }
 
-export function IntakeTargetJobPanel({
+export function IntakeDreamJobPanel({
   targetJobUrl,
   onTargetJobUrlChange,
+  noDreamJob,
+  onNoDreamJob,
 }: {
   targetJobUrl: string;
   onTargetJobUrlChange: (value: string) => void;
+  noDreamJob: boolean;
+  onNoDreamJob: () => void;
 }) {
   return (
-    <div className="space-y-2">
-      <Label htmlFor="intake-target-job-url">Target job posting URL</Label>
-      <Input
-        id="intake-target-job-url"
-        type="url"
-        inputMode="url"
-        placeholder="https://…"
-        className="h-11 rounded-xl"
-        data-testid="input-target-job-url"
-        value={targetJobUrl}
-        onChange={(e) => onTargetJobUrlChange(e.target.value)}
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="intake-target-job-url">Dream job URL</Label>
+        <Input
+          id="intake-target-job-url"
+          type="url"
+          inputMode="url"
+          placeholder="https://…"
+          className="h-11 rounded-xl"
+          data-testid="input-target-job-url"
+          value={targetJobUrl}
+          disabled={noDreamJob}
+          onChange={(e) => onTargetJobUrlChange(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Paste a LinkedIn, Greenhouse, or company careers link. We&apos;ll parse required skills for gap analysis.
+        </p>
+      </div>
+      <IntakeOptionChips
+        options={[DREAM_JOB_SKIP_CHIP]}
+        value={noDreamJob ? DREAM_JOB_SKIP_CHIP : ""}
+        onChange={() => onNoDreamJob()}
+        stepIndex={0}
       />
-      <p className="text-xs text-muted-foreground">
-        Paste a LinkedIn, Greenhouse, or company careers link. We&apos;ll parse required skills for gap analysis.
-      </p>
     </div>
   );
 }
@@ -159,59 +166,58 @@ export function IntakeRoleSuggestionsPanel({
   );
 }
 
-export function IntakeVettingResultPanel({ vetting }: { vetting: VettingResult }) {
+export function IntakeVettingResultPanel({
+  vetting,
+  targetJobUrl,
+  linkedInUrl,
+  resumeFileName,
+}: {
+  vetting: VettingResult;
+  targetJobUrl: string;
+  linkedInUrl: string;
+  resumeFileName: string;
+}) {
+  const targetJobLabel = targetJobUrl.trim() || vetting.inferredRoleLabel;
+  const resumeLabel = [
+    linkedInUrl.trim() ? `LinkedIn: ${linkedInUrl.trim()}` : null,
+    resumeFileName.trim() ? `Résumé: ${resumeFileName.trim()}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const gapNotes: string[] = [];
+  if (!vetting.quantitativeSignal) {
+    gapNotes.push("Strengthen education, internship, or impact signals on your résumé.");
+  }
+  if (!vetting.roleVetted) {
+    gapNotes.push("Your target role may need a tailored skill-up plan outside our core tracks.");
+  }
+  if (vetting.profileStrength === "gap") {
+    gapNotes.push("Close profile gaps with projects or proof-of-work before your sprint.");
+  }
+  const gapText =
+    gapNotes.length > 0
+      ? gapNotes.join(" ")
+      : "You're aligned on role and profile — continue when you're ready.";
+
   return (
-    <div className="space-y-4">
-      <p className="text-sm leading-relaxed text-foreground">{vetting.summary}</p>
-      <dl className="grid gap-2 text-sm sm:grid-cols-2">
-        <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Vetted</dt>
-          <dd className="mt-1 font-medium text-foreground">{vetting.vetted ? "Yes" : "Not yet"}</dd>
-        </div>
-        <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Target role</dt>
-          <dd className="mt-1 font-medium text-foreground">{vetting.inferredRoleLabel}</dd>
-        </div>
-        <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Profile</dt>
-          <dd className="mt-1 font-medium text-foreground">
-            {vetting.profileStrength === "strong" ? "Strong match" : "Gap to close"}
-          </dd>
-        </div>
-        <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-          <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Signals</dt>
-          <dd className="mt-1 text-muted-foreground">
-            {vetting.quantitativeSignal ? "Quantitative ✓" : "Add education/impact signals"} ·{" "}
-            {vetting.roleVetted ? "Role ✓" : "Role outside MVP set"}
-          </dd>
-        </div>
-      </dl>
-      {vetting.vetted ? (
-        <p className="text-xs text-muted-foreground">
-          Mentorship unlocks after your 4-week team proof-of-work sprint (1 mentor : 4 peers).
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Target job</p>
+        <p className="text-sm leading-relaxed text-foreground">{targetJobLabel}</p>
+      </div>
+
+      <div className="space-y-2 border-y border-border/60 py-5">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gap</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">{gapText}</p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Résumé</p>
+        <p className="text-sm leading-relaxed text-foreground">
+          {resumeLabel || "No résumé or LinkedIn on file yet."}
         </p>
-      ) : null}
-    </div>
-  );
-}
-
-export function IntakeNurtureTrackPanel({ trackId }: { trackId: NurtureTrackId }) {
-  const copy = NURTURE_TRACK_COPY[trackId];
-
-  return (
-    <div className="space-y-4">
-      <p className="font-medium text-foreground">{copy.title}</p>
-      <p className="text-sm leading-relaxed text-muted-foreground">{copy.description}</p>
-      <p className="text-xs text-muted-foreground">
-        Proof-of-work: 4-week sprint, public GitHub + demo + writeup, daily standup bot, weekly mentor checkpoint
-        (vetted track).
-      </p>
-      <Link
-        href={copy.ctaHref}
-        className="inline-flex text-sm font-semibold text-primary underline-offset-4 hover:underline"
-      >
-        {copy.ctaLabel} →
-      </Link>
+      </div>
     </div>
   );
 }

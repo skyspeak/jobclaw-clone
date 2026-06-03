@@ -83,7 +83,7 @@ export function buildAiTracksGuideHtml(options: { canonicalUrl?: string } = {}):
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(AI_TRACKS_GUIDE_TITLE)} — dear[CC]</title>
-  <meta name="description" content="Six two-week solo AI tracks for AI-first roles: artifact + proof document for each." />
+  <meta name="description" content="Six two-week AI tracks for AI-first roles: artifact + proof document for each." />
   ${canonicalLink}
   <style>
     :root {

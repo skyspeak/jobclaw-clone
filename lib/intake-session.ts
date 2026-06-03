@@ -14,7 +14,23 @@ import {
 import type { GeneratedResume } from "@/lib/resume";
 import type { ResumeSnapshot } from "@/lib/submissions";
 
-export const INTAKE_WIZARD_STORAGE_KEY = "jobclaw.intake-wizard.v3";
+export const INTAKE_WIZARD_STORAGE_KEY = "jobclaw.intake-wizard.v4";
+
+/** Prior wizard keys cleared on full browser reset. */
+export const LEGACY_INTAKE_WIZARD_KEYS = [
+  "jobclaw.intake-wizard.v2",
+  "jobclaw.intake-wizard.v3",
+  INTAKE_WIZARD_STORAGE_KEY,
+] as const;
+
+export const BROWSER_ONBOARDING_STORAGE_KEYS = [
+  ...LEGACY_INTAKE_WIZARD_KEYS,
+  "jobclaw.turn-taking-session.v1",
+  "jobclaw.matched-internships.v1",
+  "jobclaw.project-sprints.v1",
+] as const;
+
+export const BROWSER_ONBOARDING_SESSION_KEYS = ["jobclaw.job-fit.jd.v1"] as const;
 
 export type IntakeContactInfo = {
   raw: string;
@@ -158,7 +174,39 @@ export function readIntakeSession(): IntakeWizardSession {
     next.ccAgent = {
       ...defaultCcAgentFlowState(),
       ...(parsed.ccAgent && typeof parsed.ccAgent === "object" ? parsed.ccAgent : {}),
+      skippedProfileUpload: Boolean(parsed.ccAgent?.skippedProfileUpload),
     };
+
+    if (next.ccAgent.flowStep === ("hook" as CcAgentStepId)) {
+      next.ccAgent.flowStep = "target-job-url";
+    }
+    if (next.ccAgent.flowStep === "role-suggestions") {
+      next.ccAgent.flowStep = "vetting-result";
+    }
+    if (
+      next.ccAgent.flowStep === "search-filters" ||
+      next.ccAgent.flowStep === ("nurture-track" as CcAgentStepId)
+    ) {
+      next.ccAgent.flowStep = "vetting-result";
+    }
+    if (
+      Boolean(parsed.ccAgent?.skippedProfileUpload) &&
+      parsed.ccAgent?.knowsTargetJob == null &&
+      !next.targetJobUrl.trim()
+    ) {
+      next.ccAgent.knowsTargetJob = false;
+      next.ccAgent.skippedProfileUpload = false;
+      next.ccAgent.flowStep = "target-job-url";
+    }
+    if (
+      next.ccAgent.flowStep === "profile-upload" &&
+      next.ccAgent.knowsTargetJob === null &&
+      !next.targetJobUrl.trim() &&
+      !next.linkedInUrl.trim() &&
+      !next.resumeText.trim()
+    ) {
+      next.ccAgent.flowStep = "target-job-url";
+    }
 
     if (parsed.wizardAnswers && Array.isArray(parsed.wizardAnswers) && parsed.wizardAnswers.length === 5) {
       next.wizardAnswers = parsed.wizardAnswers.map((s) => String(s ?? ""));
@@ -208,7 +256,25 @@ export function clearIntakeSession(): void {
     return;
   }
 
-  window.localStorage.removeItem(INTAKE_WIZARD_STORAGE_KEY);
+  for (const key of LEGACY_INTAKE_WIZARD_KEYS) {
+    window.localStorage.removeItem(key);
+  }
+}
+
+export function clearAllBrowserOnboardingState(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  for (const key of BROWSER_ONBOARDING_STORAGE_KEYS) {
+    window.localStorage.removeItem(key);
+  }
+
+  for (const key of BROWSER_ONBOARDING_SESSION_KEYS) {
+    window.sessionStorage.removeItem(key);
+  }
+
+  document.cookie = "jobclaw-admin=; Max-Age=0; path=/; SameSite=Lax";
 }
 
 export function buildResumeSnapshot(
@@ -247,7 +313,7 @@ function legacyWizardStepToFlowStep(wizardStep: number): CcAgentStepId {
     return "quiz";
   }
   if (wizardStep === 5) {
-    return "resume";
+    return "profile-upload";
   }
   return "search-filters";
 }

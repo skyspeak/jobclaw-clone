@@ -292,24 +292,6 @@ export function IntakeWizard({
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <FormField
                       control={prefsForm.control}
-                      name="requireVisaSponsorship"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-2xl border border-border/70 bg-card p-4">
-                          <div className="space-y-0.5 pr-4">
-                            <Label className="text-sm sm:text-base">Visa Sponsorship</Label>
-                            <div className="text-xs text-muted-foreground sm:text-sm">
-                              Require sponsorship to work
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-visa" />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={prefsForm.control}
                       name="preferVolunteerRoles"
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-2xl border border-border/70 bg-card p-4">

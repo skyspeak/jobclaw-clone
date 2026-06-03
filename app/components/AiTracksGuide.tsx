@@ -23,7 +23,58 @@ export type AiTracksGuideProps = {
   intro?: AiTracksGuideIntro;
   pattern?: AiTracksGuidePattern;
   showDownload?: boolean;
+  /** Single-track pages: commit fixed top-right; pattern block moves above where commit was inline. */
+  stickyCommit?: boolean;
 };
+
+function PatternSection({
+  pattern,
+  embedded = false,
+}: {
+  pattern: AiTracksGuidePattern;
+  embedded?: boolean;
+}) {
+  return (
+    <section className={embedded ? "mt-8" : "rounded-3xl border border-border/70 bg-card p-8 shadow-sm sm:p-10"}>
+      <h2
+        className={
+          embedded
+            ? "text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+            : "text-xl font-bold tracking-tight text-foreground"
+        }
+      >
+        {pattern.title}
+      </h2>
+      <div className="mt-5 overflow-hidden rounded-2xl border border-border">
+        <table className="w-full border-collapse text-left text-sm">
+          <thead>
+            <tr className="border-b border-border bg-secondary/80">
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Sector
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                The thing you build
+              </th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                The thing that proves you built it
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {pattern.rows.map((row) => (
+              <tr key={row.sector} className="border-b border-border/80 last:border-0">
+                <td className="px-4 py-3 font-medium text-foreground">{row.sector}</td>
+                <td className="px-4 py-3 text-muted-foreground">{row.build}</td>
+                <td className="px-4 py-3 text-muted-foreground">{row.proof}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-6 text-sm leading-relaxed text-muted-foreground">{pattern.closing}</p>
+    </section>
+  );
+}
 
 export function AiTracksGuide({
   eyebrow,
@@ -33,9 +84,20 @@ export function AiTracksGuide({
   intro = AI_TRACKS_GUIDE_INTRO,
   pattern = AI_TRACKS_PATTERN,
   showDownload = true,
+  stickyCommit = false,
 }: AiTracksGuideProps) {
+  const singleTrack = stickyCommit && tracks.length === 1 ? tracks[0] : null;
+
   return (
-    <main className="min-h-[100dvh] brand-bg px-4 py-6 selection:bg-primary selection:text-primary-foreground sm:px-8">
+    <main className="relative min-h-[100dvh] brand-bg px-4 py-6 selection:bg-primary selection:text-primary-foreground sm:px-8">
+      {singleTrack ? (
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-30 flex justify-center px-4 pt-4 sm:px-8 sm:pt-6">
+          <div className="pointer-events-auto flex w-full max-w-3xl justify-end">
+            <TrackCommitButton trackId={singleTrack.id} />
+          </div>
+        </div>
+      ) : null}
+
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-24">
         <Button variant="outline" asChild className="w-fit rounded-2xl">
           <Link href="/">Back to home</Link>
@@ -64,36 +126,34 @@ export function AiTracksGuide({
           ) : null}
         </header>
 
-        <section className="rounded-3xl border border-border/70 bg-card p-8 shadow-sm sm:p-10">
-          <h2 className="text-xl font-bold tracking-tight text-foreground">{intro.structureIntro}</h2>
-          <div className="mt-5 overflow-hidden rounded-2xl border border-border">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-border bg-secondary/80">
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Section
-                  </th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    What it is
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {intro.structureRows.map((row) => (
-                  <tr key={row.name} className="border-b border-border/80 last:border-0">
-                    <td className="px-4 py-3 font-semibold text-foreground">{row.name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.description}</td>
+        {itemLabel !== "Sprint" ? (
+          <section className="rounded-3xl border border-border/70 bg-card p-8 shadow-sm sm:p-10">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">{intro.structureIntro}</h2>
+            <div className="mt-5 overflow-hidden rounded-2xl border border-border">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/80">
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Section
+                    </th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      What it is
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
-            {itemLabel === "Sprint"
-              ? `A "sprint" here means a focused two-week solo build, not a Scrum ceremony. Nights and weekends count.`
-              : intro.footnote}
-          </p>
-        </section>
+                </thead>
+                <tbody>
+                  {intro.structureRows.map((row) => (
+                    <tr key={row.name} className="border-b border-border/80 last:border-0">
+                      <td className="px-4 py-3 font-semibold text-foreground">{row.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{row.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-5 text-sm leading-relaxed text-muted-foreground">{intro.footnote}</p>
+          </section>
+        ) : null}
 
         {tracks.map((track) => (
           <article
@@ -109,14 +169,25 @@ export function AiTracksGuide({
             <p className="mt-5 text-sm leading-relaxed text-foreground sm:text-base">
               <span className="font-semibold text-primary">The bet.</span> {track.bet}
             </p>
-            <div className="mt-5 space-y-4 text-sm leading-relaxed text-foreground sm:text-base">
-              <p>
-                <span className="font-semibold text-primary">Week 1.</span> {track.week1}
+            {track.whatYouDo ? (
+              <p className="mt-4 text-sm leading-relaxed text-foreground sm:text-base">
+                <span className="font-semibold text-primary">What you&apos;re doing.</span> {track.whatYouDo}
               </p>
-              <p>
-                <span className="font-semibold text-primary">Week 2.</span> {track.week2}
-              </p>
-            </div>
+            ) : null}
+            {itemLabel !== "Sprint" && (track.week1.trim() || track.week2.trim()) ? (
+              <div className="mt-5 space-y-4 text-sm leading-relaxed text-foreground sm:text-base">
+                {track.week1.trim() ? (
+                  <p>
+                    <span className="font-semibold text-primary">Week 1.</span> {track.week1}
+                  </p>
+                ) : null}
+                {track.week2.trim() ? (
+                  <p>
+                    <span className="font-semibold text-primary">Week 2.</span> {track.week2}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <h3 className="mb-3 mt-8 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Deliverables
@@ -174,40 +245,11 @@ export function AiTracksGuide({
               Outcomes you can claim: &ldquo;{track.outcomes}&rdquo;
             </blockquote>
 
-            <TrackCommitButton trackId={track.id} />
+            {!stickyCommit ? <TrackCommitButton trackId={track.id} className="mt-8 w-full sm:w-auto" /> : null}
           </article>
         ))}
 
-        <section className="rounded-3xl border border-border/70 bg-card p-8 shadow-sm sm:p-10">
-          <h2 className="text-xl font-bold tracking-tight text-foreground">{pattern.title}</h2>
-          <div className="mt-5 overflow-hidden rounded-2xl border border-border">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-border bg-secondary/80">
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Sector
-                  </th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    The thing you build
-                  </th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    The thing that proves you built it
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {pattern.rows.map((row) => (
-                  <tr key={row.sector} className="border-b border-border/80 last:border-0">
-                    <td className="px-4 py-3 font-medium text-foreground">{row.sector}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.build}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.proof}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-6 text-sm leading-relaxed text-muted-foreground">{pattern.closing}</p>
-        </section>
+        {!stickyCommit ? <PatternSection pattern={pattern} /> : null}
       </div>
     </main>
   );

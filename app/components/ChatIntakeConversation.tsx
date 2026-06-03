@@ -10,6 +10,7 @@ import { IntakeChatComposer } from "@/app/components/IntakeChatComposer";
 import { Button } from "@/components/ui/button";
 import { BRAND_NAME } from "@/lib/brand";
 import type { CcAgentFlowState, CcAgentStepId } from "@/lib/cc-agent-flow";
+import { isQuizPath, QUIZ_PATH_INTRO } from "@/lib/cc-agent-flow";
 import { buildTranscript, getActiveStepPrompt } from "@/lib/cc-agent-transcript";
 import { QUESTIONS, type PrefsValues } from "@/lib/intake-questions";
 import type { ParsedProfileInsight } from "@/lib/profile-parse";
@@ -22,9 +23,9 @@ type ChatIntakeConversationProps = {
   ccAgent: CcAgentFlowState;
   targetJobUrl: string;
   onTargetJobUrlChange: (value: string) => void;
-  onKnowsTargetJobChange: (knows: boolean) => void;
-  onUsWorkEligibleChange: (value: boolean) => void;
+  onNoDreamJob: () => void;
   onSelectRole: (roleId: string) => void;
+  onSkipProfileUpload: () => void;
   currentAnswer: string;
   onCurrentAnswerChange: (value: string) => void;
   answerError: string;
@@ -64,16 +65,20 @@ function BotAvatar({ className }: { className?: string }) {
 
 function AssistantBubble({
   children,
+  hideLabel,
   className,
 }: {
   children: ReactNode;
+  hideLabel?: boolean;
   className?: string;
 }) {
   return (
     <div className={cn("flex gap-3 py-1", className)}>
       <BotAvatar />
       <div className="min-w-0 max-w-[min(100%,36rem)] flex-1">
-        <p className="mb-1 text-xs font-semibold text-muted-foreground">{BRAND_NAME}</p>
+        {!hideLabel ? (
+          <p className="mb-1 text-xs font-semibold text-muted-foreground">{BRAND_NAME}</p>
+        ) : null}
         <div className="rounded-2xl rounded-tl-md border border-border/60 bg-card px-4 py-3 text-sm leading-relaxed text-foreground shadow-sm sm:text-[0.9375rem]">
           {children}
         </div>
@@ -110,9 +115,9 @@ export function ChatIntakeConversation({
   ccAgent,
   targetJobUrl,
   onTargetJobUrlChange,
-  onKnowsTargetJobChange,
-  onUsWorkEligibleChange,
+  onNoDreamJob,
   onSelectRole,
+  onSkipProfileUpload,
   currentAnswer,
   onCurrentAnswerChange,
   answerError,
@@ -135,7 +140,7 @@ export function ChatIntakeConversation({
   isParsingProfile,
   isRunningTriage,
 }: ChatIntakeConversationProps) {
-  const scrollAnchorRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isBusy = isGenerating || isParsingProfile || isRunningTriage;
 
   const transcript = useMemo(
@@ -144,27 +149,43 @@ export function ChatIntakeConversation({
         flowStep,
         ccAgent,
         targetJobUrl,
+        linkedInUrl,
         resumeFileName,
+        resumeText,
         wizardAnswers,
         quizIndex,
       }),
-    [flowStep, ccAgent, targetJobUrl, resumeFileName, wizardAnswers, quizIndex],
+    [flowStep, ccAgent, targetJobUrl, linkedInUrl, resumeFileName, resumeText, wizardAnswers, quizIndex],
   );
 
   const activePrompt = useMemo(() => {
     if (flowStep === "quiz") {
       const q = QUESTIONS[quizIndex];
+      if (isQuizPath(ccAgent) && quizIndex === 0) {
+        return {
+          title: QUIZ_PATH_INTRO,
+          body: [q.prompt, q.hint].filter(Boolean).join("\n\n"),
+        };
+      }
       return { title: q.prompt, body: q.hint };
     }
-    return getActiveStepPrompt(flowStep, profileInsight?.filtersIntro);
-  }, [flowStep, quizIndex, profileInsight?.filtersIntro]);
+    return getActiveStepPrompt(flowStep, profileInsight?.filtersIntro, quizIndex, ccAgent);
+  }, [flowStep, quizIndex, profileInsight?.filtersIntro, ccAgent]);
 
   useEffect(() => {
-    scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [transcript, flowStep, currentAnswer, isBusy]);
+    const container = scrollContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [transcript, flowStep, isBusy, quizIndex]);
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background selection:bg-primary selection:text-primary-foreground">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background selection:bg-primary selection:text-primary-foreground">
       <header className="sticky top-0 z-20 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
@@ -179,12 +200,23 @@ export function ChatIntakeConversation({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
           {transcript.map((message) =>
             message.role === "assistant" ? (
-              <AssistantBubble key={message.id}>
-                <p className="whitespace-pre-wrap">{message.content}</p>
+              <AssistantBubble key={message.id} hideLabel={Boolean(message.headline)}>
+                {message.headline ? (
+                  <>
+                    <p className="text-lg font-semibold tracking-tight text-foreground">
+                      {message.headline}
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground sm:text-[0.9375rem]">
+                      {message.content}
+                    </p>
+                  </>
+                ) : (
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                )}
               </AssistantBubble>
             ) : (
               <UserBubble key={message.id}>{message.content}</UserBubble>
@@ -201,18 +233,17 @@ export function ChatIntakeConversation({
           ) : null}
 
           {isBusy ? <TypingIndicator /> : null}
-          <div ref={scrollAnchorRef} className="h-2" aria-hidden />
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-20 shrink-0 border-t border-border/60 bg-background/95 backdrop-blur-md">
+      <div className="z-20 shrink-0 border-t border-border/60 bg-background/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center px-4 pt-2 sm:px-6">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={onBack}
-            disabled={flowStep === "hook" || isBusy}
+                disabled={flowStep === "target-job-url" || isBusy}
             className="h-9 rounded-lg px-2 text-muted-foreground"
             data-testid="button-back"
           >
@@ -224,9 +255,9 @@ export function ChatIntakeConversation({
           ccAgent={ccAgent}
           targetJobUrl={targetJobUrl}
           onTargetJobUrlChange={onTargetJobUrlChange}
-          onKnowsTargetJobChange={onKnowsTargetJobChange}
-          onUsWorkEligibleChange={onUsWorkEligibleChange}
+          onNoDreamJob={onNoDreamJob}
           onSelectRole={onSelectRole}
+          onSkipProfileUpload={onSkipProfileUpload}
           currentAnswer={currentAnswer}
           onCurrentAnswerChange={onCurrentAnswerChange}
           answerError={answerError}

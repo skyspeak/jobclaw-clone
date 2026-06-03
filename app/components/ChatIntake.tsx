@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -18,20 +18,25 @@ import {
 import {
   defaultCcAgentFlowState,
   type CcAgentFlowState,
+  type VettedRoleId,
   type VettingResult,
 } from "@/lib/cc-agent-flow";
 import {
   advanceCcAgentState,
+  advanceFromDreamJob,
+  advanceFromProfileUpload,
   canProceedFromStep,
   retreatCcAgentState,
-  setKnowsTargetJob,
 } from "@/lib/cc-agent-intake-nav";
-import { getFlowProgressIndex, getTotalFlowSteps } from "@/lib/cc-agent-flow";
+import { getFlowProgressIndex, getTotalFlowSteps, inferSelectedRoleId } from "@/lib/cc-agent-flow";
+import { projectSprintPathForRoleId } from "@/lib/ai-tracks-data";
 import {
   buildResumeSnapshot,
+  clearAllBrowserOnboardingState,
   hasMinimumProfileEvidence,
   hasResumeOrLinkedInInput,
   INTAKE_WIZARD_STORAGE_KEY,
+  readIntakeSession,
   type IntakeContactInfo,
   type IntakeProfileDraft,
   type IntakeWizardSession,
@@ -109,75 +114,6 @@ function normalizeStoredDefaults(defaults: Partial<SearchDefaults> | undefined):
   };
 }
 
-function readStoredSession(): IntakeWizardSession {
-  const fallback = readFreshSession();
-
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-
-  const stored = window.localStorage.getItem(storageKey);
-
-  if (!stored) {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(stored) as LegacyStoredSession;
-    const next = readFreshSession();
-
-    next.submissionId = parsed.submissionId ?? "";
-    next.contact = { ...emptyContact, ...parsed.contact };
-    next.defaults = normalizeStoredDefaults(parsed.defaults);
-    next.result = parsed.result ?? null;
-    next.profileDraft = parsed.profileDraft ?? null;
-    next.generatedResume = parsed.generatedResume ?? null;
-    next.linkedInUrl = typeof parsed.linkedInUrl === "string" ? parsed.linkedInUrl : "";
-    next.resumeText = typeof parsed.resumeText === "string" ? parsed.resumeText : "";
-    next.resumeFileName = typeof parsed.resumeFileName === "string" ? parsed.resumeFileName : "";
-    next.targetJobUrl = typeof parsed.targetJobUrl === "string" ? parsed.targetJobUrl : "";
-    next.ccAgent = {
-      ...defaultCcAgentFlowState(),
-      ...(parsed.ccAgent && typeof parsed.ccAgent === "object" ? parsed.ccAgent : {}),
-    };
-
-    if (parsed.wizardAnswers && Array.isArray(parsed.wizardAnswers) && parsed.wizardAnswers.length === 5) {
-      next.wizardAnswers = parsed.wizardAnswers.map((s) => String(s ?? ""));
-    } else if (parsed.answers) {
-      next.wizardAnswers = [
-        parsed.answers.q1 ?? "",
-        parsed.answers.q2 ?? "",
-        parsed.answers.q3 ?? "",
-        parsed.answers.q4 ?? "",
-        parsed.answers.q5 ?? "",
-      ];
-    }
-
-    if (typeof parsed.wizardStep === "number") {
-      next.wizardStep = Math.min(Math.max(parsed.wizardStep, 0), 6);
-    } else if (typeof parsed.currentStep === "number") {
-      const cs = parsed.currentStep;
-      if (cs <= 4) {
-        next.wizardStep = cs;
-      } else if (cs <= 12) {
-        next.wizardStep = 5;
-      } else {
-        next.wizardStep = 5;
-      }
-    }
-
-    next.currentAnswer =
-      typeof parsed.currentAnswer === "string"
-        ? parsed.currentAnswer
-        : next.wizardAnswers[next.wizardStep] ?? "";
-
-    return next;
-  } catch {
-    window.localStorage.removeItem(storageKey);
-    return fallback;
-  }
-}
-
 const PROFILE_GATE_HINT =
   "Add your LinkedIn profile URL or upload a text-based résumé before continuing.";
 
@@ -187,34 +123,61 @@ type ChatIntakeProps = {
 
 function hasIntakeProgress(session: IntakeWizardSession) {
   return (
-    session.ccAgent.flowStep !== "hook" ||
+    session.ccAgent.flowStep !== "target-job-url" ||
+    session.ccAgent.skippedProfileUpload ||
     session.ccAgent.knowsTargetJob !== null ||
     session.wizardAnswers.some((answer) => answer.trim().length > 0) ||
     Boolean(session.linkedInUrl.trim() || session.resumeText.trim() || session.targetJobUrl.trim())
   );
 }
 
+function resolveProjectSprintHref(input: {
+  ccAgent: CcAgentFlowState;
+  profileInsight: ParsedProfileInsight | null;
+  targetJobUrl: string;
+  linkedInUrl: string;
+  resumeText: string;
+  wizardAnswers: string[];
+}): string {
+  const vettedRole = input.ccAgent.vettingResult?.inferredRoleId;
+  if (vettedRole && vettedRole !== "long-tail") {
+    return projectSprintPathForRoleId(vettedRole);
+  }
+
+  const roleId = inferSelectedRoleId({
+    targetJobUrl: input.targetJobUrl,
+    linkedInUrl: input.linkedInUrl,
+    resumeText: input.resumeText,
+    profileInsight: input.profileInsight,
+    answers: wizardRowsToIntakeAnswers(input.wizardAnswers),
+  });
+
+  return projectSprintPathForRoleId(roleId);
+}
+
 export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   const router = useRouter();
-  const [storedSession] = useState(readStoredSession);
-  const [quizStarted, setQuizStarted] = useState(() => hasIntakeProgress(storedSession));
-  const [submissionId, setSubmissionId] = useState(storedSession.submissionId);
-  const [ccAgent, setCcAgent] = useState<CcAgentFlowState>(storedSession.ccAgent);
-  const [targetJobUrl, setTargetJobUrl] = useState(storedSession.targetJobUrl);
-  const [wizardStep, setWizardStep] = useState(storedSession.wizardStep);
-  const [wizardAnswers, setWizardAnswers] = useState<string[]>(storedSession.wizardAnswers);
-  const [currentAnswer, setCurrentAnswer] = useState(storedSession.currentAnswer);
+  const searchParams = useSearchParams();
+  const freshSession = readFreshSession();
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [submissionId, setSubmissionId] = useState(freshSession.submissionId);
+  const [ccAgent, setCcAgent] = useState<CcAgentFlowState>(freshSession.ccAgent);
+  const [targetJobUrl, setTargetJobUrl] = useState(freshSession.targetJobUrl);
+  const [wizardStep, setWizardStep] = useState(freshSession.wizardStep);
+  const [wizardAnswers, setWizardAnswers] = useState<string[]>(freshSession.wizardAnswers);
+  const [currentAnswer, setCurrentAnswer] = useState(freshSession.currentAnswer);
   const [answerError, setAnswerError] = useState("");
-  const [contact, setContact] = useState<IntakeContactInfo>(storedSession.contact);
-  const [defaults, setDefaults] = useState<SearchDefaults>(storedSession.defaults);
-  const [result, setResult] = useState<JobClawResponse | null>(storedSession.result);
+  const [contact, setContact] = useState<IntakeContactInfo>(freshSession.contact);
+  const [defaults, setDefaults] = useState<SearchDefaults>(freshSession.defaults);
+  const [result, setResult] = useState<JobClawResponse | null>(freshSession.result);
   const [profileDraft, setProfileDraft] = useState<IntakeProfileDraft | null>(
-    storedSession.profileDraft,
+    freshSession.profileDraft,
   );
-  const [generatedResume] = useState<GeneratedResume | null>(storedSession.generatedResume);
-  const [linkedInUrl, setLinkedInUrl] = useState(storedSession.linkedInUrl);
-  const [resumeText, setResumeText] = useState(storedSession.resumeText);
-  const [resumeFileName, setResumeFileName] = useState(storedSession.resumeFileName);
+  const [generatedResume] = useState<GeneratedResume | null>(freshSession.generatedResume);
+  const [linkedInUrl, setLinkedInUrl] = useState(freshSession.linkedInUrl);
+  const [resumeText, setResumeText] = useState(freshSession.resumeText);
+  const [resumeFileName, setResumeFileName] = useState(freshSession.resumeFileName);
   const [isReadingResume, setIsReadingResume] = useState(false);
   const [isParsingProfile, setIsParsingProfile] = useState(false);
   const [isRunningTriage, setIsRunningTriage] = useState(false);
@@ -225,26 +188,75 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
 
   const prefsForm = useForm<PrefsValues>({
     resolver: zodResolver(prefsSchema),
-    defaultValues: searchDefaultsToPrefsValues(storedSession.defaults),
+    defaultValues: searchDefaultsToPrefsValues(freshSession.defaults),
   });
 
-  const totalSteps = getTotalFlowSteps(ccAgent.knowsTargetJob);
+  const totalSteps = getTotalFlowSteps(ccAgent);
   const progressStep = getFlowProgressIndex(ccAgent);
   const flowStep = ccAgent.flowStep;
 
   const profileCompleteForGenerate = useMemo(
-    () => hasMinimumProfileEvidence(linkedInUrl, resumeText),
-    [linkedInUrl, resumeText],
+    () => ccAgent.skippedProfileUpload || hasMinimumProfileEvidence(linkedInUrl, resumeText),
+    [ccAgent.skippedProfileUpload, linkedInUrl, resumeText],
   );
 
   useEffect(() => {
+    if (searchParams.get("reset") === "1") {
+      clearAllBrowserOnboardingState();
+      setSubmissionId("");
+      setCcAgent(defaultCcAgentFlowState());
+      setTargetJobUrl("");
+      setWizardStep(0);
+      setWizardAnswers(Array.from({ length: 5 }, () => ""));
+      setCurrentAnswer("");
+      setAnswerError("");
+      setContact(emptyContact);
+      setDefaults(defaultSearchDefaults);
+      setResult(null);
+      setProfileDraft(null);
+      setLinkedInUrl("");
+      setResumeText("");
+      setResumeFileName("");
+      setProfileInsight(null);
+      setError("");
+      setQuizStarted(false);
+      prefsForm.reset(searchDefaultsToPrefsValues(defaultSearchDefaults));
+      setIsHydrated(true);
+      router.replace("/intake");
+      return;
+    }
+
+    const session = readIntakeSession();
+    setSubmissionId(session.submissionId);
+    setCcAgent(session.ccAgent);
+    setTargetJobUrl(session.targetJobUrl);
+    setWizardStep(session.wizardStep);
+    setWizardAnswers(session.wizardAnswers);
+    setCurrentAnswer(session.currentAnswer);
+    setContact(session.contact);
+    setDefaults(session.defaults);
+    setResult(session.result);
+    setProfileDraft(session.profileDraft);
+    setLinkedInUrl(session.linkedInUrl);
+    setResumeText(session.resumeText);
+    setResumeFileName(session.resumeFileName);
+    prefsForm.reset(searchDefaultsToPrefsValues(session.defaults));
+    setQuizStarted(hasIntakeProgress(session));
+    setIsHydrated(true);
+  }, [prefsForm, router, searchParams]);
+
+  useEffect(() => {
+    if (!isHydrated || searchParams.get("reset") === "1") {
+      return;
+    }
+
     if (result?.searchRequest) {
       router.replace("/intake/brief");
     }
-  }, [result, router]);
+  }, [isHydrated, result, router, searchParams]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (!isHydrated || typeof window === "undefined") {
       return;
     }
 
@@ -281,6 +293,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     targetJobUrl,
     wizardAnswers,
     wizardStep,
+    isHydrated,
   ]);
 
   function handleCurrentAnswerChange(value: string) {
@@ -330,7 +343,6 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           knowsTargetJob: ccAgent.knowsTargetJob === true,
-          usWorkEligible: ccAgent.usWorkEligible,
           linkedInUrl,
           resumeText,
           resumeFileName,
@@ -344,6 +356,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
         vetting: VettingResult;
         profileInsight: ParsedProfileInsight | null;
         roleSuggestions: string[];
+        suggestedRoleId?: VettedRoleId | "long-tail";
         error?: string;
       };
 
@@ -359,7 +372,8 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
         ...current,
         vettingResult: payload.vetting,
         roleSuggestions: payload.roleSuggestions,
-        selectedRoleId: current.selectedRoleId || payload.vetting.inferredRoleId,
+        selectedRoleId:
+          payload.suggestedRoleId || payload.vetting.inferredRoleId || current.selectedRoleId,
       }));
 
       return payload.vetting;
@@ -414,6 +428,19 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   }
 
   async function handleNext() {
+    if (flowStep === "vetting-result") {
+      const href = resolveProjectSprintHref({
+        ccAgent,
+        profileInsight,
+        targetJobUrl,
+        linkedInUrl,
+        resumeText,
+        wizardAnswers,
+      });
+      router.push(href);
+      return;
+    }
+
     if (flowStep === "search-filters") {
       return;
     }
@@ -435,10 +462,27 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
 
     setAnswerError("");
 
-    if (flowStep === "hook" && ccAgent.knowsTargetJob !== null) {
-      const nextAgent = setKnowsTargetJob(ccAgent, ccAgent.knowsTargetJob);
-      setCcAgent(nextAgent);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    if (flowStep === "target-job-url") {
+      const { next, nextCurrentAnswer } = advanceFromDreamJob(ccAgent, targetJobUrl, wizardAnswers);
+      setCcAgent(next);
+      setCurrentAnswer(nextCurrentAnswer);
+      return;
+    }
+
+    if (flowStep === "profile-upload") {
+      const { next, nextCurrentAnswer } = advanceFromProfileUpload(ccAgent);
+      let merged = next;
+
+      if (next.flowStep === "vetting-result" && !next.vettingResult) {
+        const vetting = await runTriage();
+        if (!vetting) {
+          return;
+        }
+        merged = { ...next, vettingResult: vetting };
+      }
+
+      setCcAgent(merged);
+      setCurrentAnswer(nextCurrentAnswer);
       return;
     }
 
@@ -458,7 +502,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
       merged = { ...next, vettingResult: vetting };
     }
 
-    if (next.flowStep === "search-filters" && !profileInsight) {
+    if (next.flowStep === "search-filters" && !profileInsight && !ccAgent.skippedProfileUpload) {
       const ok = await parseProfileForFilters();
       if (!ok) {
         return;
@@ -468,12 +512,18 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     setWizardAnswers(nextWizardAnswers);
     setCcAgent(merged);
     setCurrentAnswer(nextCurrentAnswer);
+  }
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  function handleSkipProfileUpload() {
+    setAnswerError("");
+    setCcAgent((current) => ({
+      ...current,
+      skippedProfileUpload: true,
+    }));
   }
 
   function handleBack() {
-    if (flowStep === "hook") {
+    if (flowStep === "target-job-url") {
       return;
     }
 
@@ -481,15 +531,25 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     const { next, nextCurrentAnswer } = retreatCcAgentState(ccAgent, wizardAnswers, currentAnswer);
     setCcAgent(next);
     setCurrentAnswer(nextCurrentAnswer);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function handleKnowsTargetJob(knows: boolean) {
-    setCcAgent((current) => ({ ...current, knowsTargetJob: knows }));
+  function handleNoDreamJob() {
+    setAnswerError("");
+    setTargetJobUrl("");
+    setCcAgent((current) => ({ ...current, knowsTargetJob: false }));
   }
 
-  function handleSelectRole(roleId: string) {
-    setCcAgent((current) => ({ ...current, selectedRoleId: roleId }));
+  function handleTargetJobUrlChange(value: string) {
+    setTargetJobUrl(value);
+    if (value.trim()) {
+      setCcAgent((current) =>
+        current.knowsTargetJob === false ? { ...current, knowsTargetJob: null } : current,
+      );
+    }
+  }
+
+  function handleSelectRole(_roleId: string) {
+    // Role is inferred from profile; manual selection removed.
   }
 
   async function readResumeFile(event: ChangeEvent<HTMLInputElement>) {
@@ -709,6 +769,12 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     return <IntakeGeneratingScreen />;
   }
 
+  if (!isHydrated) {
+    return (
+      <div className="flex h-[100dvh] flex-col overflow-hidden brand-bg selection:bg-primary selection:text-primary-foreground" />
+    );
+  }
+
   if (!quizStarted) {
     return (
       <IntakeSplashScreen
@@ -721,25 +787,24 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col brand-bg selection:bg-primary selection:text-primary-foreground">
+    <div className="flex h-[100dvh] flex-col overflow-hidden brand-bg selection:bg-primary selection:text-primary-foreground">
       {error ? (
-        <p className="mx-auto w-full max-w-2xl px-4 pt-4 text-sm font-medium text-destructive sm:px-6">
+        <p className="mx-auto w-full max-w-2xl shrink-0 px-4 pt-4 text-sm font-medium text-destructive sm:px-6">
           {error}
         </p>
       ) : null}
       {variant === "chat" ? (
-        <ChatIntakeConversation
+        <div className="flex min-h-0 flex-1 flex-col">
+          <ChatIntakeConversation
           flowStep={flowStep}
           progressStep={progressStep}
           totalSteps={totalSteps}
           ccAgent={ccAgent}
           targetJobUrl={targetJobUrl}
-          onTargetJobUrlChange={setTargetJobUrl}
-          onKnowsTargetJobChange={handleKnowsTargetJob}
-          onUsWorkEligibleChange={(value) =>
-            setCcAgent((current) => ({ ...current, usWorkEligible: value }))
-          }
+          onTargetJobUrlChange={handleTargetJobUrlChange}
+          onNoDreamJob={handleNoDreamJob}
           onSelectRole={handleSelectRole}
+          onSkipProfileUpload={handleSkipProfileUpload}
           currentAnswer={currentAnswer}
           onCurrentAnswerChange={handleCurrentAnswerChange}
           answerError={answerError}
@@ -762,6 +827,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
           isParsingProfile={isParsingProfile}
           isRunningTriage={isRunningTriage}
         />
+        </div>
       ) : null}
     </div>
   );

@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Calendar, Check } from "lucide-react";
 
-import { buildTrackCommitCalendarUrl, isValidPhone, type TrackCommitCalendar } from "@/lib/ai-tracks-commit";
+import {
+  buildTrackCommitCalendarUrl,
+  isValidPhone,
+  type TrackCommitCalendar,
+} from "@/lib/ai-tracks-commit";
 import type { AiTrack } from "@/lib/ai-tracks-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +22,90 @@ type CommitSuccess = {
   calendar: TrackCommitCalendar;
   phone: string;
 };
+
+function CommitWindowCalendar({ calendar }: { calendar: TrackCommitCalendar }) {
+  const days = useMemo(() => {
+    const start = new Date(calendar.startDate);
+    const finish = new Date(calendar.finishDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const out: Array<{
+      date: Date;
+      label: string;
+      isToday: boolean;
+      isFinish: boolean;
+    }> = [];
+
+    for (let d = new Date(start); d <= finish; d.setDate(d.getDate() + 1)) {
+      const current = new Date(d);
+      const isToday =
+        current.getFullYear() === today.getFullYear() &&
+        current.getMonth() === today.getMonth() &&
+        current.getDate() === today.getDate();
+      const isFinish =
+        current.getFullYear() === finish.getFullYear() &&
+        current.getMonth() === finish.getMonth() &&
+        current.getDate() === finish.getDate();
+
+      out.push({
+        date: current,
+        label: current.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        }),
+        isToday,
+        isFinish,
+      });
+    }
+
+    return out;
+  }, [calendar.finishDate, calendar.startDate]);
+
+  return (
+    <div className="mt-4 space-y-3 rounded-2xl border border-dashed border-border/70 bg-muted/40 p-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          Two-week window
+        </p>
+        <p className="text-xs text-muted-foreground">
+          You can join on <span className="font-medium text-foreground">any date</span> from{" "}
+          <span className="font-medium text-foreground">{calendar.startLabel}</span> through{" "}
+          <span className="font-medium text-foreground">{calendar.finishLabel}</span>.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {days.map((day) => {
+          const isKey = day.isToday || day.isFinish;
+          return (
+            <div
+              key={day.date.toISOString()}
+              className={[
+                "flex min-w-[3.2rem] flex-col items-center rounded-xl border px-2.5 py-1.5",
+                isKey ? "border-primary bg-primary/10" : "border-border/80 bg-card",
+              ].join(" ")}
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {day.date.toLocaleDateString(undefined, { weekday: "short" })}
+              </span>
+              <span className="text-xs font-medium text-foreground">{day.label}</span>
+              {day.isToday ? (
+                <span className="mt-0.5 rounded-full bg-primary/90 px-1.5 py-0.5 text-[9px] font-semibold text-primary-foreground">
+                  Today
+                </span>
+              ) : null}
+              {day.isFinish && !day.isToday ? (
+                <span className="mt-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+                  Finish line
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function TrackCommitClient({ track }: TrackCommitClientProps) {
   const [phone, setPhone] = useState("");
@@ -78,10 +166,12 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
             Committed to {track.title}
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Your two-week window runs from <strong className="text-foreground">{calendar.startLabel}</strong>{" "}
-            through <strong className="text-foreground">{calendar.finishLabel}</strong>. Add it to your calendar so
-            the finish line stays visible.
+            Your two-week window runs from{" "}
+            <strong className="text-foreground">{calendar.startLabel}</strong> through{" "}
+            <strong className="text-foreground">{calendar.finishLabel}</strong>. Add it to your calendar so the finish
+            line stays visible.
           </p>
+          <CommitWindowCalendar calendar={calendar} />
         </div>
 
         <div className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
@@ -123,6 +213,7 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
           Committing today means your finish line is{" "}
           <strong className="text-foreground">{preview.finishLabel}</strong>.
         </p>
+        <CommitWindowCalendar calendar={preview} />
       </div>
 
       <div className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">

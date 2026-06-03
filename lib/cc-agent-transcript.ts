@@ -1,5 +1,11 @@
 import type { CcAgentFlowState, CcAgentStepId } from "@/lib/cc-agent-flow";
-import { CC_AGENT_ROLE_LABELS, getFlowStepSequence } from "@/lib/cc-agent-flow";
+import {
+  DREAM_JOB_SKIP_CHIP,
+  getFlowStepSequence,
+  isQuizPath,
+  PROFILE_SKIP_CHIP,
+  QUIZ_PATH_INTRO,
+} from "@/lib/cc-agent-flow";
 import { QUESTIONS } from "@/lib/intake-questions";
 import { BRAND_NAME } from "@/lib/brand";
 
@@ -7,22 +13,25 @@ export type TranscriptMessage = {
   id: string;
   role: "assistant" | "user";
   content: string;
+  headline?: string;
 };
 
 export function getActiveStepPrompt(
   flowStep: CcAgentStepId,
   profileFiltersIntro?: string,
+  quizIndex = 0,
+  ccAgent?: CcAgentFlowState,
 ): { title: string; body?: string } {
   switch (flowStep) {
-    case "hook":
-      return {
-        title: "Do you know what job you want?",
-        body: "If yes, you'll paste a target job URL next. If not, we'll use your résumé and a short quiz to suggest roles.",
-      };
     case "target-job-url":
       return {
-        title: "Paste your target job posting",
-        body: "We'll parse the listing for required skills and gap analysis.",
+        title: "What is your dream job — paste your dream job URL?",
+        body: "We'll parse the listing for skills and gap analysis. No URL yet? Say so below.",
+      };
+    case "profile-upload":
+      return {
+        title: "Upload your LinkedIn and your resume",
+        body: "Share at least one so we can vet your profile and personalize your brief.",
       };
     case "resume":
       return {
@@ -34,22 +43,19 @@ export function getActiveStepPrompt(
         title: "Add your LinkedIn profile",
         body: "Used for location, network strength, and verification alongside your résumé.",
       };
-    case "quiz":
-      return { title: "", body: "" };
-    case "role-suggestions":
-      return {
-        title: "Which role should we optimize for?",
-        body: "MVP vetted roles: Sales, Marketing, Forward Deployed Engineer, Software Engineer.",
-      };
+    case "quiz": {
+      const q = QUESTIONS[quizIndex];
+      if (ccAgent && isQuizPath(ccAgent) && quizIndex === 0) {
+        return {
+          title: QUIZ_PATH_INTRO,
+          body: [q.prompt, q.hint].filter(Boolean).join("\n\n"),
+        };
+      }
+      return { title: q.prompt, body: q.hint };
+    }
     case "vetting-result":
       return {
-        title: "Here's your vetting readout",
-        body: "Both paths continue. Vetted status unlocks mentorship after your team proof-of-work sprint.",
-      };
-    case "nurture-track":
-      return {
-        title: "Your nurture track",
-        body: "This is how dear[CC] will coach you toward a portfolio piece recruiters can trust.",
+        title: "We have determined next steps for you.",
       };
     case "search-filters":
       return {
@@ -71,118 +77,112 @@ export function buildTranscript(input: {
   flowStep: CcAgentStepId;
   ccAgent: CcAgentFlowState;
   targetJobUrl: string;
+  linkedInUrl: string;
   resumeFileName: string;
+  resumeText: string;
   wizardAnswers: string[];
   quizIndex: number;
 }): TranscriptMessage[] {
-  const { flowStep, ccAgent, targetJobUrl, resumeFileName, wizardAnswers } = input;
-  const sequence = getFlowStepSequence(ccAgent.knowsTargetJob);
+  const {
+    flowStep,
+    ccAgent,
+    targetJobUrl,
+    linkedInUrl,
+    resumeFileName,
+    resumeText,
+    wizardAnswers,
+    quizIndex,
+  } = input;
+  const sequence = getFlowStepSequence(ccAgent);
   const currentIndex = stepIndex(sequence, flowStep);
   const messages: TranscriptMessage[] = [
     {
       id: "welcome",
       role: "assistant",
-      content: `Hi — I'm ${BRAND_NAME}. We'll triage your target, vet your profile, and route you into the right track toward proof-of-work and your first offer.`,
+      headline: BRAND_NAME,
+      content:
+        "Hi — we'll triage your target, vet your profile, and route you into the right track toward proof-of-work and your first offer.",
     },
   ];
 
-  const past = (step: CcAgentStepId) => currentIndex > stepIndex(sequence, step);
+  const past = (step: CcAgentStepId) => {
+    const idx = stepIndex(sequence, step);
+    if (idx < 0) {
+      return false;
+    }
+    return currentIndex > idx;
+  };
 
-  if (past("hook") && ccAgent.knowsTargetJob !== null) {
+  if (past("target-job-url") && ccAgent.knowsTargetJob !== null) {
     messages.push({
-      id: "user-hook",
+      id: "asst-dream-job",
+      role: "assistant",
+      content: getActiveStepPrompt("target-job-url").title,
+    });
+    messages.push({
+      id: "user-dream-job",
       role: "user",
-      content: ccAgent.knowsTargetJob
-        ? "Yes — I have a target job in mind."
-        : "Not yet — help me figure it out.",
+      content:
+        ccAgent.knowsTargetJob === false
+          ? DREAM_JOB_SKIP_CHIP
+          : targetJobUrl.trim() || "Dream job URL shared",
     });
   }
 
-  if (ccAgent.knowsTargetJob === true && past("target-job-url") && targetJobUrl.trim()) {
-    messages.push(
-      {
-        id: "asst-target",
-        role: "assistant",
-        content: getActiveStepPrompt("target-job-url").title,
-      },
-      { id: "user-target", role: "user", content: targetJobUrl.trim() },
-    );
-  }
-
-  if (past("resume") && (resumeFileName || ccAgent.knowsTargetJob === false)) {
-    messages.push(
-      {
-        id: "asst-resume",
-        role: "assistant",
-        content: getActiveStepPrompt("resume").title,
-      },
-      {
-        id: "user-resume",
-        role: "user",
-        content: resumeFileName ? `Uploaded résumé: ${resumeFileName}` : "Résumé uploaded.",
-      },
-    );
-  }
-
-  if (ccAgent.knowsTargetJob === false) {
+  if (isQuizPath(ccAgent)) {
     for (let i = 0; i < 5; i++) {
       const answered = Boolean(wizardAnswers[i]?.trim());
       const quizPast =
-        flowStep !== "quiz" || i < input.quizIndex ? past("quiz") || i < input.quizIndex : false;
+        flowStep !== "quiz" || i < quizIndex ? past("quiz") || i < quizIndex : false;
 
       if (!answered && !quizPast) {
         break;
       }
 
       if (quizPast && answered) {
+        const prompt =
+          i === 0 ? `${QUIZ_PATH_INTRO}\n\n${QUESTIONS[i].prompt}` : QUESTIONS[i].prompt;
         messages.push(
-          { id: `asst-q-${i}`, role: "assistant", content: QUESTIONS[i].prompt },
+          { id: `asst-q-${i}`, role: "assistant", content: prompt },
           { id: `user-q-${i}`, role: "user", content: wizardAnswers[i] },
         );
       }
     }
   }
 
-  if (past("role-suggestions") && ccAgent.selectedRoleId) {
-    const label =
-      CC_AGENT_ROLE_LABELS[ccAgent.selectedRoleId as keyof typeof CC_AGENT_ROLE_LABELS] ??
-      ccAgent.selectedRoleId;
-    messages.push(
-      {
-        id: "asst-roles",
-        role: "assistant",
-        content: getActiveStepPrompt("role-suggestions").title,
-      },
-      { id: "user-role", role: "user", content: label },
-    );
-  }
+  if (past("profile-upload")) {
+    const profileSummary = ccAgent.skippedProfileUpload
+      ? PROFILE_SKIP_CHIP
+      : [
+          linkedInUrl.trim() ? `LinkedIn: ${linkedInUrl.trim()}` : null,
+          resumeFileName.trim()
+            ? `Résumé: ${resumeFileName.trim()}`
+            : resumeText.trim()
+              ? "Résumé uploaded"
+              : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
 
-  if (past("linkedin")) {
-    messages.push({
-      id: "asst-linkedin",
-      role: "assistant",
-      content: getActiveStepPrompt("linkedin").title,
-    });
-    messages.push({
-      id: "user-linkedin",
-      role: "user",
-      content: "Shared LinkedIn / profile details.",
-    });
+    if (profileSummary) {
+      messages.push({
+        id: "asst-profile",
+        role: "assistant",
+        content: getActiveStepPrompt("profile-upload").title,
+      });
+      messages.push({
+        id: "user-profile",
+        role: "user",
+        content: profileSummary,
+      });
+    }
   }
 
   if (past("vetting-result") && ccAgent.vettingResult) {
     messages.push({
       id: "asst-vetting",
       role: "assistant",
-      content: `${getActiveStepPrompt("vetting-result").title}\n\n${ccAgent.vettingResult.summary}`,
-    });
-  }
-
-  if (past("nurture-track") && ccAgent.vettingResult) {
-    messages.push({
-      id: "asst-nurture",
-      role: "assistant",
-      content: getActiveStepPrompt("nurture-track").title,
+      content: getActiveStepPrompt("vetting-result").title,
     });
   }
 

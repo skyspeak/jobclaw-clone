@@ -31,7 +31,20 @@ export function formatTrackDate(date: Date): string {
 }
 
 export function getTrackById(trackId: string): AiTrack | undefined {
-  return [...AI_TRACKS, ...AI_PROJECT_SPRINTS].find((track) => track.id === trackId);
+  const normalized =
+    trackId === "ai-marketer"
+      ? "marketing"
+      : trackId === "engineering" || trackId === "swe"
+        ? undefined
+        : trackId === "forward-deployed-engineer"
+          ? "forward-deployed-engineer"
+          : trackId;
+  if (!normalized) {
+    return undefined;
+  }
+  return [...AI_TRACKS, ...AI_PROJECT_SPRINTS].find(
+    (track) => track.id === normalized || track.slug === normalized,
+  );
 }
 
 export type TrackCommitCalendar = {
@@ -55,7 +68,7 @@ export function buildTrackCommitCalendarUrl(
   const details = [
     `Track ${track.number}: ${track.subtitle}`,
     "",
-    "You committed to a two-week solo AI track through dear[CC].",
+    "You committed to a two-week AI track through dear[CC].",
     `Start: ${formatTrackDate(startDate)}`,
     `Finish line: ${formatTrackDate(finishDate)}`,
     "",

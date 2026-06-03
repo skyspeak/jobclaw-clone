@@ -14,7 +14,7 @@ Return ONLY valid JSON — no markdown, no commentary:
   "suggestedSeniority": "Any" | "Internship" | "Entry level" | "Associate" | "Mid-Senior level" | "Director" | "Executive",
   "suggestedWorkMode": "Any" | "Remote" | "Hybrid" | "On-site",
   "suggestedLocation": "string (city/region or empty)",
-  "suggestedRoles": ["3-5 realistic job titles"],
+  "suggestedRoles": ["3-5 realistic job titles — prefer Sales, Marketing, Forward Deployed Engineer, or Software Engineer when the profile fits"],
   "filtersIntro": "1-2 sentences in second person explaining what you inferred and how filters were tailored (e.g. 'Based on your résumé, you look early-career in operations. I pre-filled entry-level filters and example roles below.')"
 }`;
 
@@ -164,20 +164,23 @@ export function parseProfileFallback(input: ProfileParseInput): ParsedProfileIns
   }
 
   const roleRules: Array<{ terms: string[]; role: string }> = [
+    { terms: ["forward deployed", "fde", "solutions engineer", "field engineer"], role: "Forward Deployed Engineer" },
+    { terms: ["software engineer", "developer", "backend", "frontend", "full stack", "swe"], role: "Software Engineer" },
+    { terms: ["marketing", "growth", "brand", "content", "gtm", "demand gen"], role: "Marketing" },
+    { terms: ["sales", "account executive", "bdr", "sdr", "business development"], role: "Sales" },
     { terms: ["operations", "process"], role: "Operations Coordinator" },
     { terms: ["customer", "support"], role: "Customer Success Associate" },
     { terms: ["program", "community"], role: "Program Coordinator" },
     { terms: ["data", "analytics"], role: "Data Analyst" },
-    { terms: ["marketing", "content"], role: "Marketing Coordinator" },
   ];
 
   const suggestedRoles = roleRules
     .filter(({ terms }) => terms.some((term) => text.includes(term)))
     .map(({ role }) => role)
-    .slice(0, 4);
+    .slice(0, 5);
 
   if (suggestedRoles.length === 0) {
-    suggestedRoles.push("Operations Coordinator", "Customer Success Associate", "Program Assistant");
+    suggestedRoles.push("Marketing", "Software Engineer", "Sales");
   }
 
   const filtersIntro = isLikelyFirstTimeJobSeeker
@@ -226,6 +229,8 @@ export async function parseProfileWithGemini(
 }
 
 export async function parseProfile(input: ProfileParseInput): Promise<ParsedProfileInsight> {
-  const fromGemini = await parseProfileWithGemini(input);
+  const useGemini =
+    process.env.NODE_ENV !== "development" && Boolean(process.env.GEMINI_API_KEY?.trim());
+  const fromGemini = useGemini ? await parseProfileWithGemini(input) : null;
   return fromGemini ?? parseProfileFallback(input);
 }

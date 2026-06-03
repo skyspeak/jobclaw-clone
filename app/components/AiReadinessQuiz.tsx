@@ -215,7 +215,7 @@ export function AiReadinessQuiz() {
             After the quiz
           </p>
           <h2 className="mt-2 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-            Six two-week solo AI tracks
+            Six two-week AI tracks
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-[0.9375rem]">
             Same playbook as dear[CC]&apos;s AI tracks guide: one focused build per AI-first lane, ending in a
