@@ -76,7 +76,6 @@ export function Chat() {
   const startedRef = useRef(false);
   const stepRef = useRef(step);
   const dataRef = useRef(data);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   stepRef.current = step;
   dataRef.current = data;
@@ -87,12 +86,17 @@ export function Chat() {
   }, [step]);
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
+    const container = scrollRef.current;
+    if (!container) {
+      return;
+    }
+    container.scrollTop = container.scrollHeight;
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages.length, step, scrollToBottom]);
+    const frame = requestAnimationFrame(() => scrollToBottom());
+    return () => cancelAnimationFrame(frame);
+  }, [messages.length, step, isTyping, scrollToBottom]);
 
   const appendBot = useCallback((nextStep: number) => {
     setIsTyping(true);
@@ -265,14 +269,14 @@ export function Chat() {
     step === 4 ? "you@school.edu" : step === 2 ? "linkedin.com/in/you" : "type your reply…";
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[var(--lg-bg)] text-[var(--lg-fg)]">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--lg-bg)] text-[var(--lg-fg)]">
       <div
-        className="fixed left-0 top-0 z-20 h-0.5 bg-[var(--lg-accent)] transition-[width] duration-300 ease-out"
+        className="fixed left-0 top-0 z-30 h-0.5 bg-[var(--lg-accent)] transition-[width] duration-300 ease-out"
         style={{ width: `${progress}%` }}
         aria-hidden
       />
 
-      <header className="mx-auto flex w-full max-w-[480px] items-center justify-between px-4 pt-4">
+      <header className="mx-auto flex w-full max-w-[480px] shrink-0 items-center justify-between px-4 pb-2 pt-4">
         <span className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--lg-muted)]">
           {BRAND_NAME}
         </span>
@@ -281,7 +285,7 @@ export function Chat() {
 
       <div
         ref={scrollRef}
-        className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pb-4 pt-4"
+        className="mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pb-2 pt-2"
       >
         {messages.map((message, index) => {
           const isLatestBot =
@@ -296,10 +300,6 @@ export function Chat() {
             />
           );
         })}
-
-        <div ref={messagesEndRef} className="h-px shrink-0" aria-hidden />
-
-        {error ? <p className="text-center text-xs text-[var(--lg-accent)]">{error}</p> : null}
 
         <div className="min-h-[1px]">
           {showRoleButtons ? (
@@ -333,12 +333,17 @@ export function Chat() {
       </div>
 
       {showTextInput ? (
-        <div className="mx-auto w-full max-w-[480px] shrink-0">
+        <div className="mx-auto w-full max-w-[480px] shrink-0 border-t border-[var(--lg-border)] bg-[var(--lg-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {error ? (
+            <p className="px-4 pt-2 text-center text-xs text-[var(--lg-accent)]" role="alert">
+              {error}
+            </p>
+          ) : null}
           {showLinkedinSkip || showReferralSkip ? (
             <button
               type="button"
               onClick={showReferralSkip ? handleReferralSkip : handleLinkedinSkip}
-              className="mb-2 w-full text-center text-xs text-[var(--lg-muted)] underline-offset-4 hover:text-[var(--lg-accent)] hover:underline"
+              className="w-full px-4 pb-1 pt-2 text-center text-xs text-[var(--lg-muted)] underline-offset-4 hover:text-[var(--lg-accent)] hover:underline"
             >
               skip
             </button>
@@ -350,6 +355,8 @@ export function Chat() {
             placeholder={inputPlaceholder}
             disabled={isTyping || isSubmitting}
             inputType={step === 4 ? "email" : "text"}
+            submitLabel={step === 4 ? "submit" : "send"}
+            autoFocus={step === 4 && !isTyping && !isSubmitting}
           />
         </div>
       ) : null}

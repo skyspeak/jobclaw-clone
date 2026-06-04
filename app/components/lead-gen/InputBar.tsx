@@ -7,6 +7,8 @@ type InputBarProps = {
   placeholder?: string;
   disabled?: boolean;
   inputType?: "text" | "email";
+  submitLabel?: string;
+  autoFocus?: boolean;
 };
 
 export function InputBar({
@@ -16,10 +18,12 @@ export function InputBar({
   placeholder = "type your reply…",
   disabled = false,
   inputType = "text",
+  submitLabel = "send",
+  autoFocus = false,
 }: InputBarProps) {
   return (
     <form
-      className="flex gap-2 border-t border-[var(--lg-border)] bg-[var(--lg-bg)] p-4"
+      className="flex gap-2 p-4 pt-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (!disabled && value.trim()) {
@@ -35,13 +39,15 @@ export function InputBar({
         placeholder={placeholder}
         className="min-w-0 flex-1 rounded-xl border border-[var(--lg-border)] bg-[var(--lg-surface)] px-4 py-3 text-sm text-[var(--lg-fg)] outline-none placeholder:text-[var(--lg-muted)] focus:border-[var(--lg-accent)]"
         autoComplete={inputType === "email" ? "email" : "off"}
+        autoFocus={autoFocus}
+        enterKeyHint={inputType === "email" ? "send" : "enter"}
       />
       <button
         type="submit"
         disabled={disabled || !value.trim()}
         className="shrink-0 rounded-xl border border-[var(--lg-border)] px-4 py-3 text-sm text-[var(--lg-fg)] transition hover:border-[var(--lg-accent)] disabled:cursor-not-allowed disabled:opacity-40"
       >
-        send
+        {submitLabel}
       </button>
     </form>
   );
