@@ -246,3 +246,39 @@
     transform: translateX(0);
   }
 }
+
+/* dear[CC] lead-gen / candidate surfaces (dark default, light optional) */
+.lead-gen[data-theme="dark"] {
+  --lg-bg: #0a0a0a;
+  --lg-fg: #f0f0f0;
+  --lg-muted: #555555;
+  --lg-border: #2a2a2a;
+  --lg-surface: #111111;
+  --lg-bot-bg: #1a1a1a;
+  --lg-accent: #e8ff47;
+  --lg-accent-fg: #0a0a0a;
+  --lg-selection: #e8ff47;
+  --lg-selection-fg: #0a0a0a;
+  color: var(--lg-fg);
+  background-color: var(--lg-bg);
+}
+
+.lead-gen[data-theme="light"] {
+  --lg-bg: #f8f8f5;
+  --lg-fg: #0a0a0a;
+  --lg-muted: #5c5c5c;
+  --lg-border: #d8d8d0;
+  --lg-surface: #ffffff;
+  --lg-bot-bg: #efefe8;
+  --lg-accent: #b8c800;
+  --lg-accent-fg: #0a0a0a;
+  --lg-selection: #b8c800;
+  --lg-selection-fg: #0a0a0a;
+  color: var(--lg-fg);
+  background-color: var(--lg-bg);
+}
+
+.lead-gen ::selection {
+  background: var(--lg-selection);
+  color: var(--lg-selection-fg);
+}

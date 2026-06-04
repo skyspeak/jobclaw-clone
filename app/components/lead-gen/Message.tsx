@@ -48,10 +48,10 @@ export function Message({ role, text, animate = false, onTyped }: MessageProps) 
   if (role === "bot") {
     return (
       <div className="flex flex-col items-start gap-1">
-        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#555555]">
+        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--lg-muted)]">
           dear[CC]
         </span>
-        <div className="max-w-[85%] rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] px-4 py-3 text-sm leading-relaxed text-[#f0f0f0]">
+        <div className="max-w-[85%] rounded-2xl border border-[var(--lg-border)] bg-[var(--lg-bot-bg)] px-4 py-3 text-sm leading-relaxed text-[var(--lg-fg)]">
           {displayed}
         </div>
       </div>
@@ -62,7 +62,7 @@ export function Message({ role, text, animate = false, onTyped }: MessageProps) 
     <div className="flex justify-end">
       <div
         className={[
-          "max-w-[85%] rounded-2xl bg-[#e8ff47] px-4 py-3 text-sm leading-relaxed text-[#0a0a0a]",
+          "max-w-[85%] rounded-2xl bg-[var(--lg-accent)] px-4 py-3 text-sm leading-relaxed text-[var(--lg-accent-fg)]",
           userEntered ? "translate-x-0 opacity-100" : "translate-x-5 opacity-0",
         ].join(" ")}
         style={{ transition: "transform 150ms ease-out, opacity 150ms ease-out" }}

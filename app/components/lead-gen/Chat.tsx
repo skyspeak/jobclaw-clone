@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import confetti from "canvas-confetti";
 
 import { InputBar } from "@/app/components/lead-gen/InputBar";
+import { LeadGenThemeToggle } from "@/app/components/lead-gen/LeadGenThemeToggle";
 import { Message } from "@/app/components/lead-gen/Message";
+import { BRAND_NAME } from "@/lib/brand";
 import { ROLE_TYPES, type RoleType } from "@/lib/leads/schema";
 
 type ChatMessage = {
@@ -263,16 +265,23 @@ export function Chat() {
     step === 4 ? "you@school.edu" : step === 2 ? "linkedin.com/in/you" : "type your reply…";
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0a0a0a] text-[#f0f0f0]">
+    <div className="flex min-h-dvh flex-col bg-[var(--lg-bg)] text-[var(--lg-fg)]">
       <div
-        className="fixed left-0 top-0 z-20 h-0.5 bg-[#e8ff47] transition-[width] duration-300 ease-out"
+        className="fixed left-0 top-0 z-20 h-0.5 bg-[var(--lg-accent)] transition-[width] duration-300 ease-out"
         style={{ width: `${progress}%` }}
         aria-hidden
       />
 
+      <header className="mx-auto flex w-full max-w-[480px] items-center justify-between px-4 pt-4">
+        <span className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--lg-muted)]">
+          {BRAND_NAME}
+        </span>
+        <LeadGenThemeToggle />
+      </header>
+
       <div
         ref={scrollRef}
-        className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pb-4 pt-6"
+        className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pb-4 pt-4"
       >
         {messages.map((message, index) => {
           const isLatestBot =
@@ -290,7 +299,7 @@ export function Chat() {
 
         <div ref={messagesEndRef} className="h-px shrink-0" aria-hidden />
 
-        {error ? <p className="text-center text-xs text-[#e8ff47]">{error}</p> : null}
+        {error ? <p className="text-center text-xs text-[var(--lg-accent)]">{error}</p> : null}
 
         <div className="min-h-[1px]">
           {showRoleButtons ? (
@@ -300,7 +309,7 @@ export function Chat() {
                   key={role}
                   type="button"
                   onClick={() => handleRoleSelect(role)}
-                  className="rounded-xl border border-[#2a2a2a] px-4 py-3 text-left text-sm transition hover:border-[#e8ff47]"
+                  className="rounded-xl border border-[var(--lg-border)] px-4 py-3 text-left text-sm transition hover:border-[var(--lg-accent)]"
                 >
                   {roleLabel(role)}
                 </button>
@@ -313,11 +322,11 @@ export function Chat() {
               <button
                 type="button"
                 onClick={() => void handleShare()}
-                className="max-w-full rounded-xl border border-[#2a2a2a] px-4 py-3 text-center text-sm transition hover:border-[#e8ff47]"
+                className="max-w-full rounded-xl border border-[var(--lg-border)] px-4 py-3 text-center text-sm transition hover:border-[var(--lg-accent)]"
               >
                 send this to someone else who is looking
               </button>
-              {shareStatus ? <p className="text-xs text-[#555555]">{shareStatus}</p> : null}
+              {shareStatus ? <p className="text-xs text-[var(--lg-muted)]">{shareStatus}</p> : null}
             </div>
           ) : null}
         </div>
@@ -329,7 +338,7 @@ export function Chat() {
             <button
               type="button"
               onClick={showReferralSkip ? handleReferralSkip : handleLinkedinSkip}
-              className="mb-2 w-full text-center text-xs text-[#555555] underline-offset-4 hover:text-[#e8ff47] hover:underline"
+              className="mb-2 w-full text-center text-xs text-[var(--lg-muted)] underline-offset-4 hover:text-[var(--lg-accent)] hover:underline"
             >
               skip
             </button>

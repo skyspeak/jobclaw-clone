@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
 
 import { Chat } from "@/app/components/lead-gen/Chat";
+import { LeadGenThemeProvider } from "@/app/components/lead-gen/LeadGenThemeProvider";
 
 export const metadata: Metadata = {
   title: "dear[CC] helps you get your first job",
@@ -10,13 +11,12 @@ export const metadata: Metadata = {
 
 const geistMono = Geist_Mono({
   subsets: ["latin"],
-  variable: "--font-lead-gen-mono",
 });
 
 export default function CandidatePage() {
   return (
-    <div className={`${geistMono.className} font-mono`}>
+    <LeadGenThemeProvider className={geistMono.className}>
       <Chat />
-    </div>
+    </LeadGenThemeProvider>
   );
 }
