@@ -55,7 +55,8 @@ export function getActiveStepPrompt(
     }
     case "vetting-result":
       return {
-        title: "We have determined next steps for you.",
+        title: "here's how your profile stacks up.",
+        body: "each row is a parameter we scored — missing, good, or stretch.",
       };
     case "search-filters":
       return {

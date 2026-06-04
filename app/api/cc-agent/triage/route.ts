@@ -8,6 +8,7 @@ import {
   runVetting,
   type VettedRoleId,
 } from "@/lib/cc-agent-flow";
+import { analyzeProfileGaps } from "@/lib/profile-gaps";
 import { parseProfile } from "@/lib/profile-parse";
 
 const triageRequestSchema = z.object({
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
           answers: intakeAnswers,
         }) || roleFromTarget?.id || "";
 
-  const vetting = runVetting({
+  const vettingBase = runVetting({
     knowsTargetJob,
     resumeText,
     linkedInUrl,
@@ -92,6 +93,19 @@ export async function POST(request: Request) {
     profileInsight,
     roleSuggestions: profileInsight?.suggestedRoles ?? [],
   });
+
+  const gapParameters = await analyzeProfileGaps({
+    knowsTargetJob,
+    targetJobUrl,
+    linkedInUrl,
+    resumeText,
+    resumeFileName,
+    answers: intakeAnswers,
+    profileInsight,
+    vetting: vettingBase,
+  });
+
+  const vetting = { ...vettingBase, gapParameters };
 
   const roleSuggestions = buildRoleSuggestions(profileInsight, vetting);
 

@@ -4,6 +4,7 @@
  */
 
 import type { IntakeAnswers } from "@/lib/jobclaw";
+import type { ProfileGapParameter } from "@/lib/profile-gaps";
 import type { ParsedProfileInsight } from "@/lib/profile-parse";
 
 export const VETTED_ROLE_IDS = ["sales", "marketing", "fde", "swe"] as const;
@@ -38,6 +39,7 @@ export type VettingResult = {
   inferredRoleLabel: string;
   nurtureTrack: NurtureTrackId;
   summary: string;
+  gapParameters: ProfileGapParameter[];
 };
 
 export type CcAgentFlowState = {
@@ -336,6 +338,7 @@ export function runVetting(input: {
     inferredRoleLabel: role.label,
     nurtureTrack,
     summary,
+    gapParameters: [],
   };
 }
 

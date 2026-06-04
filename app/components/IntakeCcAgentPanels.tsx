@@ -2,6 +2,7 @@
 
 import type { ChangeEvent } from "react";
 
+import { IntakeGapParametersTable } from "@/app/components/IntakeGapParametersTable";
 import { IntakeOptionChips } from "@/app/components/IntakeOptionChips";
 import { IntakeProfileFields } from "@/app/components/IntakeProfileFields";
 import {
@@ -185,21 +186,6 @@ export function IntakeVettingResultPanel({
     .filter(Boolean)
     .join(" · ");
 
-  const gapNotes: string[] = [];
-  if (!vetting.quantitativeSignal) {
-    gapNotes.push("Strengthen education, internship, or impact signals on your résumé.");
-  }
-  if (!vetting.roleVetted) {
-    gapNotes.push("Your target role may need a tailored skill-up plan outside our core tracks.");
-  }
-  if (vetting.profileStrength === "gap") {
-    gapNotes.push("Close profile gaps with projects or proof-of-work before your sprint.");
-  }
-  const gapText =
-    gapNotes.length > 0
-      ? gapNotes.join(" ")
-      : "You're aligned on role and profile — continue when you're ready.";
-
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -207,9 +193,16 @@ export function IntakeVettingResultPanel({
         <p className="text-sm leading-relaxed text-foreground">{targetJobLabel}</p>
       </div>
 
-      <div className="space-y-2 border-y border-border/60 py-5">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gap</p>
-        <p className="text-sm leading-relaxed text-muted-foreground">{gapText}</p>
+      <div className="space-y-3 border-y border-border/60 py-5">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Profile gaps
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            missing · good · stretch — scored against your target role
+          </p>
+        </div>
+        <IntakeGapParametersTable parameters={vetting.gapParameters ?? []} />
       </div>
 
       <div className="space-y-2">

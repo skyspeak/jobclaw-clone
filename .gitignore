@@ -8,4 +8,7 @@ data/track-commits.json
 data/job-listings.json
 data/job-fit-submissions.json
 data/pairing.json
+data/leads.db
+data/leads.db-wal
+data/leads.db-shm
 node_modules
