@@ -56,7 +56,7 @@ export function getActiveStepPrompt(
     case "vetting-result":
       return {
         title: "here's how your profile stacks up.",
-        body: "each row is a parameter we scored — missing, good, or stretch.",
+        body: "three facets: domain expertise, skills, and leadership — each scored missing, good, or stretch.",
       };
     case "search-filters":
       return {

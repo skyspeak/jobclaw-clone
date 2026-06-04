@@ -10,6 +10,14 @@ const GEMINI_FALLBACK = "gemini-2.5-flash-lite";
 export const GAP_STATUSES = ["missing", "good", "stretch"] as const;
 export type GapParameterStatus = (typeof GAP_STATUSES)[number];
 
+export const GAP_FACETS = [
+  "Domain expertise",
+  "Skills",
+  "Leadership experience",
+] as const;
+
+export type GapFacet = (typeof GAP_FACETS)[number];
+
 export type ProfileGapParameter = {
   parameter: string;
   status: GapParameterStatus;
@@ -23,7 +31,7 @@ const gapParameterSchema = z.object({
 });
 
 const gapAssessmentSchema = z.object({
-  parameters: z.array(gapParameterSchema).min(5).max(10),
+  parameters: z.array(gapParameterSchema).length(3),
   summary: z.string().max(400).optional(),
 });
 
@@ -31,27 +39,29 @@ export type ProfileGapAssessment = z.infer<typeof gapAssessmentSchema>;
 
 const PROFILE_GAPS_SYSTEM = `You are dear[CC], vetting a new graduate's profile against their target role.
 
-Score each parameter for job-readiness using exactly one status:
+Score exactly THREE facets — no more, no fewer — using exactly one status each:
 - "missing" — not evidenced or far below bar for the target role
 - "good" — clearly demonstrated on résumé/LinkedIn/quiz context
 - "stretch" — partial signal; worth strengthening before applying
 
-Evaluate 6–8 parameters. Always include these when relevant:
-1. Target role alignment
-2. Education & credentials
-3. Quantified impact (metrics, outcomes)
-4. Relevant experience (internships, projects, work)
-5. Skills & tools (include AI-native / automation fluency when relevant)
-6. Portfolio / proof of work
-7. Profile completeness (LinkedIn + résumé)
-8. Career narrative clarity
+The three facets (use these exact parameter labels):
+
+1. "Domain expertise" — years of relevant experience and industry/domain exposure for the target role (internships, projects, and adjacent industries count; estimate tenure when possible).
+
+2. "Skills" — quantifiable, learnable skills and tools (technical, analytical, AI-native, software, methods). Name specific tools or skills in the note when possible.
+
+3. "Leadership experience" — taking initiative, ownership, and leading without relying on management titles or headcount. Examples: founding projects, captaining teams, driving outcomes, organizing others.
+
+Do NOT score management titles or team size alone as leadership. Do NOT add extra parameters.
 
 Be specific in notes (what you saw or what's absent). Second person ("you"). Lowercase tone, concise.
 
 Return ONLY valid JSON:
 {
   "parameters": [
-    { "parameter": "string (short label)", "status": "missing" | "good" | "stretch", "note": "string" }
+    { "parameter": "Domain expertise", "status": "missing" | "good" | "stretch", "note": "string" },
+    { "parameter": "Skills", "status": "missing" | "good" | "stretch", "note": "string" },
+    { "parameter": "Leadership experience", "status": "missing" | "good" | "stretch", "note": "string" }
   ],
   "summary": "optional one sentence overall"
 }`;
@@ -158,67 +168,70 @@ Quiz answers:
 - Q4: ${answers.q4}
 - Q5: ${answers.q5}
 
-Score each parameter missing / good / stretch for this candidate vs the target role.
+Score all three facets (Domain expertise, Skills, Leadership experience) as missing / good / stretch for this candidate vs the target role.
 `.trim();
+}
+
+function normalizeFacetLabel(label: string): GapFacet | null {
+  const normalized = label.trim().toLowerCase();
+  if (normalized.includes("domain")) {
+    return "Domain expertise";
+  }
+  if (normalized === "skills" || normalized.includes("skill")) {
+    return "Skills";
+  }
+  if (normalized.includes("leadership")) {
+    return "Leadership experience";
+  }
+  return null;
+}
+
+function normalizeGapParameters(parameters: ProfileGapParameter[]): ProfileGapParameter[] {
+  const byFacet = new Map<GapFacet, ProfileGapParameter>();
+
+  for (const row of parameters) {
+    const facet = normalizeFacetLabel(row.parameter);
+    if (facet && !byFacet.has(facet)) {
+      byFacet.set(facet, { ...row, parameter: facet });
+    }
+  }
+
+  return GAP_FACETS.map((facet) => byFacet.get(facet)).filter(Boolean) as ProfileGapParameter[];
 }
 
 export function buildGapParametersFallback(input: ProfileGapInput): ProfileGapParameter[] {
   const { vetting } = input;
   const hasResume = Boolean(input.resumeText.trim() || input.linkedInUrl.trim());
-  const hasTarget = input.knowsTargetJob && Boolean(input.targetJobUrl.trim());
+  const corpus = [input.resumeText, input.answers.q2, input.answers.q5].join(" ").toLowerCase();
+  const leadershipSignals = /\b(founder|president|captain|lead|organized|initiated|led|chair|head)\b/.test(
+    corpus,
+  );
 
-  const rows: ProfileGapParameter[] = [
+  return [
     {
-      parameter: "Target role alignment",
-      status: vetting.roleVetted ? "good" : "stretch",
+      parameter: "Domain expertise",
+      status: vetting.roleVetted && vetting.profileStrength === "strong" ? "good" : "stretch",
       note: vetting.roleVetted
-        ? `you map to our ${vetting.inferredRoleLabel} track.`
-        : "your target may sit outside our core vetted tracks — we'll tailor a plan.",
+        ? hasResume
+          ? "some industry or role-adjacent experience is visible — spell out years and domain on your résumé."
+          : "add résumé detail on years in target industry or adjacent roles."
+        : "target domain is unclear or thin — internships and projects in the target industry will help.",
     },
     {
-      parameter: "Quantified impact",
+      parameter: "Skills",
       status: vetting.quantitativeSignal ? "good" : "missing",
       note: vetting.quantitativeSignal
-        ? "résumé shows metrics, outcomes, or leadership signals."
-        : "add numbers, scope, or results to internships and projects.",
+        ? "résumé names learnable skills or tools — keep listing specifics (software, methods, AI tools)."
+        : "name quantifiable skills and tools you can learn and prove (e.g. python, sql, figma, llm workflows).",
     },
     {
-      parameter: "Education & credentials",
-      status: vetting.quantitativeSignal ? "stretch" : "missing",
-      note: vetting.quantitativeSignal
-        ? "education is present — make GPA, coursework, or honors explicit if you have them."
-        : "surface school, degree, and relevant coursework on your résumé.",
-    },
-    {
-      parameter: "Relevant experience",
-      status: vetting.profileStrength === "strong" ? "good" : "stretch",
-      note:
-        vetting.profileStrength === "strong"
-          ? "experience lines up with an entry-level target role."
-          : "build 1–2 projects or internships that mirror the role you want.",
-    },
-    {
-      parameter: "AI-native skills",
-      status: "stretch",
-      note: "show tools you use (LLMs, automation, data) in project bullets — core to dear[CC] sprints.",
-    },
-    {
-      parameter: "Profile completeness",
-      status: hasResume ? "good" : "missing",
-      note: hasResume
-        ? "we have linkedin or résumé text to work from."
-        : "add a linkedin url or upload a résumé.",
-    },
-    {
-      parameter: "Target job clarity",
-      status: hasTarget ? "good" : "stretch",
-      note: hasTarget
-        ? "you named a concrete target job."
-        : "a specific posting or title helps us calibrate gaps.",
+      parameter: "Leadership experience",
+      status: leadershipSignals ? "stretch" : "missing",
+      note: leadershipSignals
+        ? "initiative shows up — highlight what you drove, not just titles or team size."
+        : "add examples where you took initiative (projects you started, groups you led, outcomes you owned).",
     },
   ];
-
-  return rows;
 }
 
 export async function analyzeProfileGapsWithGemini(
@@ -242,7 +255,13 @@ export async function analyzeProfileGapsWithGemini(
       return null;
     }
 
-    return validated.data;
+    const normalized = normalizeGapParameters(validated.data.parameters);
+    if (normalized.length !== GAP_FACETS.length) {
+      console.warn("Profile gaps: expected 3 facets after normalization", normalized.length);
+      return null;
+    }
+
+    return { ...validated.data, parameters: normalized };
   } catch (error) {
     console.warn("Profile gaps: Gemini call failed", {
       message: error instanceof Error ? error.message : String(error),
@@ -253,7 +272,7 @@ export async function analyzeProfileGapsWithGemini(
 
 export async function analyzeProfileGaps(input: ProfileGapInput): Promise<ProfileGapParameter[]> {
   const fromGemini = await analyzeProfileGapsWithGemini(input);
-  if (fromGemini?.parameters?.length) {
+  if (fromGemini?.parameters?.length === GAP_FACETS.length) {
     return fromGemini.parameters;
   }
   return buildGapParametersFallback(input);

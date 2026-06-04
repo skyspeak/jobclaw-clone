@@ -199,7 +199,7 @@ export function IntakeVettingResultPanel({
             Profile gaps
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            missing · good · stretch — scored against your target role
+            three facets — domain expertise · skills · leadership — scored missing / good / stretch
           </p>
         </div>
         <IntakeGapParametersTable parameters={vetting.gapParameters ?? []} />

@@ -23,7 +23,7 @@ export function IntakeGapParametersTable({ parameters }: { parameters: ProfileGa
         <thead>
           <tr className="border-b border-border/70 bg-muted/40">
             <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Parameter
+              Facet
             </th>
             <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Status
