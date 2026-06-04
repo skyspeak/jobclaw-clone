@@ -38,11 +38,6 @@ export default function ProjectSprintsHubPage() {
           <p className="mt-3 max-w-2xl text-[1.05rem] leading-relaxed text-muted-foreground">
             {AI_PROJECT_SPRINTS_INTRO.throughline}
           </p>
-          <div className="mt-8">
-            <Button asChild className="cta-glow rounded-2xl">
-              <Link href="/pairing">Find your sprint cohort →</Link>
-            </Button>
-          </div>
         </header>
 
         <section className="grid gap-4 sm:grid-cols-2">
@@ -62,12 +57,6 @@ export default function ProjectSprintsHubPage() {
                   </h2>
                   <p className="mt-2 text-sm italic text-muted-foreground">{sprint.subtitle}</p>
                   <p className="mt-4 text-sm font-medium text-primary">View sprint →</p>
-                </Link>
-                <Link
-                  href={`/pairing?track=${slug}`}
-                  className="mt-3 inline-block text-sm font-medium text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
-                >
-                  Find cohort →
                 </Link>
               </div>
             );

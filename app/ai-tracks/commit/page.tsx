@@ -3,7 +3,9 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { TrackCommitClient } from "@/app/ai-tracks/commit/TrackCommitClient";
+import { ProjectSprintNav } from "@/app/components/ProjectSprintNav";
 import { getTrackById } from "@/lib/ai-tracks-commit";
+import { PROJECT_SPRINT_SLUGS, type ProjectSprintSlug } from "@/lib/ai-tracks-data";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -14,6 +16,18 @@ export const metadata: Metadata = {
 type CommitPageProps = {
   searchParams: Promise<{ track?: string }>;
 };
+
+function sprintNavForTrack(trackId: string | undefined) {
+  const track = trackId ? getTrackById(trackId) : undefined;
+  if (!track) {
+    return null;
+  }
+  const slug = track.slug ?? track.id;
+  if (!PROJECT_SPRINT_SLUGS.includes(slug as ProjectSprintSlug)) {
+    return null;
+  }
+  return { slug: slug as ProjectSprintSlug, title: track.title };
+}
 
 async function CommitContent({ searchParams }: CommitPageProps) {
   const { track: trackId } = await searchParams;
@@ -36,13 +50,20 @@ async function CommitContent({ searchParams }: CommitPageProps) {
   return <TrackCommitClient track={track} />;
 }
 
-export default function AiTrackCommitPage({ searchParams }: CommitPageProps) {
+export default async function AiTrackCommitPage({ searchParams }: CommitPageProps) {
+  const params = await searchParams;
+  const sprintNav = sprintNavForTrack(params.track);
+
   return (
     <main className="min-h-[100dvh] brand-bg px-4 py-6 selection:bg-primary selection:text-primary-foreground sm:px-8">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 pb-24">
-        <Button variant="outline" asChild className="w-fit rounded-2xl">
-          <Link href="/ai-tracks">← Back to tracks</Link>
-        </Button>
+        {sprintNav ? (
+          <ProjectSprintNav sprintSlug={sprintNav.slug} sprintTitle={sprintNav.title} />
+        ) : (
+          <Button variant="outline" asChild className="w-fit rounded-2xl">
+            <Link href="/ai-tracks">← Back to tracks</Link>
+          </Button>
+        )}
 
         <header className="space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -52,7 +73,8 @@ export default function AiTrackCommitPage({ searchParams }: CommitPageProps) {
             Lock in your two weeks
           </h1>
           <p className="max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-            You said you want to commit. Share your email and phone so we can follow up on your two-week sprint.
+            Share your name, email, and phone. One click commits you to the sprint and queues you for a cohort of up to
+            four on the same track.
           </p>
         </header>
 

@@ -9,6 +9,7 @@ const isHostedRuntime = Boolean(process.env.VERCEL);
 export const trackCommitRequestSchema = z.object({
   trackId: z.string().min(1),
   trackTitle: z.string().min(1),
+  name: z.string().min(1).max(120),
   email: z.string().email().max(200),
   phone: z.string().min(1).max(40),
 });
@@ -18,16 +19,25 @@ export type TrackCommitRecord = {
   createdAt: string;
   trackId: string;
   trackTitle: string;
+  name: string;
   email: string;
   phone: string;
   finishDate: string;
 };
 
+export type TrackCommitAdminRow = TrackCommitRecord & {
+  linkedIn: string | null;
+};
+
+export function getTrackCommitsStoreLabel(): string {
+  return isHostedRuntime ? "ephemeral (hosted — not persisted to disk)" : "local file (data/track-commits.json)";
+}
+
 async function readCommits(): Promise<TrackCommitRecord[]> {
   try {
     const raw = await fs.readFile(commitsFilePath, "utf8");
     const parsed = JSON.parse(raw) as TrackCommitRecord[];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeCommitRecord) : [];
   } catch {
     return [];
   }
@@ -46,6 +56,7 @@ export async function createTrackCommit(
     createdAt: new Date().toISOString(),
     trackId: input.trackId,
     trackTitle: input.trackTitle,
+    name: input.name.trim(),
     email: input.email.trim().toLowerCase(),
     phone: input.phone.trim(),
     finishDate: input.finishDate,
@@ -60,4 +71,19 @@ export async function createTrackCommit(
   await writeCommits(existing);
 
   return record;
+}
+
+export async function listTrackCommits(): Promise<TrackCommitRecord[]> {
+  const records = await readCommits();
+  return records.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+function normalizeCommitRecord(raw: TrackCommitRecord): TrackCommitRecord {
+  return {
+    ...raw,
+    name: typeof raw.name === "string" ? raw.name : "",
+    email: raw.email.trim().toLowerCase(),
+  };
 }

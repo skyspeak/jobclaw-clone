@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { Check, Users } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check } from "lucide-react";
 
+import { PairingQueueContent, PAIRING_STORAGE_KEY } from "@/app/components/PairingQueueContent";
+import { ProjectSprintNav } from "@/app/components/ProjectSprintNav";
 import { isValidEmail, isValidPhone } from "@/lib/ai-tracks-commit";
-import { PairingCohortModal } from "@/app/components/PairingCohortModal";
 import type { AiTrack } from "@/lib/ai-tracks-data";
+import { PROJECT_SPRINT_SLUGS, projectSprintPath, type ProjectSprintSlug } from "@/lib/ai-tracks-data";
 import { aiTrackToPairingTrack } from "@/lib/pairing/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,27 +21,37 @@ type TrackCommitClientProps = {
 type CommitSuccess = {
   email: string;
   phone: string;
+  name: string;
+  pairingUserId: string | null;
 };
 
+function sprintSlugForTrack(track: AiTrack): ProjectSprintSlug | null {
+  const slug = track.slug ?? track.id;
+  return PROJECT_SPRINT_SLUGS.includes(slug as ProjectSprintSlug)
+    ? (slug as ProjectSprintSlug)
+    : null;
+}
+
 export function TrackCommitClient({ track }: TrackCommitClientProps) {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState<CommitSuccess | null>(null);
-  const [cohortModalOpen, setCohortModalOpen] = useState(false);
 
   const pairingTrack = useMemo(() => aiTrackToPairingTrack(track), [track]);
-
-  useEffect(() => {
-    if (success && pairingTrack) {
-      setCohortModalOpen(true);
-    }
-  }, [success, pairingTrack]);
+  const sprintSlug = useMemo(() => sprintSlugForTrack(track), [track]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Enter your name.");
+      return;
+    }
 
     if (!isValidEmail(email)) {
       setError("Enter a valid email address.");
@@ -60,6 +72,7 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
         body: JSON.stringify({
           trackId: track.id,
           trackTitle: track.title,
+          name: trimmedName,
           email: email.trim(),
           phone: phone.trim(),
         }),
@@ -71,7 +84,19 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
         throw new Error(payload?.error || "Unable to save your commitment.");
       }
 
-      setSuccess({ email: email.trim(), phone: phone.trim() });
+      const pairingUserId =
+        typeof payload?.cohort?.userId === "string" ? payload.cohort.userId : null;
+
+      if (pairingUserId) {
+        localStorage.setItem(PAIRING_STORAGE_KEY, pairingUserId);
+      }
+
+      setSuccess({
+        email: email.trim(),
+        phone: phone.trim(),
+        name: trimmedName,
+        pairingUserId,
+      });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong. Try again.");
     } finally {
@@ -95,39 +120,34 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
             We&apos;ll be in touch at <strong className="text-foreground">{success.email}</strong> with next steps for
             your two-week sprint.
+            {pairingTrack ? (
+              <>
+                {" "}
+                You&apos;re also queued for a sprint cohort of up to four people on the same track.
+              </>
+            ) : null}
           </p>
         </div>
 
-        {pairingTrack ? (
-          <div className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Sprint cohort
-            </p>
-            <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-              Pair with 2–4 others on the same track while you run the sprint.
-            </p>
-            <Button
-              type="button"
-              className="cta-glow h-12 w-full rounded-2xl sm:w-auto sm:px-8"
-              onClick={() => setCohortModalOpen(true)}
-            >
-              <Users className="size-5" />
-              Find your cohort
-            </Button>
-          </div>
+        {pairingTrack && success.pairingUserId ? (
+          <PairingQueueContent
+            initialTrack={pairingTrack}
+            initialEmail={success.email}
+            initialUserId={success.pairingUserId}
+            lockTrack
+            compact
+            trackTitle={track.title}
+            restoreSession={false}
+          />
         ) : null}
 
-        <Button variant="outline" asChild className="rounded-2xl">
-          <Link href="/ai-tracks">Back to all tracks</Link>
-        </Button>
-
-        <PairingCohortModal
-          open={cohortModalOpen}
-          onOpenChange={setCohortModalOpen}
-          trackTitle={track.title}
-          pairingTrack={pairingTrack}
-          initialEmail={success.email}
-        />
+        {sprintSlug ? (
+          <ProjectSprintNav sprintSlug={sprintSlug} sprintTitle={track.title} />
+        ) : (
+          <Button variant="ghost" asChild className="rounded-2xl">
+            <Link href="/">Home</Link>
+          </Button>
+        )}
       </div>
     );
   }
@@ -147,9 +167,25 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
           How to reach you
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          We&apos;ll use your email for cohort updates and your phone for reminders during your two-week build.
+          We&apos;ll use your email for sprint and cohort updates and your phone for reminders during your two-week
+          build. Confirming also places you in a cohort queue (up to four people per group).
         </p>
         <div className="mt-6 space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="commit-name" className="text-sm font-semibold">
+              Name
+            </Label>
+            <Input
+              id="commit-name"
+              type="text"
+              autoComplete="name"
+              placeholder="Alex Chen"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="h-12 rounded-xl text-base"
+              required
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="commit-email" className="text-sm font-semibold">
               Email
@@ -193,9 +229,15 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
         >
           {isSubmitting ? "Saving…" : "Confirm my commitment"}
         </Button>
-        <Button type="button" variant="outline" asChild className="h-12 rounded-2xl">
-          <Link href="/ai-tracks">Choose a different track</Link>
-        </Button>
+        {sprintSlug ? (
+          <Button type="button" variant="outline" asChild className="h-12 rounded-2xl">
+            <Link href={projectSprintPath(sprintSlug)}>Back to sprint</Link>
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" asChild className="h-12 rounded-2xl">
+            <Link href="/ai-tracks">Choose a different track</Link>
+          </Button>
+        )}
       </div>
     </form>
   );

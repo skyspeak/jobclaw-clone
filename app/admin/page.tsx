@@ -10,10 +10,14 @@ import { ADMIN_COOKIE_NAME, isValidAdminPassword } from "@/lib/admin";
 import { intakeQuestions } from "@/lib/jobclaw";
 import { AdminJobFitSubmissions } from "@/app/components/AdminJobFitSubmissions";
 import { AdminJobListings } from "@/app/components/AdminJobListings";
+import { AdminTrackCommits } from "@/app/components/AdminTrackCommits";
 import { listJobFitSubmissions } from "@/lib/job-fit-submissions";
 import { getDatabaseDiagnostics, getDatabaseErrorMessage } from "@/lib/db";
 import { getJobListingsStoreLabel, listJobListings } from "@/lib/job-listings";
 import { getSubmissionStoreLabel, listSubmissions } from "@/lib/submissions";
+import { listTrackCommitsForAdmin } from "@/lib/track-commits-enrich";
+import { getTrackCommitsStoreLabel } from "@/lib/track-commits";
+import type { TrackCommitAdminRow } from "@/lib/track-commits";
 import type { JobListing } from "@/lib/job-listings";
 import type { IntakeSubmission } from "@/lib/submissions";
 
@@ -121,6 +125,7 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   let submissions: IntakeSubmission[] = [];
   let jobListings: JobListing[] = [];
   let jobFitSubmissions: Awaited<ReturnType<typeof listJobFitSubmissions>> = [];
+  let trackCommits: TrackCommitAdminRow[] = [];
   let databaseError = "";
 
   try {
@@ -130,6 +135,12 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   } catch (error) {
     console.error("Admin dashboard database error:", error);
     databaseError = getDatabaseErrorMessage(error);
+  }
+
+  try {
+    trackCommits = await listTrackCommitsForAdmin(submissions);
+  } catch (error) {
+    console.error("Admin track commits load error:", error);
   }
 
   const dbDiagnostics = getDatabaseDiagnostics();
@@ -212,6 +223,8 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
         <AdminJobListings initialListings={jobListings} storeLabel={jobListingsStoreLabel} />
 
         <AdminJobFitSubmissions submissions={jobFitSubmissions} />
+
+        <AdminTrackCommits commits={trackCommits} storeLabel={getTrackCommitsStoreLabel()} />
 
         {submissions.length > 0 ? (
           <Card className="border-border/70 shadow-sm">

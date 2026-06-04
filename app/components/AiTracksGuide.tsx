@@ -12,8 +12,10 @@ import {
   type AiTracksGuideIntro,
   type AiTracksGuidePattern,
 } from "@/lib/ai-tracks-data";
+import { ProjectSprintNav } from "@/app/components/ProjectSprintNav";
 import { TrackCommitButton } from "@/app/components/TrackCommitButton";
 import { Button } from "@/components/ui/button";
+import type { ProjectSprintSlug } from "@/lib/ai-tracks-data";
 
 export type AiTracksGuideProps = {
   eyebrow: string;
@@ -25,6 +27,8 @@ export type AiTracksGuideProps = {
   showDownload?: boolean;
   /** Single-track pages: commit fixed top-right; pattern block moves above where commit was inline. */
   stickyCommit?: boolean;
+  /** Sprint detail pages: Home + this sprint only (no hub / cohort links). */
+  sprintNav?: { slug: ProjectSprintSlug; title: string };
 };
 
 function PatternSection({
@@ -85,6 +89,7 @@ export function AiTracksGuide({
   pattern = AI_TRACKS_PATTERN,
   showDownload = true,
   stickyCommit = false,
+  sprintNav,
 }: AiTracksGuideProps) {
   const singleTrack = stickyCommit && tracks.length === 1 ? tracks[0] : null;
 
@@ -99,9 +104,13 @@ export function AiTracksGuide({
       ) : null}
 
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-24">
-        <Button variant="outline" asChild className="w-fit rounded-2xl">
-          <Link href="/">Back to home</Link>
-        </Button>
+        {sprintNav ? (
+          <ProjectSprintNav sprintSlug={sprintNav.slug} sprintTitle={sprintNav.title} />
+        ) : (
+          <Button variant="outline" asChild className="w-fit rounded-2xl">
+            <Link href="/">Back to home</Link>
+          </Button>
+        )}
 
         <header className="rounded-3xl border border-border/70 bg-card p-8 shadow-sm sm:p-10">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -216,7 +225,7 @@ export function AiTracksGuide({
             </div>
 
             <h3 className="mb-3 mt-8 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Tool stack
+              {itemLabel === "Sprint" ? "AI-native tool stack" : "Tool stack"}
             </h3>
             <div className="overflow-hidden rounded-2xl border border-border">
               <table className="w-full border-collapse text-left text-sm">

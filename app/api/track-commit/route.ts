@@ -6,6 +6,8 @@ import {
   isValidEmail,
   isValidPhone,
 } from "@/lib/ai-tracks-commit";
+import { aiTrackToPairingTrack } from "@/lib/pairing/constants";
+import { registerPairingUser } from "@/lib/pairing/store";
 import { createTrackCommit, trackCommitRequestSchema } from "@/lib/track-commits";
 
 export async function POST(request: Request) {
@@ -47,10 +49,33 @@ export async function POST(request: Request) {
     finishDate: calendar.finishDate.toISOString(),
   });
 
+  const pairingTrack = aiTrackToPairingTrack(track);
+  let cohort: {
+    userId: string;
+    status: string;
+    groupId: string | null;
+    track: string;
+  } | null = null;
+
+  if (pairingTrack) {
+    const { user } = await registerPairingUser({
+      name: parsed.data.name.trim(),
+      email: parsed.data.email.trim(),
+      track: pairingTrack,
+    });
+    cohort = {
+      userId: user.id,
+      status: user.status,
+      groupId: user.groupId,
+      track: user.track,
+    };
+  }
+
   return NextResponse.json({
     commit: record,
     calendarUrl: calendar.url,
     finishLabel: calendar.finishLabel,
     startLabel: calendar.startLabel,
+    cohort,
   });
 }

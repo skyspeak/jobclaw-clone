@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import type { CcAgentFlowState, CcAgentStepId } from "@/lib/cc-agent-flow";
 import { QUESTIONS, type PrefsValues } from "@/lib/intake-questions";
 import type { ParsedProfileInsight } from "@/lib/profile-parse";
+import { cn } from "@/lib/utils";
 
 type IntakeChatComposerProps = {
   flowStep: CcAgentStepId;
@@ -82,7 +83,10 @@ export function IntakeChatComposer({
     }
   }
 
-  const continueLabel = "Continue";
+  const continueLabel =
+    flowStep === "vetting-result"
+      ? "Become AI native by honing your skills"
+      : "Continue";
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-3 px-4 pb-4 pt-2 sm:px-0">
@@ -217,7 +221,10 @@ export function IntakeChatComposer({
               type="button"
               onClick={onNext}
               disabled={isBusy}
-              className="cta-glow h-11 rounded-xl bg-primary px-5 font-semibold text-primary-foreground hover:bg-primary/90"
+              className={cn(
+                "cta-glow h-11 rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90",
+                flowStep === "vetting-result" ? "h-auto min-h-11 px-4 py-2.5 text-left leading-snug" : "px-5",
+              )}
               data-testid="button-next"
             >
               {isBusy ? (

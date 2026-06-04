@@ -23,6 +23,8 @@ type Step = "register" | "waiting" | "matched";
 export type PairingQueueContentProps = {
   initialTrack?: PairingTrack | null;
   initialEmail?: string;
+  /** Skip registration when already enrolled (e.g. after track commit). */
+  initialUserId?: string;
   lockTrack?: boolean;
   compact?: boolean;
   trackTitle?: string;
@@ -33,6 +35,7 @@ export type PairingQueueContentProps = {
 export function PairingQueueContent({
   initialTrack = null,
   initialEmail,
+  initialUserId,
   lockTrack = false,
   compact = false,
   trackTitle,
@@ -82,6 +85,12 @@ export function PairingQueueContent({
   );
 
   useEffect(() => {
+    if (initialUserId) {
+      setUserId(initialUserId);
+      setStep("waiting");
+      pollStatus(initialUserId).catch(() => undefined);
+      return;
+    }
     if (!restoreSession) {
       return;
     }
@@ -94,7 +103,7 @@ export function PairingQueueContent({
       localStorage.removeItem(PAIRING_STORAGE_KEY);
       setUserId(null);
     });
-  }, [pollStatus, restoreSession]);
+  }, [pollStatus, restoreSession, initialUserId]);
 
   useEffect(() => {
     if (step !== "waiting" || !userId) {
@@ -159,7 +168,7 @@ export function PairingQueueContent({
     <div className={cn("flex flex-col", compact ? "gap-5" : "gap-8")}>
       {intro}
 
-      {step === "register" ? (
+      {step === "register" && !initialUserId ? (
         <form
           className={cn(
             "rounded-3xl border border-border/70 bg-card shadow-sm",
