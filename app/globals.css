@@ -259,6 +259,17 @@
   --lg-accent-fg: #0a0a0a;
   --lg-selection: #e8ff47;
   --lg-selection-fg: #0a0a0a;
+  --background: 0 0% 4%;
+  --foreground: 0 0% 94%;
+  --card: 0 0% 10%;
+  --card-foreground: 0 0% 94%;
+  --border: 0 0% 16%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 34%;
+  --primary: 65 100% 48%;
+  --primary-foreground: 0 0% 4%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 94%;
   color: var(--lg-fg);
   background-color: var(--lg-bg);
 }
@@ -274,6 +285,17 @@
   --lg-accent-fg: #0a0a0a;
   --lg-selection: #b8c800;
   --lg-selection-fg: #0a0a0a;
+  --background: 48 20% 97%;
+  --foreground: 0 0% 4%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 4%;
+  --border: 48 10% 84%;
+  --muted: 48 15% 92%;
+  --muted-foreground: 0 0% 36%;
+  --primary: 65 100% 38%;
+  --primary-foreground: 0 0% 4%;
+  --secondary: 48 20% 94%;
+  --secondary-foreground: 0 0% 4%;
   color: var(--lg-fg);
   background-color: var(--lg-bg);
 }

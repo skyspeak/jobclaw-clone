@@ -44,6 +44,8 @@ type IntakeChatComposerProps = {
   onNext: () => void;
   onGenerate: () => void;
   isBusy: boolean;
+  /** When false, parent renders answerError above the composer (pinned footer). */
+  showAnswerError?: boolean;
 };
 
 export function IntakeChatComposer({
@@ -71,6 +73,7 @@ export function IntakeChatComposer({
   onNext,
   onGenerate,
   isBusy,
+  showAnswerError = true,
 }: IntakeChatComposerProps) {
   const currentQuestion = flowStep === "quiz" ? QUESTIONS[quizIndex] : null;
 
@@ -89,9 +92,14 @@ export function IntakeChatComposer({
       : "Continue";
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-3 px-4 pb-4 pt-2 sm:px-0">
-      <div className="rounded-2xl border border-border/70 bg-card shadow-lg shadow-black/[0.04]">
-        <div className="border-b border-border/50 px-4 py-3 sm:px-5">
+    <div className="mx-auto w-full max-w-2xl space-y-2 px-4 pb-3 pt-1 sm:px-6">
+      {showAnswerError && answerError ? (
+        <p className="text-sm font-medium text-destructive" role="alert">
+          {answerError}
+        </p>
+      ) : null}
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-lg shadow-black/[0.04]">
+        <div className="max-h-[min(40dvh,22rem)] overflow-y-auto overscroll-contain border-b border-border/50 px-4 py-3 sm:px-5">
           {flowStep === "profile-upload" ? (
             <IntakeProfileUploadPanel
               linkedInUrl={linkedInUrl}
@@ -185,7 +193,7 @@ export function IntakeChatComposer({
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-4 py-3 sm:px-5">
+        <div className="flex shrink-0 items-center justify-end gap-2 px-4 py-3 sm:px-5">
           {flowStep === "quiz" ? (
             <Button
               type="button"
@@ -241,7 +249,6 @@ export function IntakeChatComposer({
         </div>
       </div>
 
-      {answerError ? <p className="text-sm font-medium text-destructive">{answerError}</p> : null}
       {flowStep === "quiz" ? (
         <p className="text-center text-xs text-muted-foreground">Enter to send · Shift+Enter for new line</p>
       ) : null}

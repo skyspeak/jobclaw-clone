@@ -780,7 +780,6 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
       <IntakeSplashScreen
         onStart={() => {
           setQuizStarted(true);
-          window.scrollTo({ top: 0, behavior: "smooth" });
         }}
       />
     );
@@ -788,11 +787,6 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden brand-bg selection:bg-primary selection:text-primary-foreground">
-      {error ? (
-        <p className="mx-auto w-full max-w-2xl shrink-0 px-4 pt-4 text-sm font-medium text-destructive sm:px-6">
-          {error}
-        </p>
-      ) : null}
       {variant === "chat" ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <ChatIntakeConversation
@@ -826,6 +820,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
           isGenerating={isGenerating}
           isParsingProfile={isParsingProfile}
           isRunningTriage={isRunningTriage}
+          globalError={error}
         />
         </div>
       ) : null}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ChangeEvent, ReactNode } from "react";
 import type { UseFormReturn } from "react-hook-form";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { ArrowLeft, Bot, Loader2 } from "lucide-react";
 
 import { IntakeChatComposer } from "@/app/components/IntakeChatComposer";
@@ -47,6 +47,7 @@ type ChatIntakeConversationProps = {
   isGenerating: boolean;
   isParsingProfile: boolean;
   isRunningTriage: boolean;
+  globalError?: string;
 };
 
 function BotAvatar({ className }: { className?: string }) {
@@ -139,6 +140,7 @@ export function ChatIntakeConversation({
   isGenerating,
   isParsingProfile,
   isRunningTriage,
+  globalError,
 }: ChatIntakeConversationProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isBusy = isGenerating || isParsingProfile || isRunningTriage;
@@ -172,17 +174,18 @@ export function ChatIntakeConversation({
     return getActiveStepPrompt(flowStep, profileInsight?.filtersIntro, quizIndex, ccAgent);
   }, [flowStep, quizIndex, profileInsight?.filtersIntro, ccAgent]);
 
-  useEffect(() => {
+  const scrollToLatest = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) {
       return;
     }
+    container.scrollTop = container.scrollHeight;
+  }, []);
 
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [transcript, flowStep, isBusy, quizIndex]);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => scrollToLatest());
+    return () => cancelAnimationFrame(frame);
+  }, [transcript.length, flowStep, isBusy, quizIndex, scrollToLatest]);
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background selection:bg-primary selection:text-primary-foreground">
@@ -236,21 +239,30 @@ export function ChatIntakeConversation({
         </div>
       </div>
 
-      <div className="z-20 shrink-0 border-t border-border/60 bg-background/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center px-4 pt-2 sm:px-6">
+      <div className="z-20 flex max-h-[min(58dvh,560px)] min-h-0 shrink-0 flex-col border-t border-border/60 bg-background/95 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex w-full max-w-2xl shrink-0 items-center px-4 pt-2 sm:px-6">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={onBack}
-                disabled={flowStep === "target-job-url" || isBusy}
+            disabled={flowStep === "target-job-url" || isBusy}
             className="h-9 rounded-lg px-2 text-muted-foreground"
             data-testid="button-back"
           >
             <ArrowLeft className="mr-1 h-4 w-4" /> Back
           </Button>
         </div>
-        <IntakeChatComposer
+        {answerError || globalError ? (
+          <p
+            className="mx-auto w-full max-w-2xl shrink-0 px-4 pb-1 text-sm font-medium text-destructive sm:px-6"
+            role="alert"
+          >
+            {answerError || globalError}
+          </p>
+        ) : null}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <IntakeChatComposer
           flowStep={flowStep}
           ccAgent={ccAgent}
           targetJobUrl={targetJobUrl}
@@ -275,7 +287,9 @@ export function ChatIntakeConversation({
           onNext={onNext}
           onGenerate={onGenerate}
           isBusy={isBusy}
+          showAnswerError={false}
         />
+        </div>
       </div>
     </div>
   );
