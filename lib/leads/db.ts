@@ -4,6 +4,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { createClient, type Client } from "@libsql/client";
 
+import { upsertCandidate } from "@/lib/database/candidates";
 import { CREATE_LEADS_TABLE, type Lead, type LeadInsert } from "@/lib/leads/schema";
 
 const SQLITE_PATH = path.join(process.cwd(), "data", "leads.db");
@@ -84,7 +85,15 @@ export async function insertLead(input: LeadInsert): Promise<Lead> {
       ],
     });
 
-    return rowToLead(result.rows[0] as Record<string, unknown>);
+    const lead = rowToLead(result.rows[0] as Record<string, unknown>);
+
+    void upsertCandidate({
+      email: input.email,
+      name: input.name,
+      linkedinUrl: input.linkedin ?? null,
+    });
+
+    return lead;
   }
 
   const stmt = getSqliteDb().prepare(
@@ -107,7 +116,15 @@ export async function insertLead(input: LeadInsert): Promise<Lead> {
     .prepare("SELECT * FROM leads WHERE id = ?")
     .get(info.lastInsertRowid) as Record<string, unknown>;
 
-  return rowToLead(row);
+  const lead = rowToLead(row);
+
+  void upsertCandidate({
+    email: input.email,
+    name: input.name,
+    linkedinUrl: input.linkedin ?? null,
+  });
+
+  return lead;
 }
 
 export async function listLeads(): Promise<Lead[]> {

@@ -116,6 +116,110 @@ try {
     console.log("TABLES_AFTER:", after.map((row) => row.table_name).join(", "));
   }
 
+  console.log("MIGRATE: ensuring core schema (database_architecture.md)...");
+  const coreTables = [
+    `create table if not exists candidates (
+      candidate_id uuid primary key,
+      email varchar(255) not null unique,
+      phone varchar(20),
+      linkedin_url varchar(500),
+      first_name varchar(100),
+      last_name varchar(100),
+      created_at timestamptz not null default now(),
+      converted_at timestamptz,
+      status text not null default 'active'
+        check (status in ('active', 'converted', 'disqualified'))
+    )`,
+    `create table if not exists users (
+      user_id uuid primary key,
+      email varchar(255) not null unique,
+      phone varchar(20),
+      linkedin_url varchar(500),
+      first_name varchar(100),
+      last_name varchar(100),
+      created_at timestamptz not null default now(),
+      candidate_id uuid references candidates(candidate_id),
+      sprint_track_id varchar(100),
+      sprint_track_title varchar(255),
+      sprint_committed_at timestamptz,
+      sprint_finish_date timestamptz,
+      pairing_track varchar(32),
+      pairing_status varchar(32),
+      pairing_joined_at timestamptz,
+      pairing_group_id uuid
+    )`,
+    `create table if not exists candidate_conversions (
+      conversion_id uuid primary key,
+      candidate_id uuid not null references candidates(candidate_id),
+      user_id uuid not null references users(user_id),
+      converted_at timestamptz not null default now(),
+      conversion_source varchar(100) not null
+    )`,
+    `create table if not exists groups (
+      group_id uuid primary key,
+      name varchar(255),
+      created_at timestamptz not null default now(),
+      created_by uuid references users(user_id),
+      pairing_track varchar(32),
+      group_status varchar(32) not null default 'forming'
+    )`,
+    `create table if not exists group_members (
+      group_id uuid not null references groups(group_id) on delete cascade,
+      user_id uuid not null references users(user_id) on delete cascade,
+      joined_at timestamptz not null default now(),
+      role text not null default 'member' check (role in ('owner', 'member')),
+      primary key (group_id, user_id)
+    )`,
+    `create table if not exists quizzes (
+      quiz_id uuid primary key,
+      title varchar(255) not null,
+      created_at timestamptz not null default now()
+    )`,
+    `create table if not exists questions (
+      question_id uuid primary key,
+      quiz_id uuid not null references quizzes(quiz_id) on delete cascade,
+      question_text text not null,
+      question_type text not null default 'text',
+      position int not null default 0
+    )`,
+    `create table if not exists quiz_completions (
+      completion_id uuid primary key,
+      quiz_id uuid not null references quizzes(quiz_id),
+      user_id uuid not null references users(user_id),
+      completed_at timestamptz not null default now(),
+      unique (quiz_id, user_id)
+    )`,
+    `create table if not exists answers (
+      answer_id uuid primary key,
+      completion_id uuid not null references quiz_completions(completion_id) on delete cascade,
+      question_id uuid not null references questions(question_id),
+      answer_text text,
+      answered_at timestamptz not null default now()
+    )`,
+  ];
+
+  for (const statement of coreTables) {
+    await sql.unsafe(statement);
+  }
+
+  await sql`
+    insert into quizzes (quiz_id, title)
+    values ('00000000-0000-4000-8000-000000000001'::uuid, 'dear[CC] intake survey')
+    on conflict (quiz_id) do nothing
+  `;
+
+  const core = await sql`
+    select table_name
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name in (
+        'candidates', 'users', 'candidate_conversions', 'groups',
+        'group_members', 'quizzes', 'questions', 'quiz_completions', 'answers'
+      )
+    order by table_name
+  `;
+  console.log("CORE_TABLES:", core.map((row) => row.table_name).join(", "));
+
   await sql.end();
   console.log("DONE: ok");
 } catch (error) {

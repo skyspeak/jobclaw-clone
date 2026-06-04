@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+import { syncPairingStoreToDatabase } from "@/lib/database/sync-pairing";
+import { upsertUserForPairing } from "@/lib/database/users";
 import { PAIRING_MATCHER_INTERVAL_MS } from "@/lib/pairing/constants";
 import { runMatcherForAllTracks } from "@/lib/pairing/matcher";
 import type {
@@ -71,6 +73,7 @@ async function saveStore(data: PairingStoreData): Promise<void> {
   cache.data = data;
   cache.loaded = true;
   await writeFileStore(data);
+  void syncPairingStoreToDatabase(data);
 }
 
 function normalizeEmail(email: string): string {
@@ -166,6 +169,16 @@ export async function registerPairingUser(input: {
     data = runMatcherOnRegister(data);
     await saveStore(data);
     const user = data.users.find((u) => u.id === refreshed.id) ?? refreshed;
+
+    void upsertUserForPairing({
+      email: user.email,
+      name: user.name,
+      track: user.track,
+      status: user.status,
+      joinedAt: user.joinedQueueAt,
+      groupId: user.groupId,
+    });
+
     return { user, created: false };
   }
 
@@ -185,6 +198,16 @@ export async function registerPairingUser(input: {
   data = runMatcherOnRegister(data);
   await saveStore(data);
   const saved = data.users.find((u) => u.id === user.id) ?? user;
+
+  void upsertUserForPairing({
+    email: saved.email,
+    name: saved.name,
+    track: saved.track,
+    status: saved.status,
+    joinedAt: saved.joinedQueueAt,
+    groupId: saved.groupId,
+  });
+
   return { user: saved, created: true };
 }
 

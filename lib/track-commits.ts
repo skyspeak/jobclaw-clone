@@ -3,6 +3,9 @@ import path from "node:path";
 
 import { z } from "zod";
 
+import { getDatabaseUrl } from "@/lib/db";
+import { upsertUserFromCommit } from "@/lib/database/users";
+
 const commitsFilePath = path.join(process.cwd(), "data", "track-commits.json");
 const isHostedRuntime = Boolean(process.env.VERCEL);
 
@@ -30,7 +33,12 @@ export type TrackCommitAdminRow = TrackCommitRecord & {
 };
 
 export function getTrackCommitsStoreLabel(): string {
-  return isHostedRuntime ? "ephemeral (hosted — not persisted to disk)" : "local file (data/track-commits.json)";
+  if (getDatabaseUrl()) {
+    return "Postgres users table (+ JSON backup when not on Vercel)";
+  }
+  return isHostedRuntime
+    ? "ephemeral (hosted — not persisted to disk)"
+    : "local file (data/track-commits.json)";
 }
 
 async function readCommits(): Promise<TrackCommitRecord[]> {
@@ -61,6 +69,16 @@ export async function createTrackCommit(
     phone: input.phone.trim(),
     finishDate: input.finishDate,
   };
+
+  void upsertUserFromCommit({
+    email: input.email,
+    name: input.name,
+    phone: input.phone,
+    trackId: input.trackId,
+    trackTitle: input.trackTitle,
+    finishDate: input.finishDate,
+    conversionSource: "sprint_commitment",
+  });
 
   if (isHostedRuntime) {
     return record;

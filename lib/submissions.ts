@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { z } from "zod";
 
+import { syncIntakeSubmissionToQuiz } from "@/lib/database/intake-quiz";
 import { getDatabaseUrl, getSql as getSharedSql } from "@/lib/db";
 
 import {
@@ -134,7 +135,9 @@ export async function createSubmission(
   };
 
   if (databaseUrl) {
-    return upsertDatabaseSubmission(submission);
+    const saved = await upsertDatabaseSubmission(submission);
+    void syncIntakeSubmissionToQuiz(saved);
+    return saved;
   }
 
   if (isHostedRuntime) {

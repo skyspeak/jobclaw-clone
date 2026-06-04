@@ -6,6 +6,7 @@ import {
   isValidEmail,
   isValidPhone,
 } from "@/lib/ai-tracks-commit";
+import { upsertUserFromCommit } from "@/lib/database/users";
 import { aiTrackToPairingTrack } from "@/lib/pairing/constants";
 import { registerPairingUser } from "@/lib/pairing/store";
 import { createTrackCommit, trackCommitRequestSchema } from "@/lib/track-commits";
@@ -47,6 +48,16 @@ export async function POST(request: Request) {
   const record = await createTrackCommit({
     ...parsed.data,
     finishDate: calendar.finishDate.toISOString(),
+  });
+
+  void upsertUserFromCommit({
+    email: parsed.data.email,
+    name: parsed.data.name,
+    phone: parsed.data.phone,
+    trackId: parsed.data.trackId,
+    trackTitle: parsed.data.trackTitle,
+    finishDate: calendar.finishDate.toISOString(),
+    conversionSource: "sprint_commitment",
   });
 
   const pairingTrack = aiTrackToPairingTrack(track);
