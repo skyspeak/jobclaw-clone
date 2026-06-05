@@ -5,6 +5,8 @@ import Database from "better-sqlite3";
 import { createClient, type Client } from "@libsql/client";
 
 import { upsertCandidate } from "@/lib/database/candidates";
+import { ensureCoreSchema } from "@/lib/database/core-schema";
+import { getDatabaseUrl, getSql } from "@/lib/db";
 import { CREATE_LEADS_TABLE, type Lead, type LeadInsert } from "@/lib/leads/schema";
 
 const SQLITE_PATH = path.join(process.cwd(), "data", "leads.db");
@@ -12,6 +14,23 @@ const SQLITE_PATH = path.join(process.cwd(), "data", "leads.db");
 let sqliteDb: Database.Database | null = null;
 let tursoClient: Client | null = null;
 let schemaReady = false;
+
+type LeadRow = {
+  id: number | string;
+  created_at: Date | string;
+  name: string;
+  email: string;
+  school: string | null;
+  grad_year: string | null;
+  role_type: string | null;
+  industries: string | null;
+  linkedin: string | null;
+  referral: string | null;
+};
+
+function usePostgres(): boolean {
+  return Boolean(getDatabaseUrl());
+}
 
 function useTurso(): boolean {
   return Boolean(process.env.TURSO_DATABASE_URL?.trim() && process.env.TURSO_AUTH_TOKEN?.trim());
@@ -41,7 +60,9 @@ async function ensureSchema(): Promise<void> {
     return;
   }
 
-  if (useTurso()) {
+  if (usePostgres()) {
+    await ensureCoreSchema();
+  } else if (useTurso()) {
     await getTursoClient().execute(CREATE_LEADS_TABLE);
   } else {
     getSqliteDb().exec(CREATE_LEADS_TABLE);
@@ -50,10 +71,12 @@ async function ensureSchema(): Promise<void> {
   schemaReady = true;
 }
 
-function rowToLead(row: Record<string, unknown>): Lead {
+function rowToLead(row: Record<string, unknown> | LeadRow): Lead {
+  const createdAt = row.created_at;
   return {
     id: Number(row.id),
-    created_at: String(row.created_at),
+    created_at:
+      createdAt instanceof Date ? createdAt.toISOString() : String(createdAt),
     name: String(row.name),
     email: String(row.email),
     school: row.school != null ? String(row.school) : null,
@@ -65,8 +88,58 @@ function rowToLead(row: Record<string, unknown>): Lead {
   };
 }
 
+function syncCandidate(input: LeadInsert) {
+  void upsertCandidate({
+    email: input.email,
+    name: input.name,
+    linkedinUrl: input.linkedin ?? null,
+  });
+}
+
+async function insertLeadPostgres(input: LeadInsert): Promise<Lead> {
+  const sql = getSql();
+  const rows = await sql<LeadRow[]>`
+    insert into leads (
+      name,
+      email,
+      school,
+      grad_year,
+      role_type,
+      industries,
+      linkedin,
+      referral
+    ) values (
+      ${input.name},
+      ${input.email},
+      ${input.school ?? null},
+      ${input.grad_year ?? null},
+      ${input.role_type ?? null},
+      ${input.industries ?? null},
+      ${input.linkedin ?? null},
+      ${input.referral ?? null}
+    )
+    returning *
+  `;
+
+  const lead = rowToLead(rows[0]);
+  syncCandidate(input);
+  return lead;
+}
+
+async function listLeadsPostgres(): Promise<Lead[]> {
+  const sql = getSql();
+  const rows = await sql<LeadRow[]>`
+    select * from leads order by created_at desc
+  `;
+  return rows.map((row) => rowToLead(row));
+}
+
 export async function insertLead(input: LeadInsert): Promise<Lead> {
   await ensureSchema();
+
+  if (usePostgres()) {
+    return insertLeadPostgres(input);
+  }
 
   if (useTurso()) {
     const result = await getTursoClient().execute({
@@ -86,13 +159,7 @@ export async function insertLead(input: LeadInsert): Promise<Lead> {
     });
 
     const lead = rowToLead(result.rows[0] as Record<string, unknown>);
-
-    void upsertCandidate({
-      email: input.email,
-      name: input.name,
-      linkedinUrl: input.linkedin ?? null,
-    });
-
+    syncCandidate(input);
     return lead;
   }
 
@@ -117,18 +184,16 @@ export async function insertLead(input: LeadInsert): Promise<Lead> {
     .get(info.lastInsertRowid) as Record<string, unknown>;
 
   const lead = rowToLead(row);
-
-  void upsertCandidate({
-    email: input.email,
-    name: input.name,
-    linkedinUrl: input.linkedin ?? null,
-  });
-
+  syncCandidate(input);
   return lead;
 }
 
 export async function listLeads(): Promise<Lead[]> {
   await ensureSchema();
+
+  if (usePostgres()) {
+    return listLeadsPostgres();
+  }
 
   if (useTurso()) {
     const result = await getTursoClient().execute(

@@ -15,6 +15,21 @@ export async function ensureCoreSchema() {
   const sql = getSql();
 
   await sql`
+    create table if not exists leads (
+      id bigserial primary key,
+      created_at timestamptz not null default now(),
+      name text not null,
+      email text not null,
+      school text,
+      grad_year text,
+      role_type text,
+      industries text,
+      linkedin text,
+      referral text
+    )
+  `;
+
+  await sql`
     create table if not exists candidates (
       candidate_id uuid primary key,
       email varchar(255) not null unique,

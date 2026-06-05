@@ -162,7 +162,13 @@ export function Chat() {
           }),
         });
 
-        const payload = await response.json();
+        let payload: { error?: string } = {};
+        try {
+          payload = await response.json();
+        } catch {
+          payload = {};
+        }
+
         if (!response.ok) {
           throw new Error(payload?.error || "submit failed");
         }
@@ -178,8 +184,12 @@ export function Chat() {
             ticks: 200,
           });
         }, 400);
-      } catch {
-        setError("something went wrong — try again in a sec.");
+      } catch (caught) {
+        const message =
+          caught instanceof Error && caught.message && caught.message !== "submit failed"
+            ? caught.message
+            : "something went wrong — try again in a sec.";
+        setError(message);
       } finally {
         setIsSubmitting(false);
       }
@@ -206,6 +216,10 @@ export function Chat() {
     if (step === 4) {
       if (!isValidEmail(value)) {
         setError("that doesn't look like an email — try again?");
+        return;
+      }
+      if (!dataRef.current.role_type) {
+        setError("pick full-time, internship, or both first — use Back if you skipped it.");
         return;
       }
       const nextData = { ...dataRef.current, email: value };

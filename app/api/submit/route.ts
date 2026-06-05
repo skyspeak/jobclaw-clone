@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { getDatabaseErrorMessage } from "@/lib/db";
 import { insertLead } from "@/lib/leads/db";
 import { ROLE_TYPES } from "@/lib/leads/schema";
 
@@ -43,6 +44,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, id: lead.id }, { status: 201 });
   } catch (error) {
     console.error("lead submit failed", error);
-    return NextResponse.json({ error: "Unable to save your submission." }, { status: 500 });
+    const message = getDatabaseErrorMessage(error);
+    return NextResponse.json(
+      { error: message || "Unable to save your submission." },
+      { status: 500 },
+    );
   }
 }
