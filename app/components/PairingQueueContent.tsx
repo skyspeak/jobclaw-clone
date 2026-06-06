@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, Check, Loader2, Users } from "lucide-react";
+import { ArrowRight, Check, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -252,9 +252,7 @@ export function PairingQueueContent({
             className={cn("cta-glow h-12 w-full rounded-2xl", compact ? "mt-6" : "mt-8 sm:w-auto sm:px-8")}
           >
             {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Joining queue…
-              </>
+              <>Joining queue…</>
             ) : (
               <>
                 Join queue <ArrowRight className="ml-1.5 h-4 w-4" />
@@ -264,16 +262,13 @@ export function PairingQueueContent({
         </form>
       ) : null}
 
-      {step === "waiting" && status?.status === "waiting" ? (
+      {step === "waiting" && status?.status !== "matched" ? (
         <div
           className={cn(
             "rounded-3xl border border-primary/35 bg-primary/[0.07] shadow-sm",
             compact ? "p-5" : "p-6 sm:p-8",
           )}
         >
-          <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary/15">
-            <Loader2 className="size-6 animate-spin text-primary" />
-          </div>
           <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
             We are building your cohort. Hang tight, we will be in touch over email in the next
             week.
