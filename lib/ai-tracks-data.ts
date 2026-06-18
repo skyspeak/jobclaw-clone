@@ -75,7 +75,7 @@ export const AI_PROJECT_SPRINTS_INTRO = {
   throughline: `Each sprint ends with something real you can share: a link, a deck, or a pipeline log.`,
   structureIntro: `How each sprint is structured:`,
   structureRows: [
-    { name: "The bet", description: "One-sentence framing of the workflow being transformed" },
+    { name: "The promise", description: "One-sentence framing of the workflow being transformed" },
     { name: "Deliverables", description: "The artifacts that exist at the end" },
     { name: "Tool stack", description: "What you'll have used in anger, not just clicked through" },
     { name: "Outcomes", description: "The proof-of-work claim you can make on a resume or in an interview" },

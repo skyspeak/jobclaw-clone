@@ -176,7 +176,10 @@ export function AiTracksGuide({
             <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{track.title}</h2>
             <p className="mt-1 text-lg italic text-muted-foreground">{track.subtitle}</p>
             <p className="mt-5 text-sm leading-relaxed text-foreground sm:text-base">
-              <span className="font-semibold text-primary">The bet.</span> {track.bet}
+              <span className="font-semibold text-primary">
+                {itemLabel === "Sprint" ? "The promise." : "The bet."}
+              </span>{" "}
+              {track.bet}
             </p>
             {track.whatYouDo ? (
               <p className="mt-4 text-sm leading-relaxed text-foreground sm:text-base">

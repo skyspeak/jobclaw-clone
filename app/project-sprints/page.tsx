@@ -38,6 +38,11 @@ export default function ProjectSprintsHubPage() {
           <p className="mt-3 max-w-2xl text-[1.05rem] leading-relaxed text-muted-foreground">
             {AI_PROJECT_SPRINTS_INTRO.throughline}
           </p>
+          <div className="mt-6">
+            <Button variant="outline" asChild className="rounded-2xl">
+              <Link href="/sprint-roadmaps">View visual roadmaps →</Link>
+            </Button>
+          </div>
         </header>
 
         <section className="grid gap-4 sm:grid-cols-2">
