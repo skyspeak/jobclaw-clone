@@ -51,7 +51,7 @@ export function canProceedFromStep(
       if (!isValidJobUrl(targetJobUrl)) {
         return {
           ok: false,
-          message: "Paste your dream job URL, or choose the option if you don't have one yet.",
+          message: "Paste a job listing URL, or use the link below if you don't have one.",
         };
       }
       return { ok: true };

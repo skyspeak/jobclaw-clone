@@ -25,8 +25,9 @@ export function getActiveStepPrompt(
   switch (flowStep) {
     case "target-job-url":
       return {
-        title: "What is your dream job — paste your dream job URL?",
-        body: "We'll parse the listing for skills and gap analysis. No URL yet? Say so below.",
+        title:
+          "What's the last job you applied to that you really wanted — but didn't get?",
+        body: "Paste the listing URL and we'll parse it for skills and gap analysis.",
       };
     case "profile-upload":
       return {
@@ -126,7 +127,7 @@ export function buildTranscript(input: {
       content:
         ccAgent.knowsTargetJob === false
           ? DREAM_JOB_SKIP_CHIP
-          : targetJobUrl.trim() || "Dream job URL shared",
+          : targetJobUrl.trim() || "Job listing URL shared",
     });
   }
 

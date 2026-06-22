@@ -165,7 +165,7 @@ function buildUserPrompt(input: ProfileGapInput): string {
 
   return `
 Target role / job: ${target}
-Knows specific dream job URL: ${input.knowsTargetJob}
+Has target job listing URL: ${input.knowsTargetJob}
 Inferred track: ${input.vetting.inferredRoleLabel} (${input.vetting.inferredRoleId})
 Vetting flags: quantitativeSignal=${input.vetting.quantitativeSignal}, roleVetted=${input.vetting.roleVetted}, profileStrength=${input.vetting.profileStrength}
 

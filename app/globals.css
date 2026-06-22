@@ -304,3 +304,25 @@
   background: var(--lg-selection);
   color: var(--lg-selection-fg);
 }
+
+/* dear[CC] v2 — rejection roadmap flow */
+.v2-theme {
+  --v2-bg: #f5f0e8;
+  --v2-fg: #1a1a18;
+  --v2-muted: #6b6b63;
+  --v2-primary: #1e4d48;
+  --v2-primary-fg: #ffffff;
+  --v2-accent: #c45a2e;
+  --v2-card: #ffffff;
+  --v2-border: #e0dbd2;
+  --v2-teal-light: #e8f0ef;
+  --v2-orange-light: #fdf0ea;
+  --v2-pod-map: #ebe6de;
+  color: var(--v2-fg);
+  background-color: var(--v2-bg);
+  min-height: 100dvh;
+}
+
+.v2-theme .v2-serif {
+  font-family: var(--v2-font-serif), Georgia, "Times New Roman", serif;
+}

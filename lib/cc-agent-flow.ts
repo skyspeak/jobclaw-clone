@@ -26,7 +26,7 @@ export type CcAgentStepId =
   | "vetting-result"
   | "search-filters";
 
-export const DREAM_JOB_SKIP_CHIP = "I don't have a dream job yet";
+export const DREAM_JOB_SKIP_CHIP = "I don't have a job URL";
 export const PROFILE_SKIP_CHIP = "I don't have a LinkedIn or résumé yet";
 export const QUIZ_PATH_INTRO = "Let's figure out some good options for you";
 

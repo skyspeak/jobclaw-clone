@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { IntakeGeneratingScreen } from "@/app/components/IntakeGeneratingScreen";
 import { ChatIntakeConversation } from "@/app/components/ChatIntakeConversation";
-import { IntakeSplashScreen } from "@/app/components/IntakeSplashScreen";
 import {
   defaultSearchDefaults,
   IntakeAnswers,
@@ -121,16 +120,6 @@ type ChatIntakeProps = {
   variant?: "wizard" | "chat";
 };
 
-function hasIntakeProgress(session: IntakeWizardSession) {
-  return (
-    session.ccAgent.flowStep !== "target-job-url" ||
-    session.ccAgent.skippedProfileUpload ||
-    session.ccAgent.knowsTargetJob !== null ||
-    session.wizardAnswers.some((answer) => answer.trim().length > 0) ||
-    Boolean(session.linkedInUrl.trim() || session.resumeText.trim() || session.targetJobUrl.trim())
-  );
-}
-
 function resolveProjectSprintHref(input: {
   ccAgent: CcAgentFlowState;
   profileInsight: ParsedProfileInsight | null;
@@ -160,7 +149,6 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   const searchParams = useSearchParams();
   const freshSession = readFreshSession();
   const [isHydrated, setIsHydrated] = useState(false);
-  const [quizStarted, setQuizStarted] = useState(false);
   const [submissionId, setSubmissionId] = useState(freshSession.submissionId);
   const [ccAgent, setCcAgent] = useState<CcAgentFlowState>(freshSession.ccAgent);
   const [targetJobUrl, setTargetJobUrl] = useState(freshSession.targetJobUrl);
@@ -219,7 +207,6 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
       setResumeFileName("");
       setProfileInsight(null);
       setError("");
-      setQuizStarted(false);
       prefsForm.reset(searchDefaultsToPrefsValues(defaultSearchDefaults));
       setIsHydrated(true);
       router.replace("/intake");
@@ -241,7 +228,6 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     setResumeText(session.resumeText);
     setResumeFileName(session.resumeFileName);
     prefsForm.reset(searchDefaultsToPrefsValues(session.defaults));
-    setQuizStarted(hasIntakeProgress(session));
     setIsHydrated(true);
   }, [prefsForm, router, searchParams]);
 
@@ -535,6 +521,10 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
 
   function handleNoDreamJob() {
     setAnswerError("");
+    if (ccAgent.knowsTargetJob === false) {
+      setCcAgent((current) => ({ ...current, knowsTargetJob: null }));
+      return;
+    }
     setTargetJobUrl("");
     setCcAgent((current) => ({ ...current, knowsTargetJob: false }));
   }
@@ -772,16 +762,6 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   if (!isHydrated) {
     return (
       <div className="flex h-[100dvh] flex-col overflow-hidden brand-bg selection:bg-primary selection:text-primary-foreground" />
-    );
-  }
-
-  if (!quizStarted) {
-    return (
-      <IntakeSplashScreen
-        onStart={() => {
-          setQuizStarted(true);
-        }}
-      />
     );
   }
 

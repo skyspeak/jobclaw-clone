@@ -13,6 +13,7 @@ import {
   type VettedRoleId,
   type VettingResult,
 } from "@/lib/cc-agent-flow";
+import { cn } from "@/lib/utils";
 import { BRAND_NAME } from "@/lib/brand";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,7 +79,7 @@ export function IntakeDreamJobPanel({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="intake-target-job-url">Dream job URL</Label>
+        <Label htmlFor="intake-target-job-url">Job listing URL</Label>
         <Input
           id="intake-target-job-url"
           type="url"
@@ -91,15 +92,22 @@ export function IntakeDreamJobPanel({
           onChange={(e) => onTargetJobUrlChange(e.target.value)}
         />
         <p className="text-xs text-muted-foreground">
-          Paste a LinkedIn, Greenhouse, or company careers link. We&apos;ll parse required skills for gap analysis.
+          LinkedIn, Greenhouse, or company careers links work best.
         </p>
+        <button
+          type="button"
+          onClick={onNoDreamJob}
+          data-testid="link-no-job-url"
+          className={cn(
+            "text-xs underline underline-offset-2 transition-colors",
+            noDreamJob
+              ? "font-medium text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {DREAM_JOB_SKIP_CHIP}
+        </button>
       </div>
-      <IntakeOptionChips
-        options={[DREAM_JOB_SKIP_CHIP]}
-        value={noDreamJob ? DREAM_JOB_SKIP_CHIP : ""}
-        onChange={() => onNoDreamJob()}
-        stepIndex={0}
-      />
     </div>
   );
 }
