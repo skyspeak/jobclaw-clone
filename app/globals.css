@@ -326,3 +326,25 @@
 .v2-theme .v2-serif {
   font-family: var(--v2-font-serif), Georgia, "Times New Roman", serif;
 }
+
+/* dear[CC] v3 — artifact Career Coach flow */
+.v3-theme {
+  --v3-bg: #f5f0e8;
+  --v3-fg: #1a1a18;
+  --v3-muted: #6b6b63;
+  --v3-primary: #1e4d48;
+  --v3-primary-fg: #ffffff;
+  --v3-accent: #c45a2e;
+  --v3-card: #ffffff;
+  --v3-border: #e0dbd2;
+  --v3-teal-light: #e8f0ef;
+  --v3-orange-light: #fdf0ea;
+  --v3-pod-map: #ebe6de;
+  color: var(--v3-fg);
+  background-color: var(--v3-bg);
+  min-height: 100dvh;
+}
+
+.v3-theme .v3-serif {
+  font-family: var(--v3-font-serif), Georgia, "Times New Roman", serif;
+}
