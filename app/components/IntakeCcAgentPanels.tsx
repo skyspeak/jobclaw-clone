@@ -8,15 +8,141 @@ import { IntakeProfileFields } from "@/app/components/IntakeProfileFields";
 import {
   CC_AGENT_ROLE_LABELS,
   DREAM_JOB_SKIP_CHIP,
+  NURTURE_TRACK_COPY,
   PROFILE_SKIP_CHIP,
   VETTED_ROLE_IDS,
+  type NurtureTrackId,
   type VettedRoleId,
   type VettingResult,
 } from "@/lib/cc-agent-flow";
+import {
+  AI_PROJECT_SPRINTS,
+  projectSprintPath,
+  projectSprintPathForRoleId,
+  type ProjectSprintSlug,
+} from "@/lib/ai-tracks-data";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { BRAND_NAME } from "@/lib/brand";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+export function IntakeConnectPanel({
+  targetJobUrl,
+  onTargetJobUrlChange,
+  onNoDreamJob,
+  linkedInUrl,
+  onLinkedInUrlChange,
+  resumeFileName,
+  onResumeFile,
+  isReadingResume,
+  skippedProfileUpload,
+  onSkipProfileUpload,
+}: {
+  targetJobUrl: string;
+  onTargetJobUrlChange: (value: string) => void;
+  onNoDreamJob: () => void;
+  linkedInUrl: string;
+  onLinkedInUrlChange: (value: string) => void;
+  resumeFileName: string;
+  onResumeFile: (event: ChangeEvent<HTMLInputElement>) => void;
+  isReadingResume: boolean;
+  skippedProfileUpload: boolean;
+  onSkipProfileUpload: () => void;
+}) {
+  const hasProfile = Boolean(linkedInUrl.trim() || resumeFileName);
+
+  return (
+    <div className="space-y-6">
+      <IntakeDreamJobPanel
+        targetJobUrl={targetJobUrl}
+        onTargetJobUrlChange={onTargetJobUrlChange}
+        noDreamJob={false}
+        onNoDreamJob={onNoDreamJob}
+      />
+      <div className="border-t border-border/60 pt-6">
+        <IntakeProfileFields
+          linkedInUrl={linkedInUrl}
+          onLinkedInUrlChange={onLinkedInUrlChange}
+          resumeFileName={resumeFileName}
+          onResumeFile={onResumeFile}
+          isReadingResume={isReadingResume}
+          profileCompleteForGenerate={hasProfile}
+          profileIncompleteHint=""
+        />
+        <div className="mt-4">
+          <IntakeOptionChips
+            options={[PROFILE_SKIP_CHIP]}
+            value={skippedProfileUpload ? PROFILE_SKIP_CHIP : ""}
+            onChange={() => onSkipProfileUpload()}
+            stepIndex={0}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function IntakeJourneyPanel({ vetting }: { vetting: VettingResult }) {
+  const nurture = NURTURE_TRACK_COPY[vetting.nurtureTrack as NurtureTrackId];
+  const recommendedHref = projectSprintPathForRoleId(vetting.inferredRoleId);
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <p className="text-lg font-semibold tracking-tight text-foreground">
+          Become AI native by honing your skills
+        </p>
+        <p className="text-sm leading-relaxed text-muted-foreground">{nurture.description}</p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[
+          { value: "6 weeks", label: "Project sprint" },
+          { value: "3 tracks", label: "Role-matched builds" },
+          { value: "1 artifact", label: "Proof for your next application" },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-2xl border border-border/70 bg-muted/20 p-4 text-center"
+          >
+            <p className="text-lg font-semibold text-foreground">{stat.value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          AI-native project sprints
+        </p>
+        {AI_PROJECT_SPRINTS.map((sprint) => {
+          const slug = (sprint.slug ?? sprint.id) as ProjectSprintSlug;
+          const href = projectSprintPath(slug);
+          const isRecommended = href === recommendedHref;
+
+          return (
+            <Link
+              key={sprint.id}
+              href={href}
+              className={cn(
+                "block rounded-2xl border p-4 transition-colors hover:bg-muted/30",
+                isRecommended
+                  ? "border-primary/40 bg-primary/[0.06]"
+                  : "border-border/70 bg-card",
+              )}
+            >
+              <p className="font-semibold text-foreground">{sprint.title}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{sprint.subtitle}</p>
+              {isRecommended ? (
+                <p className="mt-2 text-xs font-semibold text-primary">Recommended for your target role</p>
+              ) : null}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function IntakeProfileUploadPanel({
   linkedInUrl,
@@ -175,6 +301,36 @@ export function IntakeRoleSuggestionsPanel({
   );
 }
 
+export function IntakeVettingSourceLinks({
+  targetJobUrl,
+  linkedInUrl,
+  fallbackRoleLabel,
+}: {
+  targetJobUrl: string;
+  linkedInUrl: string;
+  fallbackRoleLabel?: string;
+}) {
+  const targetJobLabel = targetJobUrl.trim() || fallbackRoleLabel || "—";
+  const linkedInLabel = linkedInUrl.trim() || "—";
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Target job
+        </p>
+        <p className="break-all text-sm leading-relaxed text-foreground">{targetJobLabel}</p>
+      </div>
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          LinkedIn
+        </p>
+        <p className="break-all text-sm leading-relaxed text-foreground">{linkedInLabel}</p>
+      </div>
+    </div>
+  );
+}
+
 export function IntakeVettingResultPanel({
   vetting,
   targetJobUrl,
@@ -186,42 +342,24 @@ export function IntakeVettingResultPanel({
   linkedInUrl: string;
   resumeFileName: string;
 }) {
-  const targetJobLabel = targetJobUrl.trim() || vetting.inferredRoleLabel;
-  const resumeLabel = [
-    linkedInUrl.trim() ? `LinkedIn: ${linkedInUrl.trim()}` : null,
-    resumeFileName.trim() ? `Résumé: ${resumeFileName.trim()}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Target job</p>
-        <p className="text-sm leading-relaxed text-foreground">{targetJobLabel}</p>
-      </div>
+      <IntakeGapParametersTable parameters={vetting.gapParameters ?? []} />
 
-      <div className="space-y-3 border-y border-border/60 py-5">
-        <div>
+      <IntakeVettingSourceLinks
+        targetJobUrl={targetJobUrl}
+        linkedInUrl={linkedInUrl}
+        fallbackRoleLabel={vetting.inferredRoleLabel}
+      />
+
+      {resumeFileName.trim() ? (
+        <div className="space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Profile gaps
+            Résumé
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            facet · job requires · you have · verdict
-          </p>
+          <p className="text-sm leading-relaxed text-foreground">{resumeFileName.trim()}</p>
         </div>
-        <IntakeGapParametersTable
-          parameters={vetting.gapParameters ?? []}
-          targetLabel={targetJobLabel}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Résumé</p>
-        <p className="text-sm leading-relaxed text-foreground">
-          {resumeLabel || "No résumé or LinkedIn on file yet."}
-        </p>
-      </div>
+      ) : null}
     </div>
   );
 }

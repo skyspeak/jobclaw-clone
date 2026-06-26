@@ -13,7 +13,7 @@ import { BRAND_NAME } from "@/lib/brand";
 export const metadata: Metadata = {
   title: `${SPRINT_ROADMAPS_INTRO.title} — ${BRAND_NAME}`,
   description:
-    "Visual day-by-day roadmaps for Sales, Marketing, and Forward Deployed Engineer two-week project sprints.",
+    "Visual phased roadmaps for Sales, Marketing, and Forward Deployed Engineer six-week project sprints.",
 };
 
 export default function SprintRoadmapsHubPage() {

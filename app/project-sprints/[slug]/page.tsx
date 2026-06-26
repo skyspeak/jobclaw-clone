@@ -40,7 +40,7 @@ export default async function ProjectSprintPage({ params }: SprintPageProps) {
   return (
     <AiTracksGuide
       eyebrow={`${BRAND_NAME} · ${sprint.title}`}
-      title={`${sprint.title} — two-week sprint`}
+      title={`${sprint.title} — six-week sprint`}
       itemLabel="Sprint"
       tracks={[sprint]}
       intro={{

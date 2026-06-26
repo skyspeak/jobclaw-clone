@@ -5,13 +5,55 @@ import { Download } from "lucide-react";
 import { toPng } from "html-to-image";
 
 import { Button } from "@/components/ui/button";
-import { coerceGapParameters, gapStatusLabel, type ProfileGapParameter } from "@/lib/profile-gaps";
+import {
+  coerceGapParameters,
+  splitGapParametersToBars,
+  type GapSkillBar,
+  type ProfileGapParameter,
+} from "@/lib/profile-gaps";
 import { cn } from "@/lib/utils";
 
 type IntakeGapParametersTableProps = {
   parameters: ProfileGapParameter[];
   targetLabel?: string;
 };
+
+function GapSkillBarRow({ item, variant }: { item: GapSkillBar; variant: "strength" | "gap" }) {
+  const barColor = variant === "strength" ? "bg-[#2D6A4F]" : "bg-[#C05621]";
+  const tierColor = variant === "strength" ? "text-[#2D6A4F]" : "text-[#C05621]";
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-foreground">{item.label}</p>
+        <span className={cn("shrink-0 text-xs font-semibold", tierColor)}>{item.tier}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-[#EFEBE0]">
+        <div
+          className={cn("h-full rounded-full transition-all", barColor)}
+          style={{ width: `${item.score}%` }}
+        />
+      </div>
+      {item.keywords.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {item.keywords.map((keyword) => (
+            <span
+              key={keyword}
+              className={cn(
+                "rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                variant === "strength"
+                  ? "border-[#2D6A4F]/30 bg-[#2D6A4F]/8 text-[#2D6A4F]"
+                  : "border-[#C05621]/30 bg-[#C05621]/8 text-[#C05621]",
+              )}
+            >
+              {keyword}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function IntakeGapParametersTable({
   parameters,
@@ -21,6 +63,7 @@ export function IntakeGapParametersTable({
   const [isDownloading, setIsDownloading] = useState(false);
 
   const rows = coerceGapParameters(parameters);
+  const { strengths, gaps } = splitGapParametersToBars(rows);
 
   async function handleDownloadImage() {
     if (!captureRef.current || rows.length === 0) {
@@ -32,7 +75,7 @@ export function IntakeGapParametersTable({
       const dataUrl = await toPng(captureRef.current, {
         cacheBust: true,
         pixelRatio: 2,
-        backgroundColor: "#ffffff",
+        backgroundColor: "#FDFBF7",
       });
       const anchor = document.createElement("a");
       anchor.href = dataUrl;
@@ -55,54 +98,43 @@ export function IntakeGapParametersTable({
 
   return (
     <div className="space-y-3">
-      <div ref={captureRef} className="overflow-hidden rounded-xl border border-border/70 bg-white p-4">
-        <div className="mb-3 border-b border-border/60 pb-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            dear[CC] · profile gap analysis
+      <div
+        ref={captureRef}
+        className="overflow-hidden rounded-2xl border border-border/70 bg-[#FDFBF7] p-6 sm:p-8"
+      >
+        {targetLabel ? (
+          <p className="mb-6 text-xs text-muted-foreground">
+            Target: <span className="font-medium text-foreground">{targetLabel}</span>
           </p>
-          {targetLabel ? (
-            <p className="mt-1 text-sm font-medium text-foreground">Target: {targetLabel}</p>
-          ) : null}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b border-border/70 bg-muted/40">
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Facet
-                </th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Job requires
-                </th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  You have
-                </th>
-                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Verdict
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.parameter} className="border-b border-border/50 last:border-0">
-                  <td className="px-3 py-3 align-top font-semibold text-foreground">{row.parameter}</td>
-                  <td className="px-3 py-3 align-top text-foreground">{row.jobRequires}</td>
-                  <td className="px-3 py-3 align-top text-foreground">{row.youHave}</td>
-                  <td className="px-3 py-3 align-top">
-                    <span
-                      className={cn(
-                        "inline-block rounded-md bg-black px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white",
-                      )}
-                      role="status"
-                      aria-label={`Verdict: ${gapStatusLabel(row.status)}`}
-                    >
-                      {gapStatusLabel(row.status)}
-                    </span>
-                  </td>
-                </tr>
+        ) : null}
+
+        <div className="space-y-8">
+          {strengths.length > 0 ? (
+            <div className="space-y-5">
+              <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
+                What you already bring
+              </h2>
+              {strengths.map((item) => (
+                <GapSkillBarRow key={item.label} item={item} variant="strength" />
               ))}
-            </tbody>
-          </table>
+            </div>
+          ) : null}
+
+          {gaps.length > 0 ? (
+            <div
+              className={cn(
+                "space-y-5",
+                strengths.length > 0 && "border-t border-border/60 pt-8",
+              )}
+            >
+              <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
+                What the role needed that did not show up
+              </h2>
+              {gaps.map((item) => (
+                <GapSkillBarRow key={item.label} item={item} variant="gap" />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -5,7 +5,9 @@ import type { UseFormReturn } from "react-hook-form";
 import { ArrowRight, Loader2, Send } from "lucide-react";
 
 import {
+  IntakeConnectPanel,
   IntakeDreamJobPanel,
+  IntakeJourneyPanel,
   IntakeProfileUploadPanel,
   IntakeResumePanel,
   IntakeVettingResultPanel,
@@ -43,6 +45,7 @@ type IntakeChatComposerProps = {
   quizIndex: number;
   onNext: () => void;
   onGenerate: () => void;
+  onQuit?: () => void;
   isBusy: boolean;
   /** When false, parent renders answerError above the composer (pinned footer). */
   showAnswerError?: boolean;
@@ -72,6 +75,7 @@ export function IntakeChatComposer({
   quizIndex,
   onNext,
   onGenerate,
+  onQuit,
   isBusy,
   showAnswerError = true,
 }: IntakeChatComposerProps) {
@@ -87,7 +91,7 @@ export function IntakeChatComposer({
   }
 
   const continueLabel =
-    flowStep === "vetting-result"
+    flowStep === "journey"
       ? "Become AI native by honing your skills"
       : "Continue";
 
@@ -98,8 +102,23 @@ export function IntakeChatComposer({
           {answerError}
         </p>
       ) : null}
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-lg shadow-black/[0.04]">
-        <div className="max-h-[min(40dvh,22rem)] overflow-y-auto overscroll-contain border-b border-border/50 px-4 py-3 sm:px-5">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-muted/20 shadow-sm">
+        <div className="max-h-[min(40dvh,22rem)] overflow-y-auto overscroll-contain border-b border-border/40 px-4 py-3 sm:px-5">
+          {flowStep === "connect" ? (
+            <IntakeConnectPanel
+              targetJobUrl={targetJobUrl}
+              onTargetJobUrlChange={onTargetJobUrlChange}
+              onNoDreamJob={onNoDreamJob}
+              linkedInUrl={linkedInUrl}
+              onLinkedInUrlChange={onLinkedInUrlChange}
+              resumeFileName={resumeFileName}
+              onResumeFile={onResumeFile}
+              isReadingResume={isReadingResume}
+              skippedProfileUpload={ccAgent.skippedProfileUpload}
+              onSkipProfileUpload={onSkipProfileUpload}
+            />
+          ) : null}
+
           {flowStep === "profile-upload" ? (
             <IntakeProfileUploadPanel
               linkedInUrl={linkedInUrl}
@@ -181,6 +200,10 @@ export function IntakeChatComposer({
             />
           ) : null}
 
+          {flowStep === "journey" && ccAgent.vettingResult ? (
+            <IntakeJourneyPanel vetting={ccAgent.vettingResult} />
+          ) : null}
+
           {flowStep === "search-filters" ? (
             <div className="space-y-3">
               {profileInsight?.suggestedRoles?.length ? (
@@ -193,7 +216,23 @@ export function IntakeChatComposer({
           ) : null}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 px-4 py-3 sm:px-5">
+        <div
+          className={cn(
+            "flex shrink-0 gap-2 px-4 py-3 sm:px-5",
+            flowStep === "journey" ? "flex-col items-stretch" : "items-center justify-end",
+          )}
+        >
+          {flowStep === "journey" ? (
+            <p className="text-center text-xs leading-relaxed text-muted-foreground">
+              Continue and sign up to <span className="font-semibold text-foreground">Stay Relevant</span>
+            </p>
+          ) : null}
+          <div
+            className={cn(
+              "flex gap-2",
+              flowStep === "journey" ? "w-full flex-col-reverse sm:flex-row sm:items-center sm:justify-between" : "w-full justify-end",
+            )}
+          >
           {flowStep === "quiz" ? (
             <Button
               type="button"
@@ -225,27 +264,44 @@ export function IntakeChatComposer({
               )}
             </Button>
           ) : (
-            <Button
-              type="button"
-              onClick={onNext}
-              disabled={isBusy}
-              className={cn(
-                "cta-glow h-11 rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90",
-                flowStep === "vetting-result" ? "h-auto min-h-11 px-4 py-2.5 text-left leading-snug" : "px-5",
-              )}
-              data-testid="button-next"
-            >
-              {isBusy ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Working…
-                </>
-              ) : (
-                <>
-                  {continueLabel} <ArrowRight className="ml-1.5 h-4 w-4" />
-                </>
-              )}
-            </Button>
+            <>
+              {flowStep === "journey" && onQuit ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onQuit}
+                  disabled={isBusy}
+                  className="h-11 rounded-xl sm:mr-auto"
+                  data-testid="button-quit"
+                >
+                  Quit
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                onClick={onNext}
+                disabled={isBusy}
+                className={cn(
+                  "cta-glow h-11 rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90",
+                  flowStep === "journey"
+                    ? "h-auto min-h-11 flex-1 px-4 py-2.5 text-left leading-snug sm:flex-initial"
+                    : "px-5",
+                )}
+                data-testid="button-next"
+              >
+                {isBusy ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Working…
+                  </>
+                ) : (
+                  <>
+                    {continueLabel} <ArrowRight className="ml-1.5 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </>
           )}
+          </div>
         </div>
       </div>
 

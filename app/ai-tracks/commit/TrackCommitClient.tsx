@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
 
 import { PairingQueueContent, PAIRING_STORAGE_KEY } from "@/app/components/PairingQueueContent";
@@ -10,6 +10,10 @@ import { isValidEmail, isValidPhone } from "@/lib/ai-tracks-commit";
 import type { AiTrack } from "@/lib/ai-tracks-data";
 import { PROJECT_SPRINT_SLUGS, projectSprintPath, type ProjectSprintSlug } from "@/lib/ai-tracks-data";
 import { aiTrackToPairingTrack } from "@/lib/pairing/constants";
+import {
+  readStayRelevantContactWithIntakeFallback,
+  writeStayRelevantContact,
+} from "@/lib/stay-relevant-contact";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +46,22 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
 
   const pairingTrack = useMemo(() => aiTrackToPairingTrack(track), [track]);
   const sprintSlug = useMemo(() => sprintSlugForTrack(track), [track]);
+
+  useEffect(() => {
+    const stored = readStayRelevantContactWithIntakeFallback();
+    if (!stored) {
+      return;
+    }
+    if (stored.name) {
+      setName((current) => current || stored.name || "");
+    }
+    if (stored.email) {
+      setEmail((current) => current || stored.email);
+    }
+    if (stored.phone) {
+      setPhone((current) => current || stored.phone || "");
+    }
+  }, []);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -91,6 +111,12 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
         localStorage.setItem(PAIRING_STORAGE_KEY, pairingUserId);
       }
 
+      writeStayRelevantContact({
+        email: email.trim(),
+        name: trimmedName,
+        phone: phone.trim(),
+      });
+
       setSuccess({
         email: email.trim(),
         phone: phone.trim(),
@@ -119,11 +145,12 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
             We&apos;ll be in touch at <strong className="text-foreground">{success.email}</strong> with next steps for
-            your two-week sprint.
+            your {sprintSlug ? "six-week" : "two-week"} {sprintSlug ? "sprint" : "track"}.
             {pairingTrack ? (
               <>
                 {" "}
-                You&apos;re also queued for a sprint cohort of up to four people on the same track.
+                You&apos;re also queued for a{" "}
+                <strong className="text-foreground">sprint cohort of up to four people</strong> on the same track.
               </>
             ) : null}
           </p>
@@ -167,8 +194,9 @@ export function TrackCommitClient({ track }: TrackCommitClientProps) {
           How to reach you
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          We&apos;ll use your email for sprint and cohort updates and your phone for reminders during your two-week
-          build. Confirming also places you in a cohort queue (up to four people per group).
+          We&apos;ll use your email for sprint and cohort updates and your phone for reminders during your{" "}
+          {sprintSlug ? "six-week sprint" : "two-week build"}. Confirming also places you in a cohort queue (up to four
+          people per group).
         </p>
         <div className="mt-6 space-y-5">
           <div className="space-y-2">

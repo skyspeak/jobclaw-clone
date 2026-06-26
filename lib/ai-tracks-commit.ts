@@ -1,6 +1,14 @@
-import { AI_PROJECT_SPRINTS, AI_TRACKS, type AiTrack } from "@/lib/ai-tracks-data";
+import {
+  AI_PROJECT_SPRINTS,
+  AI_TRACKS,
+  PROJECT_SPRINT_DURATION_WEEKS,
+  PROJECT_SPRINT_SLUGS,
+  type AiTrack,
+  type ProjectSprintSlug,
+} from "@/lib/ai-tracks-data";
 
 export const TRACK_COMMIT_WINDOW_DAYS = 14;
+export const PROJECT_SPRINT_COMMIT_WINDOW_DAYS = PROJECT_SPRINT_DURATION_WEEKS * 7;
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
@@ -47,6 +55,15 @@ export function getTrackById(trackId: string): AiTrack | undefined {
   );
 }
 
+export function isProjectSprintTrack(track: AiTrack): boolean {
+  const slug = track.slug ?? track.id;
+  return PROJECT_SPRINT_SLUGS.includes(slug as ProjectSprintSlug);
+}
+
+export function getTrackCommitWindowDays(track: AiTrack): number {
+  return isProjectSprintTrack(track) ? PROJECT_SPRINT_COMMIT_WINDOW_DAYS : TRACK_COMMIT_WINDOW_DAYS;
+}
+
 export type TrackCommitCalendar = {
   url: string;
   startDate: Date;
@@ -55,20 +72,27 @@ export type TrackCommitCalendar = {
   finishLabel: string;
 };
 
-/** All-day Google Calendar event spanning today through the two-week finish date. */
+/** All-day Google Calendar event spanning today through the sprint or track finish date. */
 export function buildTrackCommitCalendarUrl(
   track: AiTrack,
   committedAt: Date = new Date(),
 ): TrackCommitCalendar {
+  const windowDays = getTrackCommitWindowDays(track);
+  const isSprint = isProjectSprintTrack(track);
   const startDate = startOfDay(committedAt);
-  const finishDate = startOfDay(addDays(startDate, TRACK_COMMIT_WINDOW_DAYS));
+  const finishDate = startOfDay(addDays(startDate, windowDays));
   const endExclusive = addDays(finishDate, 1);
 
-  const text = `dear[CC]: ${track.title} — 2-week track`;
+  const durationLabel = isSprint
+    ? `${PROJECT_SPRINT_DURATION_WEEKS}-week sprint`
+    : "2-week track";
+  const text = `dear[CC]: ${track.title} — ${durationLabel}`;
   const details = [
     `Track ${track.number}: ${track.subtitle}`,
     "",
-    "You committed to a two-week AI track through dear[CC].",
+    isSprint
+      ? `You committed to a six-week project sprint through dear[CC].`
+      : "You committed to a two-week AI track through dear[CC].",
     `Start: ${formatTrackDate(startDate)}`,
     `Finish line: ${formatTrackDate(finishDate)}`,
     "",

@@ -120,7 +120,7 @@ export function AdminTrackCommits({ commits, storeLabel }: AdminTrackCommitsProp
       <CardHeader className="space-y-2 border-b border-border/60 p-8 md:p-10">
         <CardTitle className="text-xl tracking-tight">Sprint commitments</CardTitle>
         <CardDescription className="text-base leading-relaxed">
-          Everyone who confirmed a two-week project sprint commitment. LinkedIn is matched from intake or
+          Everyone who confirmed a six-week project sprint commitment. LinkedIn is matched from intake or
           lead-gen records when the email matches.
         </CardDescription>
         <p className="text-sm font-medium text-muted-foreground">

@@ -37,7 +37,9 @@ export type AiTracksGuidePattern = {
 };
 
 export const AI_TRACKS_GUIDE_TITLE = "6 Two-Week AI Tracks";
-export const AI_SPRINTS_GUIDE_TITLE = "3 Two-Week Project Sprints";
+export const AI_SPRINTS_GUIDE_TITLE = "3 Six-Week Project Sprints";
+
+export const PROJECT_SPRINT_DURATION_WEEKS = 6;
 
 export const PROJECT_SPRINT_SLUGS = [
   "sales",
@@ -71,7 +73,7 @@ export function projectSprintPathForRoleId(roleId: string): string {
 }
 
 export const AI_PROJECT_SPRINTS_INTRO = {
-  lead: `Three two-week sprints—pick the one that matches your target role.`,
+  lead: `Three six-week sprints—pick the one that matches your target role.`,
   throughline: `Each sprint ends with something real you can share: a link, a deck, or a pipeline log.`,
   structureIntro: `How each sprint is structured:`,
   structureRows: [
@@ -80,7 +82,7 @@ export const AI_PROJECT_SPRINTS_INTRO = {
     { name: "Tool stack", description: "What you'll have used in anger, not just clicked through" },
     { name: "Outcomes", description: "The proof-of-work claim you can make on a resume or in an interview" },
   ],
-  footnote: `A "sprint" here means a focused two-week build, not a Scrum ceremony. Nights and weekends count.`,
+  footnote: `A "sprint" here means a focused six-week build, not a Scrum ceremony. Nights and weekends count.`,
 } as const;
 
 export const AI_PROJECT_SPRINTS_PATTERN = {
@@ -102,7 +104,7 @@ export const AI_PROJECT_SPRINTS_PATTERN = {
       proof: "Public GitHub repo + ≤10 min technical Loom demo",
     },
   ],
-  closing: `Every sprint ends with two artifacts: the thing itself (running, viewable, ideally public) and the document that proves you understood what you built. That's the shape of evidence top roles look for—scaled to a portfolio piece a new grad can credibly produce in two weeks.`,
+  closing: `Every sprint ends with two artifacts: the thing itself (running, viewable, ideally public) and the document that proves you understood what you built. That's the shape of evidence top roles look for—scaled to a portfolio piece a new grad can credibly produce in six weeks.`,
 } as const;
 
 export const AI_PROJECT_SPRINTS: AiTrack[] = [
@@ -112,8 +114,8 @@ export const AI_PROJECT_SPRINTS: AiTrack[] = [
     number: 1,
     title: "Sales",
     subtitle: "Go from zero to a verifiable sales outcome with the AI-native stack pros actually use",
-    bet: `In 14 days you will find 50 real prospects, run personalized AI-powered outreach, and book at least 3 discovery calls—or show documented proof of every rep you ran. No fake data. No hypotheticals.`,
-    whatYouDo: `Week 1: pick a vertical and write your ICP, load 50 enriched contacts into HubSpot, build cold email + LinkedIn + call scripts (scored in Lavender), and automate Clay → HubSpot → Instantly. Week 2: launch sequences, run 20+ cold calls, book meetings, build a Notion deal room with a Loom walkthrough, and post your metrics on LinkedIn.`,
+    bet: `In 6 weeks you will find 50 real prospects, run personalized AI-powered outreach, and book at least 3 discovery calls—or show documented proof of every rep you ran. No fake data. No hypotheticals.`,
+    whatYouDo: `Weeks 1–2: pick a vertical and write your ICP, load 50 enriched contacts into HubSpot, build cold email + LinkedIn + call scripts (scored in Lavender), and automate Clay → HubSpot → Instantly. Weeks 3–4: launch sequences, run 20+ cold calls, iterate on messaging from reply data. Weeks 5–6: book meetings, build a Notion deal room with a Loom walkthrough, and post your metrics on LinkedIn.`,
     week1: "",
     week2: "",
     deliverables: [
@@ -135,7 +137,7 @@ export const AI_PROJECT_SPRINTS: AiTrack[] = [
       },
       {
         name: "Public LinkedIn post",
-        description: "Day 14 post with screenshots, metrics, and what you'd do differently",
+        description: "Week 6 post with screenshots, metrics, and what you'd do differently",
       },
     ],
     tools: [
@@ -145,7 +147,7 @@ export const AI_PROJECT_SPRINTS: AiTrack[] = [
       { name: "Lavender AI", description: "Email coaching, reply prediction, A/B scoring (target ≥90)" },
       { name: "Notion AI", description: "Deal room, process docs, sprint retrospective" },
     ],
-    outcomes: `By Day 14: publish your LinkedIn post with real open/reply rates, link your Notion deal room and Loom, and be ready to walk an interviewer through your ICP, top sequence, and either 3 booked calls or your full HubSpot activity log.`,
+    outcomes: `By week 6: publish your LinkedIn post with real open/reply rates, link your Notion deal room and Loom, and be ready to walk an interviewer through your ICP, top sequence, and either 3 booked calls or your full HubSpot activity log.`,
   },
   {
     id: "marketing",
@@ -153,8 +155,8 @@ export const AI_PROJECT_SPRINTS: AiTrack[] = [
     number: 2,
     title: "Marketing",
     subtitle: "Go from zero to a live, measurable campaign with the AI-native stack marketers ship with",
-    bet: `In 14 days you will define a target audience, build a multi-channel campaign, publish it, and report real performance metrics. No decks without distribution. No content that never ships.`,
-    whatYouDo: `Week 1: audience + positioning doc, competitive swipe file, 14-day content calendar with Claude prompt templates, documented brief → draft → publish pipeline, and a live landing page or lead magnet. Week 2: publish 10+ pieces, distribute beyond your own channels, launch a 3-email nurture sequence, build a metrics dashboard, and post your campaign retrospective on LinkedIn.`,
+    bet: `In 6 weeks you will define a target audience, build a multi-channel campaign, publish it, and report real performance metrics. No decks without distribution. No content that never ships.`,
+    whatYouDo: `Weeks 1–2: audience + positioning doc, competitive swipe file, six-week content calendar with Claude prompt templates, documented brief → draft → publish pipeline, and a live landing page or lead magnet. Weeks 3–4: publish 10+ pieces, distribute beyond your own channels, launch a 3-email nurture sequence. Weeks 5–6: optimize from metrics, build a dashboard, and post your campaign retrospective on LinkedIn.`,
     week1: "",
     week2: "",
     deliverables: [
@@ -186,7 +188,7 @@ export const AI_PROJECT_SPRINTS: AiTrack[] = [
       { name: "Canva AI", description: "Social graphics, carousels, landing page visuals" },
       { name: "Framer AI", description: "AI-generated landing pages—live in under an hour" },
     ],
-    outcomes: `By Day 14: link your live landing page and best-performing post, screenshot your metrics dashboard, publish the LinkedIn retrospective with real impressions/clicks/opt-ins, and explain one winner and one flop in an interview.`,
+    outcomes: `By week 6: link your live landing page and best-performing post, screenshot your metrics dashboard, publish the LinkedIn retrospective with real impressions/clicks/opt-ins, and explain one winner and one flop in an interview.`,
   },
   {
     id: "forward-deployed-engineer",
@@ -194,8 +196,8 @@ export const AI_PROJECT_SPRINTS: AiTrack[] = [
     number: 3,
     title: "Forward Deployed Engineer",
     subtitle: "Go from zero to a customer-facing technical asset with the AI-native stack FDEs use in the field",
-    bet: `In 14 days you will scope a real customer problem, build a working proof-of-concept, and deliver a recorded walkthrough a customer could watch today and say "I want that." No toy examples. No slides without code.`,
-    whatYouDo: `Week 1: customer archetype doc, simulated technical discovery, architecture diagram + ADR, GitHub scaffold, and core integration with real data flowing through. Week 2: deploy a shareable POC, adversarial test and fix top bugs, record a ≤10 min Loom demo, write post-mortem + ADR v2, and publish repo + LinkedIn by Day 14.`,
+    bet: `In 6 weeks you will scope a real customer problem, build a working proof-of-concept, and deliver a recorded walkthrough a customer could watch today and say "I want that." No toy examples. No slides without code.`,
+    whatYouDo: `Weeks 1–2: customer archetype doc, simulated technical discovery, architecture diagram + ADR, GitHub scaffold, and core integration with real data flowing through. Weeks 3–4: deploy a shareable POC, adversarial test and fix top bugs. Weeks 5–6: record a ≤10 min Loom demo, write post-mortem + ADR v2, and publish repo + LinkedIn.`,
     week1: "",
     week2: "",
     deliverables: [
@@ -227,7 +229,7 @@ export const AI_PROJECT_SPRINTS: AiTrack[] = [
       { name: "Perplexity", description: "Market context, API docs, tech landscape" },
       { name: "Notion AI", description: "PRD-lite, ADR, post-mortem, demo script" },
     ],
-    outcomes: `By Day 14: push final code to a public GitHub repo, publish your Loom demo and LinkedIn post, and practice the narrative arc—problem → friction → solution → wow moment → what's next—in a mock customer or interview setting.`,
+    outcomes: `By week 6: push final code to a public GitHub repo, publish your Loom demo and LinkedIn post, and practice the narrative arc—problem → friction → solution → wow moment → what's next—in a mock customer or interview setting.`,
   },
 ];
 

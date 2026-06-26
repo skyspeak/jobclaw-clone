@@ -70,7 +70,7 @@ export default async function AiTrackCommitPage({ searchParams }: CommitPageProp
             dear[CC] · Track commitment
           </p>
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Lock in your two weeks
+            {sprintNav ? "Lock in your six weeks" : "Lock in your two weeks"}
           </h1>
           <p className="max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
             Share your name, email, and phone. One click commits you to the sprint and queues you for a cohort of up to

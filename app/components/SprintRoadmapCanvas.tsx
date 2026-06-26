@@ -137,7 +137,7 @@ export function SprintRoadmapCanvas({ roadmap }: SprintRoadmapCanvasProps) {
           <HorizontalConnector />
 
           <div className="flex shrink-0 flex-col items-center gap-4 pt-8">
-            <MilestoneNode label="Day 14" sublabel="Proof of work" />
+            <MilestoneNode label="Week 6" sublabel="Proof of work" />
             <div className="w-[11.5rem] space-y-2">
               {roadmap.proofArtifacts.map((artifact) => (
                 <div

@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Share2, Target } from "lucide-react";
 
+import { IntakeGapParametersTable } from "@/app/components/IntakeGapParametersTable";
+import { IntakeVettingSourceLinks } from "@/app/components/IntakeCcAgentPanels";
 import { Button } from "@/components/ui/button";
+import { projectSprintPathForRoleId } from "@/lib/ai-tracks-data";
 import { wizardRowsToIntakeAnswers } from "@/lib/intake-questions";
 import type { SearchRequest } from "@/lib/jobclaw";
 import {
@@ -18,15 +21,6 @@ import {
   writeIntakeSession,
 } from "@/lib/intake-session";
 
-function readBriefSession(): IntakeWizardSession | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const next = readIntakeSession();
-  return next.result?.searchRequest ? next : null;
-}
-
 export function IntakeBriefResults() {
   const router = useRouter();
   const [session, setSession] = useState<IntakeWizardSession | null>(null);
@@ -37,18 +31,20 @@ export function IntakeBriefResults() {
   const profileGenerationStarted = useRef(false);
 
   useEffect(() => {
-    setSession(readBriefSession());
+    setSession(readIntakeSession());
     setHasHydrated(true);
   }, []);
 
+  const hasBrief = Boolean(session?.result?.searchRequest);
+  const vetting = session?.ccAgent.vettingResult ?? null;
+
   useEffect(() => {
-    if (!hasHydrated) {
+    if (!hasHydrated || !session || hasBrief || vetting) {
       return;
     }
-    if (!session?.result?.searchRequest) {
-      router.replace("/intake");
-    }
-  }, [hasHydrated, session, router]);
+
+    router.replace("/intake");
+  }, [hasBrief, hasHydrated, router, session, vetting]);
 
   useEffect(() => {
     if (!session?.result?.searchRequest || session.profileDraft || profileGenerationStarted.current) {
@@ -128,7 +124,7 @@ export function IntakeBriefResults() {
     }
   }
 
-  if (!hasHydrated || !session?.result?.searchRequest) {
+  if (!hasHydrated || !session) {
     return (
       <p className="text-sm text-muted-foreground" aria-live="polite">
         Loading your brief…
@@ -136,14 +132,67 @@ export function IntakeBriefResults() {
     );
   }
 
-  const googleAiUrl = buildGoogleAiModeUrl(session.result.searchRequest);
+  if (!hasBrief && vetting) {
+    const sprintHref = projectSprintPathForRoleId(vetting.inferredRoleId);
+
+    return (
+      <div className="flex flex-col gap-8">
+        <section className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Gap analysis
+          </p>
+          <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Become AI native by honing your skills
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
+            You completed intake vetting. Use your gap breakdown below to pick a six-week project sprint
+            that builds proof-of-work for your target role.
+          </p>
+          <div className="mt-6 space-y-6">
+            <IntakeGapParametersTable parameters={vetting.gapParameters ?? []} />
+            <IntakeVettingSourceLinks
+              targetJobUrl={session.targetJobUrl}
+              linkedInUrl={session.linkedInUrl}
+              fallbackRoleLabel={vetting.inferredRoleLabel}
+            />
+          </div>
+        </section>
+
+        <Button asChild size="lg" className="cta-glow h-14 w-full rounded-2xl text-base font-semibold sm:text-lg">
+          <Link href={sprintHref}>
+            Explore project sprints
+            <ArrowRight className="size-5 opacity-90" />
+          </Link>
+        </Button>
+
+        <Button asChild variant="outline" className="h-12 w-fit rounded-2xl border-border/70 bg-card">
+          <Link href="/intake">← Back to intake</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (!hasBrief) {
+    return (
+      <p className="text-sm text-muted-foreground" aria-live="polite">
+        Loading your brief…
+      </p>
+    );
+  }
+
+  const briefResult = session.result;
+  if (!briefResult?.searchRequest) {
+    return null;
+  }
+
+  const googleAiUrl = buildGoogleAiModeUrl(briefResult.searchRequest);
 
   return (
     <div className="flex flex-col gap-8">
       <MyBriefCard
         profile={session.profileDraft}
-        summary={session.result.summary}
-        searchRequest={session.result.searchRequest}
+        summary={briefResult.summary}
+        searchRequest={briefResult.searchRequest}
         isLoading={isGeneratingProfile && !session.profileDraft}
         profileError={profileError}
         onShare={() => void handleShare()}

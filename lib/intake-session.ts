@@ -28,6 +28,7 @@ export const BROWSER_ONBOARDING_STORAGE_KEYS = [
   "jobclaw.turn-taking-session.v1",
   "jobclaw.matched-internships.v1",
   "jobclaw.project-sprints.v1",
+  "dearcc.stay-relevant.contact.v1",
 ] as const;
 
 export const BROWSER_ONBOARDING_SESSION_KEYS = ["jobclaw.job-fit.jd.v1"] as const;
@@ -178,7 +179,7 @@ export function readIntakeSession(): IntakeWizardSession {
     };
 
     if (next.ccAgent.flowStep === ("hook" as CcAgentStepId)) {
-      next.ccAgent.flowStep = "target-job-url";
+      next.ccAgent.flowStep = "connect";
     }
     if (next.ccAgent.flowStep === "role-suggestions") {
       next.ccAgent.flowStep = "vetting-result";
@@ -198,16 +199,6 @@ export function readIntakeSession(): IntakeWizardSession {
       next.ccAgent.skippedProfileUpload = false;
       next.ccAgent.flowStep = "target-job-url";
     }
-    if (
-      next.ccAgent.flowStep === "profile-upload" &&
-      next.ccAgent.knowsTargetJob === null &&
-      !next.targetJobUrl.trim() &&
-      !next.linkedInUrl.trim() &&
-      !next.resumeText.trim()
-    ) {
-      next.ccAgent.flowStep = "target-job-url";
-    }
-
     if (parsed.wizardAnswers && Array.isArray(parsed.wizardAnswers) && parsed.wizardAnswers.length === 5) {
       next.wizardAnswers = parsed.wizardAnswers.map((s) => String(s ?? ""));
     } else if (parsed.answers) {
@@ -235,6 +226,32 @@ export function readIntakeSession(): IntakeWizardSession {
       typeof parsed.currentAnswer === "string"
         ? parsed.currentAnswer
         : (next.wizardAnswers[next.wizardStep] ?? "");
+
+    next.ccAgent.targetJobUrl = next.targetJobUrl;
+
+    if (
+      next.ccAgent.knowsTargetJob !== false &&
+      (next.ccAgent.flowStep === "target-job-url" || next.ccAgent.flowStep === "profile-upload")
+    ) {
+      next.ccAgent.flowStep = "connect";
+    }
+
+    if (next.ccAgent.knowsTargetJob === null && next.targetJobUrl.trim()) {
+      next.ccAgent.knowsTargetJob = true;
+    }
+    if (next.ccAgent.knowsTargetJob === null && next.ccAgent.flowStep === "quiz") {
+      next.ccAgent.knowsTargetJob = false;
+    }
+    if (
+      next.ccAgent.knowsTargetJob === null &&
+      next.wizardAnswers.some((answer) => answer.trim()) &&
+      !next.targetJobUrl.trim()
+    ) {
+      next.ccAgent.knowsTargetJob = false;
+    }
+    if (next.ccAgent.knowsTargetJob === null && next.ccAgent.flowStep !== "connect" && next.ccAgent.flowStep !== "target-job-url") {
+      next.ccAgent.flowStep = next.targetJobUrl.trim() ? "connect" : "target-job-url";
+    }
 
     return next;
   } catch {

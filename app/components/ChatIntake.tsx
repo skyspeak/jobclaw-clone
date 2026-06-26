@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { IntakeGeneratingScreen } from "@/app/components/IntakeGeneratingScreen";
+import { IntakeOpinionsModal } from "@/app/components/IntakeOpinionsModal";
 import { ChatIntakeConversation } from "@/app/components/ChatIntakeConversation";
 import {
   defaultSearchDefaults,
@@ -27,7 +28,7 @@ import {
   canProceedFromStep,
   retreatCcAgentState,
 } from "@/lib/cc-agent-intake-nav";
-import { getFlowProgressIndex, getTotalFlowSteps, inferSelectedRoleId } from "@/lib/cc-agent-flow";
+import { inferSelectedRoleId, resolveKnowsTargetJob, getFlowStepForIntakeTopLevel, canNavigateToIntakeTopLevel } from "@/lib/cc-agent-flow";
 import { projectSprintPathForRoleId } from "@/lib/ai-tracks-data";
 import {
   buildResumeSnapshot,
@@ -40,6 +41,10 @@ import {
   type IntakeProfileDraft,
   type IntakeWizardSession,
 } from "@/lib/intake-session";
+import {
+  readStayRelevantContactWithIntakeFallback,
+  writeStayRelevantContact,
+} from "@/lib/stay-relevant-contact";
 import type { ParsedProfileInsight } from "@/lib/profile-parse";
 import {
   prefsSchema,
@@ -173,14 +178,13 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   const [isGeneratingProfile, setIsGeneratingProfile] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [opinionsModalOpen, setOpinionsModalOpen] = useState(false);
 
   const prefsForm = useForm<PrefsValues>({
     resolver: zodResolver(prefsSchema),
     defaultValues: searchDefaultsToPrefsValues(freshSession.defaults),
   });
 
-  const totalSteps = getTotalFlowSteps(ccAgent);
-  const progressStep = getFlowProgressIndex(ccAgent);
   const flowStep = ccAgent.flowStep;
 
   const profileCompleteForGenerate = useMemo(
@@ -214,13 +218,19 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     }
 
     const session = readIntakeSession();
+    const storedContact = readStayRelevantContactWithIntakeFallback();
     setSubmissionId(session.submissionId);
-    setCcAgent(session.ccAgent);
+    setCcAgent({ ...session.ccAgent, targetJobUrl: session.targetJobUrl });
     setTargetJobUrl(session.targetJobUrl);
     setWizardStep(session.wizardStep);
     setWizardAnswers(session.wizardAnswers);
     setCurrentAnswer(session.currentAnswer);
-    setContact(session.contact);
+    setContact({
+      ...session.contact,
+      email: session.contact.email || storedContact?.email || "",
+      name: session.contact.name || storedContact?.name || "",
+      phone: session.contact.phone || storedContact?.phone || "",
+    });
     setDefaults(session.defaults);
     setResult(session.result);
     setProfileDraft(session.profileDraft);
@@ -328,7 +338,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          knowsTargetJob: ccAgent.knowsTargetJob === true,
+          knowsTargetJob: resolveKnowsTargetJob({ ...ccAgent, targetJobUrl }) === true,
           linkedInUrl,
           resumeText,
           resumeFileName,
@@ -413,17 +423,79 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     }
   }
 
-  async function handleNext() {
-    if (flowStep === "vetting-result") {
-      const href = resolveProjectSprintHref({
-        ccAgent,
-        profileInsight,
-        targetJobUrl,
-        linkedInUrl,
-        resumeText,
-        wizardAnswers,
+  function resolveJourneyHref() {
+    return resolveProjectSprintHref({
+      ccAgent,
+      profileInsight,
+      targetJobUrl,
+      linkedInUrl,
+      resumeText,
+      wizardAnswers,
+    });
+  }
+
+  function completeJourneyNavigation() {
+    if (contact.email.trim()) {
+      writeStayRelevantContact({
+        email: contact.email.trim(),
+        name: contact.name.trim() || undefined,
+        phone: contact.phone.trim() || undefined,
       });
-      router.push(href);
+    }
+    router.push(resolveJourneyHref());
+  }
+
+  function handleQuitIntake() {
+    setOpinionsModalOpen(true);
+  }
+
+  function finishQuit() {
+    setOpinionsModalOpen(false);
+    router.push("/");
+  }
+
+  async function handleOpinionsAccept(email: string) {
+    const trimmedEmail = email.trim();
+    writeStayRelevantContact({
+      email: trimmedEmail,
+      name: contact.name.trim() || undefined,
+      phone: contact.phone.trim() || undefined,
+    });
+    setContact((current) => ({ ...current, email: trimmedEmail }));
+
+    const response = await fetch("/api/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: contact.name.trim() || "Stay Relevant signup",
+        email,
+        role_type: "both",
+        linkedin: linkedInUrl.trim() || null,
+        referral: "stay-relevant-quit",
+      }),
+    });
+
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Unable to save your email.");
+    }
+
+    finishQuit();
+  }
+
+  function handleOpinionsDecline() {
+    finishQuit();
+  }
+
+  async function handleNext() {
+    if (flowStep === "journey") {
+      completeJourneyNavigation();
+      return;
+    }
+
+    if (flowStep === "vetting-result") {
+      setCcAgent((current) => ({ ...current, flowStep: "journey" }));
       return;
     }
 
@@ -448,16 +520,46 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
 
     setAnswerError("");
 
+    if (flowStep === "connect") {
+      const agentForAdvance = {
+        ...ccAgent,
+        targetJobUrl,
+        knowsTargetJob: ccAgent.knowsTargetJob === false ? false : true,
+      };
+      const vetting = await runTriage();
+      if (!vetting) {
+        return;
+      }
+
+      setCcAgent({
+        ...agentForAdvance,
+        flowStep: "vetting-result",
+        vettingResult: vetting,
+      });
+      setCurrentAnswer("");
+      return;
+    }
+
     if (flowStep === "target-job-url") {
-      const { next, nextCurrentAnswer } = advanceFromDreamJob(ccAgent, targetJobUrl, wizardAnswers);
-      setCcAgent(next);
+      const { next, nextCurrentAnswer } = advanceFromDreamJob(
+        { ...ccAgent, targetJobUrl },
+        targetJobUrl,
+        wizardAnswers,
+      );
+      setCcAgent({ ...next, targetJobUrl });
       setCurrentAnswer(nextCurrentAnswer);
       return;
     }
 
     if (flowStep === "profile-upload") {
-      const { next, nextCurrentAnswer } = advanceFromProfileUpload(ccAgent);
+      const agentForAdvance = { ...ccAgent, targetJobUrl };
+      const { next, nextCurrentAnswer } = advanceFromProfileUpload(agentForAdvance);
       let merged = next;
+
+      if (next.flowStep === ccAgent.flowStep) {
+        setAnswerError("Unable to advance — try going back one step, then continue again.");
+        return;
+      }
 
       if (next.flowStep === "vetting-result" && !next.vettingResult) {
         const vetting = await runTriage();
@@ -508,8 +610,17 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     }));
   }
 
+  function handleTopLevelStepClick(topLevel: 1 | 2 | 3) {
+    if (!canNavigateToIntakeTopLevel(topLevel, ccAgent)) {
+      return;
+    }
+    setAnswerError("");
+    const nextFlowStep = getFlowStepForIntakeTopLevel(topLevel, ccAgent);
+    setCcAgent((current) => ({ ...current, flowStep: nextFlowStep }));
+  }
+
   function handleBack() {
-    if (flowStep === "target-job-url") {
+    if (flowStep === "connect" || flowStep === "target-job-url") {
       return;
     }
 
@@ -526,16 +637,24 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
       return;
     }
     setTargetJobUrl("");
-    setCcAgent((current) => ({ ...current, knowsTargetJob: false }));
+    setCcAgent((current) => ({
+      ...current,
+      knowsTargetJob: false,
+      flowStep: "quiz",
+      quizIndex: 0,
+    }));
+    setCurrentAnswer(wizardAnswers[0] ?? "");
   }
 
   function handleTargetJobUrlChange(value: string) {
     setTargetJobUrl(value);
-    if (value.trim()) {
-      setCcAgent((current) =>
-        current.knowsTargetJob === false ? { ...current, knowsTargetJob: null } : current,
-      );
-    }
+    setCcAgent((current) => {
+      const next = { ...current, targetJobUrl: value };
+      if (value.trim() && current.knowsTargetJob === false) {
+        next.knowsTargetJob = null;
+      }
+      return next;
+    });
   }
 
   function handleSelectRole(_roleId: string) {
@@ -771,8 +890,6 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
         <div className="flex min-h-0 flex-1 flex-col">
           <ChatIntakeConversation
           flowStep={flowStep}
-          progressStep={progressStep}
-          totalSteps={totalSteps}
           ccAgent={ccAgent}
           targetJobUrl={targetJobUrl}
           onTargetJobUrlChange={handleTargetJobUrlChange}
@@ -795,12 +912,21 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
           wizardAnswers={wizardAnswers}
           quizIndex={ccAgent.quizIndex}
           onBack={handleBack}
+          onTopLevelStepClick={handleTopLevelStepClick}
           onNext={() => void handleNext()}
           onGenerate={() => void handleGenerateBrief()}
+          onQuit={handleQuitIntake}
           isGenerating={isGenerating}
           isParsingProfile={isParsingProfile}
           isRunningTriage={isRunningTriage}
           globalError={error}
+        />
+        <IntakeOpinionsModal
+          open={opinionsModalOpen}
+          onOpenChange={setOpinionsModalOpen}
+          defaultEmail={contact.email}
+          onAccept={handleOpinionsAccept}
+          onDecline={handleOpinionsDecline}
         />
         </div>
       ) : null}

@@ -147,7 +147,7 @@ export function getPersonalizedSprintCards(context: SprintContext): SprintCardSp
         "AI-assisted storyboard five user vignettes—you cut two that violate your deal-breakers.",
       ],
       weekTwo: [
-        "Two-week rollout proposal with humane AI guardrails annotated per step.",
+        "Six-week rollout proposal with humane AI guardrails annotated per step.",
       ],
       deliverable: "Opportunity brief + experiment backlog with risk/mitigation pairing.",
     },

@@ -56,7 +56,7 @@ export function SprintTrackSection({ context, intro }: SprintTrackSectionProps) 
       <Card className="h-full border-border/75 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
         <CardHeader className="space-y-3 border-b border-border/55 p-6 md:p-7">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Matched sprint · 14 days · AI-forward cohort
+            Matched sprint · 6 weeks · AI-forward cohort
           </p>
           <CardTitle className="text-xl leading-snug tracking-tight">{sprint.title}</CardTitle>
           <CardDescription className="text-base leading-relaxed text-muted-foreground">

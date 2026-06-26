@@ -1,5 +1,10 @@
 import type { CcAgentFlowState, CcAgentStepId } from "@/lib/cc-agent-flow";
-import { getNextFlowStep, getPrevFlowStep, isQuizPath } from "@/lib/cc-agent-flow";
+import {
+  getNextFlowStep,
+  getPrevFlowStep,
+  isQuizPath,
+  resolveKnowsTargetJob,
+} from "@/lib/cc-agent-flow";
 import { hasMinimumProfileEvidence, hasResumeOrLinkedInInput } from "@/lib/intake-session";
 import { questionSchema } from "@/lib/intake-questions";
 
@@ -32,6 +37,24 @@ export function canProceedFromStep(
   const { ccAgent, targetJobUrl, linkedInUrl, resumeText, resumeFileName, currentAnswer } = input;
 
   switch (flowStep) {
+    case "connect":
+      if (!isValidJobUrl(targetJobUrl)) {
+        return {
+          ok: false,
+          message: "Paste a job listing URL, or use the link below if you don't have one.",
+        };
+      }
+      if (ccAgent.skippedProfileUpload) {
+        return { ok: true };
+      }
+      if (!hasMinimumProfileEvidence(linkedInUrl, resumeText)) {
+        return {
+          ok: false,
+          message: "Add your LinkedIn profile URL or upload a résumé to continue.",
+        };
+      }
+      return { ok: true };
+
     case "profile-upload":
       if (ccAgent.skippedProfileUpload) {
         return { ok: true };
@@ -80,6 +103,9 @@ export function canProceedFromStep(
     }
 
     case "vetting-result":
+      return { ok: true };
+
+    case "journey":
       return { ok: true };
 
     case "search-filters":
@@ -137,16 +163,26 @@ export function advanceCcAgentState(
   };
 }
 
+function withResolvedKnowsTargetJob(ccAgent: CcAgentFlowState): CcAgentFlowState {
+  const resolved = resolveKnowsTargetJob(ccAgent);
+  if (resolved === null || resolved === ccAgent.knowsTargetJob) {
+    return ccAgent;
+  }
+
+  return { ...ccAgent, knowsTargetJob: resolved };
+}
+
 export function advanceFromProfileUpload(
   ccAgent: CcAgentFlowState,
 ): { next: CcAgentFlowState; nextCurrentAnswer: string } {
-  const nextStep = getNextFlowStep(ccAgent);
+  const resolved = withResolvedKnowsTargetJob(ccAgent);
+  const nextStep = getNextFlowStep(resolved);
   if (!nextStep) {
-    return { next: ccAgent, nextCurrentAnswer: "" };
+    return { next: resolved, nextCurrentAnswer: "" };
   }
 
   return {
-    next: { ...ccAgent, flowStep: nextStep },
+    next: { ...resolved, flowStep: nextStep },
     nextCurrentAnswer: "",
   };
 }
@@ -201,12 +237,13 @@ export function retreatCcAgentState(
       quizIndex: prevStep === "quiz" && wasQuiz ? 4 : prevStep === "quiz" ? 0 : ccAgent.quizIndex,
       skippedProfileUpload:
         prevStep === "profile-upload" ? false : ccAgent.skippedProfileUpload,
-      knowsTargetJob: prevStep === "target-job-url" ? null : ccAgent.knowsTargetJob,
+      knowsTargetJob:
+        prevStep === "target-job-url" || prevStep === "connect" ? null : ccAgent.knowsTargetJob,
     },
     nextCurrentAnswer:
       prevStep === "quiz"
         ? (wizardAnswers[wasQuiz ? 4 : 0] ?? "")
-        : prevStep === "profile-upload" || prevStep === "target-job-url"
+        : prevStep === "profile-upload" || prevStep === "target-job-url" || prevStep === "connect"
           ? ""
           : currentAnswer,
   };

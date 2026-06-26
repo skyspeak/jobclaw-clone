@@ -7,19 +7,18 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { ArrowLeft, Bot, Loader2 } from "lucide-react";
 
 import { IntakeChatComposer } from "@/app/components/IntakeChatComposer";
+import { IntakeStepNav } from "@/app/components/IntakeStepNav";
 import { Button } from "@/components/ui/button";
 import { BRAND_NAME } from "@/lib/brand";
 import type { CcAgentFlowState, CcAgentStepId } from "@/lib/cc-agent-flow";
 import { isQuizPath, QUIZ_PATH_INTRO } from "@/lib/cc-agent-flow";
-import { buildTranscript, getActiveStepPrompt } from "@/lib/cc-agent-transcript";
+import { buildLiveUserInputs, buildTranscript, getActiveStepPrompt } from "@/lib/cc-agent-transcript";
 import { QUESTIONS, type PrefsValues } from "@/lib/intake-questions";
 import type { ParsedProfileInsight } from "@/lib/profile-parse";
 import { cn } from "@/lib/utils";
 
 type ChatIntakeConversationProps = {
   flowStep: CcAgentStepId;
-  progressStep: number;
-  totalSteps: number;
   ccAgent: CcAgentFlowState;
   targetJobUrl: string;
   onTargetJobUrlChange: (value: string) => void;
@@ -42,8 +41,10 @@ type ChatIntakeConversationProps = {
   wizardAnswers: string[];
   quizIndex: number;
   onBack: () => void;
+  onTopLevelStepClick: (topLevel: 1 | 2 | 3) => void;
   onNext: () => void;
   onGenerate: () => void;
+  onQuit?: () => void;
   isGenerating: boolean;
   isParsingProfile: boolean;
   isRunningTriage: boolean;
@@ -74,11 +75,11 @@ function AssistantBubble({
   className?: string;
 }) {
   return (
-    <div className={cn("flex gap-3 py-1", className)}>
-      <BotAvatar />
+    <div className={cn("flex gap-3 py-2", className)}>
+      <BotAvatar className="mt-0.5" />
       <div className="min-w-0 max-w-[min(100%,36rem)] flex-1">
         {!hideLabel ? (
-          <p className="mb-1 text-xs font-semibold text-muted-foreground">{BRAND_NAME}</p>
+          <p className="mb-1.5 text-xs font-semibold text-muted-foreground">{BRAND_NAME}</p>
         ) : null}
         <div className="rounded-2xl rounded-tl-md border border-border/60 bg-card px-4 py-3 text-sm leading-relaxed text-foreground shadow-sm sm:text-[0.9375rem]">
           {children}
@@ -88,10 +89,23 @@ function AssistantBubble({
   );
 }
 
-function UserBubble({ children }: { children: ReactNode }) {
+function UserBubble({
+  children,
+  pending = false,
+}: {
+  children: ReactNode;
+  pending?: boolean;
+}) {
   return (
-    <div className="flex justify-end py-1">
-      <div className="max-w-[min(100%,28rem)] rounded-2xl rounded-tr-md bg-primary px-4 py-3 text-sm leading-relaxed text-primary-foreground shadow-sm sm:text-[0.9375rem]">
+    <div className="flex justify-end py-2 pl-10 sm:pl-16">
+      <div
+        className={cn(
+          "max-w-[min(100%,28rem)] rounded-2xl rounded-br-md px-4 py-3 text-sm leading-relaxed shadow-sm sm:text-[0.9375rem]",
+          pending
+            ? "border border-dashed border-primary/35 bg-primary/[0.07] text-foreground"
+            : "border border-primary/25 bg-primary/15 text-foreground",
+        )}
+      >
         {children}
       </div>
     </div>
@@ -111,8 +125,6 @@ function TypingIndicator() {
 
 export function ChatIntakeConversation({
   flowStep,
-  progressStep,
-  totalSteps,
   ccAgent,
   targetJobUrl,
   onTargetJobUrlChange,
@@ -135,8 +147,10 @@ export function ChatIntakeConversation({
   wizardAnswers,
   quizIndex,
   onBack,
+  onTopLevelStepClick,
   onNext,
   onGenerate,
+  onQuit,
   isGenerating,
   isParsingProfile,
   isRunningTriage,
@@ -158,6 +172,20 @@ export function ChatIntakeConversation({
         quizIndex,
       }),
     [flowStep, ccAgent, targetJobUrl, linkedInUrl, resumeFileName, resumeText, wizardAnswers, quizIndex],
+  );
+
+  const liveUserInputs = useMemo(
+    () =>
+      buildLiveUserInputs({
+        flowStep,
+        ccAgent,
+        targetJobUrl,
+        linkedInUrl,
+        resumeFileName,
+        resumeText,
+        currentAnswer,
+      }),
+    [flowStep, ccAgent, targetJobUrl, linkedInUrl, resumeFileName, resumeText, currentAnswer],
   );
 
   const activePrompt = useMemo(() => {
@@ -185,26 +213,28 @@ export function ChatIntakeConversation({
   useEffect(() => {
     const frame = requestAnimationFrame(() => scrollToLatest());
     return () => cancelAnimationFrame(frame);
-  }, [transcript.length, flowStep, isBusy, quizIndex, scrollToLatest]);
+  }, [transcript.length, liveUserInputs.length, flowStep, isBusy, quizIndex, scrollToLatest]);
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background selection:bg-primary selection:text-primary-foreground">
       <header className="sticky top-0 z-20 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-3 px-4 py-3 sm:px-6">
           <Link
             className="text-sm font-semibold tracking-wide text-foreground underline-offset-4 hover:underline"
             href="/"
           >
             {BRAND_NAME}
           </Link>
-          <span className="text-xs text-muted-foreground">
-            {progressStep} / {totalSteps}
-          </span>
+          <IntakeStepNav
+            flowStep={flowStep}
+            ccAgent={ccAgent}
+            onStepClick={onTopLevelStepClick}
+          />
         </div>
       </header>
 
       <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
+        <div className="mx-auto w-full max-w-2xl space-y-1 px-4 py-6 sm:px-6">
           {transcript.map((message) =>
             message.role === "assistant" ? (
               <AssistantBubble key={message.id} hideLabel={Boolean(message.headline)}>
@@ -222,18 +252,26 @@ export function ChatIntakeConversation({
                 )}
               </AssistantBubble>
             ) : (
-              <UserBubble key={message.id}>{message.content}</UserBubble>
+              <UserBubble key={message.id} pending={message.pending}>
+                <p className="whitespace-pre-wrap">{message.content}</p>
+              </UserBubble>
             ),
           )}
 
-          {activePrompt.title ? (
+          {activePrompt.title && flowStep !== "vetting-result" && flowStep !== "journey" ? (
             <AssistantBubble>
               <p className="font-medium">{activePrompt.title}</p>
               {activePrompt.body ? (
-                <p className="mt-2 text-sm text-muted-foreground">{activePrompt.body}</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{activePrompt.body}</p>
               ) : null}
             </AssistantBubble>
           ) : null}
+
+          {liveUserInputs.map((message) => (
+            <UserBubble key={message.id} pending>
+              <p className="whitespace-pre-wrap">{message.content}</p>
+            </UserBubble>
+          ))}
 
           {isBusy ? <TypingIndicator /> : null}
         </div>
@@ -246,7 +284,7 @@ export function ChatIntakeConversation({
             variant="ghost"
             size="sm"
             onClick={onBack}
-            disabled={flowStep === "target-job-url" || isBusy}
+            disabled={flowStep === "connect" || flowStep === "target-job-url" || isBusy}
             className="h-9 rounded-lg px-2 text-muted-foreground"
             data-testid="button-back"
           >
@@ -286,6 +324,7 @@ export function ChatIntakeConversation({
           quizIndex={quizIndex}
           onNext={onNext}
           onGenerate={onGenerate}
+          onQuit={onQuit}
           isBusy={isBusy}
           showAnswerError={false}
         />

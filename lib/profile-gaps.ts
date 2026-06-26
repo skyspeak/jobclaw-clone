@@ -23,6 +23,8 @@ export type ProfileGapParameter = {
   jobRequires: string;
   youHave: string;
   status: GapParameterStatus;
+  /** Exactly three short labels surfaced from the profile — strengths or gaps. */
+  keywords: string[];
 };
 
 const gapParameterSchema = z.object({
@@ -30,6 +32,7 @@ const gapParameterSchema = z.object({
   jobRequires: z.string().min(1).max(280),
   youHave: z.string().min(1).max(280),
   status: z.enum(GAP_STATUSES),
+  keywords: z.array(z.string().min(1).max(48)).length(3),
 });
 
 const gapAssessmentSchema = z.object({
@@ -56,6 +59,7 @@ For each facet return:
   - missing — not evidenced or far below bar
   - good — clearly demonstrated
   - stretch — partial signal; worth strengthening
+- keywords: exactly 3 short phrases (1–4 words each) naming what you actually found for this facet — strengths OR gaps (e.g. "B2B SaaS", "no SQL named", "club president"). Concrete; no filler.
 
 Second person in youHave ("you"). Lowercase tone. No extra facets.
 
@@ -66,19 +70,22 @@ Return ONLY valid JSON:
       "parameter": "Domain expertise",
       "jobRequires": "string",
       "youHave": "string",
-      "status": "missing" | "good" | "stretch"
+      "status": "missing" | "good" | "stretch",
+      "keywords": ["string", "string", "string"]
     },
     {
       "parameter": "Skills",
       "jobRequires": "string",
       "youHave": "string",
-      "status": "missing" | "good" | "stretch"
+      "status": "missing" | "good" | "stretch",
+      "keywords": ["string", "string", "string"]
     },
     {
       "parameter": "Leadership experience",
       "jobRequires": "string",
       "youHave": "string",
-      "status": "missing" | "good" | "stretch"
+      "status": "missing" | "good" | "stretch",
+      "keywords": ["string", "string", "string"]
     }
   ],
   "summary": "optional one sentence overall"
@@ -185,7 +192,7 @@ Quiz answers:
 - Q4: ${answers.q4}
 - Q5: ${answers.q5}
 
-Fill jobRequires, youHave, and status for Domain expertise, Skills, and Leadership experience.
+Fill jobRequires, youHave, status, and keywords (3 each) for Domain expertise, Skills, and Leadership experience.
 `.trim();
 }
 
@@ -203,13 +210,44 @@ function normalizeFacetLabel(label: string): GapFacet | null {
   return null;
 }
 
+function defaultKeywordsForFacet(facet: GapFacet, status: GapParameterStatus): string[] {
+  if (facet === "Domain expertise") {
+    if (status === "good") return ["role-adjacent work", "industry exposure", "relevant projects"];
+    if (status === "stretch") return ["adjacent experience", "limited tenure", "needs depth"];
+    return ["no domain match", "missing internships", "unclear industry"];
+  }
+  if (facet === "Skills") {
+    if (status === "good") return ["named tools", "quantified outcomes", "technical depth"];
+    if (status === "stretch") return ["some tools listed", "thin evidence", "needs specificity"];
+    return ["no tools named", "generic bullets", "missing methods"];
+  }
+  if (status === "good") return ["owned outcomes", "initiative shown", "peer leadership"];
+  if (status === "stretch") return ["some initiative", "weak outcomes", "needs examples"];
+  return ["no ownership", "no initiatives", "coursework only"];
+}
+
+function ensureGapKeywords(row: ProfileGapParameter): string[] {
+  const facet = normalizeFacetLabel(row.parameter);
+  const cleaned = (row.keywords ?? []).map((k) => k.trim()).filter(Boolean).slice(0, 3);
+  while (cleaned.length < 3) {
+    const defaults = defaultKeywordsForFacet(facet ?? "Skills", row.status);
+    cleaned.push(defaults[cleaned.length] ?? "not assessed");
+  }
+  return cleaned;
+}
+
 function normalizeGapParameters(parameters: ProfileGapParameter[]): ProfileGapParameter[] {
   const byFacet = new Map<GapFacet, ProfileGapParameter>();
 
   for (const row of parameters) {
     const facet = normalizeFacetLabel(row.parameter);
     if (facet && !byFacet.has(facet)) {
-      byFacet.set(facet, { ...row, parameter: facet });
+      const normalized: ProfileGapParameter = {
+        ...row,
+        parameter: facet,
+        keywords: ensureGapKeywords({ ...row, parameter: facet }),
+      };
+      byFacet.set(facet, normalized);
     }
   }
 
@@ -235,6 +273,9 @@ export function buildGapParametersFallback(input: ProfileGapInput): ProfileGapPa
           : "limited clear domain match for this target role"
         : "not evidenced — no résumé or linkedin detail",
       status: vetting.roleVetted && vetting.profileStrength === "strong" ? "good" : "stretch",
+      keywords: vetting.roleVetted
+        ? ["role-adjacent work", "résumé signals", "domain unclear"]
+        : ["limited domain match", "no clear industry", "needs experience"],
     },
     {
       parameter: "Skills",
@@ -243,6 +284,9 @@ export function buildGapParametersFallback(input: ProfileGapInput): ProfileGapPa
         ? "some skills and tools listed on your résumé"
         : "few or no specific skills/tools named",
       status: vetting.quantitativeSignal ? "good" : "missing",
+      keywords: vetting.quantitativeSignal
+        ? ["tools named", "quant signals", "learnable stack"]
+        : ["no tools named", "generic skills", "missing methods"],
     },
     {
       parameter: "Leadership experience",
@@ -251,6 +295,9 @@ export function buildGapParametersFallback(input: ProfileGapInput): ProfileGapPa
         ? "some initiative signals (lead, founder, captain, etc.) — strengthen with outcomes"
         : "not evidenced beyond coursework",
       status: leadershipSignals ? "stretch" : "missing",
+      keywords: leadershipSignals
+        ? ["initiative verbs", "ownership hints", "needs outcomes"]
+        : ["no leadership", "no initiatives", "coursework only"],
     },
   ];
 }
@@ -259,15 +306,19 @@ export function buildGapParametersFallback(input: ProfileGapInput): ProfileGapPa
 export function coerceGapParameters(rows: ProfileGapParameter[]): ProfileGapParameter[] {
   return rows.map((row) => {
     const legacy = row as ProfileGapParameter & { note?: string };
-    if (legacy.jobRequires && legacy.youHave) {
-      return row;
-    }
-    const note = legacy.note ?? legacy.youHave ?? "not assessed";
+    const base: ProfileGapParameter = legacy.jobRequires && legacy.youHave
+      ? row
+      : {
+          parameter: row.parameter,
+          jobRequires: legacy.jobRequires ?? "typical bar for your target role",
+          youHave: legacy.note ?? legacy.youHave ?? "not assessed",
+          status: row.status,
+          keywords: legacy.keywords ?? [],
+        };
+
     return {
-      parameter: row.parameter,
-      jobRequires: legacy.jobRequires ?? "typical bar for your target role",
-      youHave: note,
-      status: row.status,
+      ...base,
+      keywords: ensureGapKeywords(base),
     };
   });
 }
@@ -318,4 +369,51 @@ export async function analyzeProfileGaps(input: ProfileGapInput): Promise<Profil
 
 export function gapStatusLabel(status: GapParameterStatus): string {
   return status;
+}
+
+export type GapSkillBar = {
+  label: string;
+  score: number;
+  tier: "Strong" | "Solid" | "Gap" | "Stretch";
+  keywords: string[];
+};
+
+function scoreForGapStatus(status: GapParameterStatus, label: string): number {
+  const seed = label.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  if (status === "good") return 72 + (seed % 17);
+  if (status === "stretch") return 38 + (seed % 10);
+  return 18 + (seed % 12);
+}
+
+function tierForGapStatus(status: GapParameterStatus, score: number): GapSkillBar["tier"] {
+  if (status === "good") return score >= 80 ? "Strong" : "Solid";
+  if (status === "stretch") return "Stretch";
+  return "Gap";
+}
+
+/** Split facet rows into strength vs gap progress bars for the intake UI. */
+export function splitGapParametersToBars(parameters: ProfileGapParameter[]): {
+  strengths: GapSkillBar[];
+  gaps: GapSkillBar[];
+} {
+  const rows = coerceGapParameters(parameters);
+  const strengths: GapSkillBar[] = [];
+  const gaps: GapSkillBar[] = [];
+
+  for (const row of rows) {
+    const score = scoreForGapStatus(row.status, row.parameter);
+    const item: GapSkillBar = {
+      label: row.parameter,
+      score,
+      tier: tierForGapStatus(row.status, score),
+      keywords: ensureGapKeywords(row),
+    };
+    if (row.status === "good") {
+      strengths.push(item);
+    } else {
+      gaps.push(item);
+    }
+  }
+
+  return { strengths, gaps };
 }

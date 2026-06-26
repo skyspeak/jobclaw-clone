@@ -14,7 +14,7 @@ import { BRAND_NAME } from "@/lib/brand";
 export const metadata: Metadata = {
   title: `${AI_SPRINTS_GUIDE_TITLE} — ${BRAND_NAME}`,
   description:
-    "Three two-week project sprints for Sales, Marketing, and Forward Deployed Engineer roles.",
+    "Three six-week project sprints for Sales, Marketing, and Forward Deployed Engineer roles.",
 };
 
 export default function ProjectSprintsHubPage() {

@@ -27,7 +27,7 @@ export function Landing() {
             for the AI age.
           </h1>
 
-          <p className="mx-auto mt-6 text-sm leading-relaxed text-[var(--lg-muted)] sm:mt-8 sm:text-base sm:leading-relaxed">
+          <p className="mx-auto mt-6 max-w-[36rem] text-base leading-relaxed text-[var(--lg-muted)] sm:mt-8 sm:text-lg sm:leading-relaxed md:text-xl">
             You aren&apos;t alone. AI is reshaping the job market and decimating entry-level jobs. dear [CC] is
             an insider&apos;s take from Clara Shih — aka CC — and other AI leaders on how to adapt, stand out,
             and make AI work for you — no matter what role you&apos;re in.

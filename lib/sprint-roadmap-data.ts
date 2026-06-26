@@ -33,7 +33,7 @@ export const SPRINT_ROADMAPS_INTRO = {
   title: "Project Sprint Roadmaps",
   lead: AI_PROJECT_SPRINTS_INTRO.lead,
   throughline: AI_PROJECT_SPRINTS_INTRO.throughline,
-  hint: "Each roadmap shows the day-by-day path from zero to a shareable proof-of-work artifact — the same sprints as the written guides, in roadmap.sh-style flow.",
+  hint: "Each roadmap shows the phased path from zero to a shareable proof-of-work artifact across six weeks — the same sprints as the written guides, in roadmap.sh-style flow.",
 } as const;
 
 const SALES_ROADMAP: SprintRoadmapData = {
@@ -41,10 +41,10 @@ const SALES_ROADMAP: SprintRoadmapData = {
   number: 1,
   title: "Sales",
   subtitle: "Go from zero to a verifiable sales outcome with the AI-native stack pros actually use",
-  promise: "In 14 days, identify 50 real prospects, run personalized AI-powered outreach, and book at least 3 discovery calls — or produce documented proof of every rep you ran.",
-  skinInTheGame: "Share results publicly on LinkedIn by Day 14.",
-  week1Label: "Week 1 — Learn the craft + build the machine",
-  week2Label: "Week 2 — Execute, iterate, close",
+  promise: "In 6 weeks, identify 50 real prospects, run personalized AI-powered outreach, and book at least 3 discovery calls — or produce documented proof of every rep you ran.",
+  skinInTheGame: "Share results publicly on LinkedIn by week 6.",
+  week1Label: "Weeks 1–3 — Learn the craft + build the machine",
+  week2Label: "Weeks 4–6 — Execute, iterate, close",
   week1: [
     {
       id: "sales-d1",
@@ -134,7 +134,7 @@ const SALES_ROADMAP: SprintRoadmapData = {
     },
     {
       id: "sales-d14",
-      dayLabel: "Day 14",
+      dayLabel: "Week 6",
       theme: "Ship proof of work",
       tools: ["Claude", "Loom", "LinkedIn"],
       deliverable: "LinkedIn post live — metrics, screenshots, learnings",
@@ -154,10 +154,10 @@ const MARKETING_ROADMAP: SprintRoadmapData = {
   number: 2,
   title: "Marketing",
   subtitle: "Go from zero to a live, measurable campaign with the AI-native stack marketers ship with",
-  promise: "In 14 days, define a target audience, build a multi-channel campaign, publish it, and report real performance metrics. No decks without distribution.",
-  skinInTheGame: "Publish a campaign retrospective on LinkedIn by Day 14 with real numbers.",
-  week1Label: "Week 1 — Strategy, positioning, and pipeline",
-  week2Label: "Week 2 — Publish, distribute, and measure",
+  promise: "In 6 weeks, define a target audience, build a multi-channel campaign, publish it, and report real performance metrics. No decks without distribution.",
+  skinInTheGame: "Publish a campaign retrospective on LinkedIn by week 6 with real numbers.",
+  week1Label: "Weeks 1–3 — Strategy, positioning, and pipeline",
+  week2Label: "Weeks 4–6 — Publish, distribute, and measure",
   week1: [
     {
       id: "mkt-d1",
@@ -247,7 +247,7 @@ const MARKETING_ROADMAP: SprintRoadmapData = {
     },
     {
       id: "mkt-d14",
-      dayLabel: "Day 14",
+      dayLabel: "Week 6",
       theme: "Ship proof of work",
       tools: ["Claude", "Loom", "LinkedIn"],
       deliverable: "LinkedIn post with campaign overview, metrics, links to best piece + landing page",
@@ -268,10 +268,10 @@ const FDE_ROADMAP: SprintRoadmapData = {
   number: 3,
   title: "Forward Deployed Engineer",
   subtitle: "Go from zero to a customer-facing technical asset with the AI-native stack FDEs use in the field",
-  promise: "In 14 days, scope a real customer problem, build a working POC, and deliver a recorded walkthrough a customer could watch today and say \"I want that.\"",
-  skinInTheGame: "Publish the GitHub repo + Loom demo publicly by Day 14.",
-  week1Label: "Week 1 — Understand the customer + design the solution",
-  week2Label: "Week 2 — Build, test, and ship to customer",
+  promise: "In 6 weeks, scope a real customer problem, build a working POC, and deliver a recorded walkthrough a customer could watch today and say \"I want that.\"",
+  skinInTheGame: "Publish the GitHub repo + Loom demo publicly by week 6.",
+  week1Label: "Weeks 1–3 — Understand the customer + design the solution",
+  week2Label: "Weeks 4–6 — Build, test, and ship to customer",
   week1: [
     {
       id: "fde-d1",
@@ -361,7 +361,7 @@ const FDE_ROADMAP: SprintRoadmapData = {
     },
     {
       id: "fde-d14",
-      dayLabel: "Day 14",
+      dayLabel: "Week 6",
       theme: "Ship everything",
       tools: ["GitHub", "Loom", "LinkedIn"],
       deliverable: "Public repo + Loom demo + LinkedIn post — all live",

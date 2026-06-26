@@ -17,6 +17,7 @@ export type NurtureTrackId =
   | "quiz-to-track";
 
 export type CcAgentStepId =
+  | "connect"
   | "target-job-url"
   | "profile-upload"
   | "resume"
@@ -24,7 +25,61 @@ export type CcAgentStepId =
   | "quiz"
   | "role-suggestions"
   | "vetting-result"
+  | "journey"
   | "search-filters";
+
+export const INTAKE_STEP_LABELS = ["Connect", "Your analysis", "Your Journey"] as const;
+
+export function getIntakeTopLevelStep(flowStep: CcAgentStepId): 1 | 2 | 3 {
+  if (flowStep === "journey" || flowStep === "search-filters") {
+    return 3;
+  }
+  if (flowStep === "vetting-result") {
+    return 2;
+  }
+  return 1;
+}
+
+/** Flow step to show when the user selects a top-level stage in the header. */
+export function getFlowStepForIntakeTopLevel(
+  topLevel: 1 | 2 | 3,
+  state: CcAgentFlowState,
+): CcAgentStepId {
+  if (topLevel === 2) {
+    return "vetting-result";
+  }
+  if (topLevel === 3) {
+    return "journey";
+  }
+
+  if (resolveKnowsTargetJob(state) !== false) {
+    return "connect";
+  }
+
+  if (
+    state.flowStep === "target-job-url" ||
+    state.flowStep === "quiz" ||
+    state.flowStep === "profile-upload"
+  ) {
+    return state.flowStep;
+  }
+
+  return "profile-upload";
+}
+
+export function canNavigateToIntakeTopLevel(
+  topLevel: 1 | 2 | 3,
+  state: CcAgentFlowState,
+): boolean {
+  const maxUnlocked = getIntakeTopLevelStep(state.flowStep);
+  if (topLevel > maxUnlocked) {
+    return false;
+  }
+  if (topLevel >= 2 && !state.vettingResult) {
+    return false;
+  }
+  return true;
+}
 
 export const DREAM_JOB_SKIP_CHIP = "I don't have a job URL";
 export const PROFILE_SKIP_CHIP = "I don't have a LinkedIn or résumé yet";
@@ -82,8 +137,8 @@ export const NURTURE_TRACK_COPY: Record<
     title: "Your next steps",
     description:
       "We'll help you close the gap between your target role and your profile with a focused plan and resources.",
-    ctaHref: "/intake/brief",
-    ctaLabel: "View your brief",
+    ctaHref: "/project-sprints",
+    ctaLabel: "Explore project sprints",
   },
   "quiz-to-track": {
     title: "Role discovery → track",
@@ -100,29 +155,48 @@ export function defaultCcAgentFlowState(): CcAgentFlowState {
     skippedProfileUpload: false,
     targetJobUrl: "",
     selectedRoleId: "",
-    flowStep: "target-job-url",
+    flowStep: "connect",
     quizIndex: 0,
     vettingResult: null,
     roleSuggestions: [],
   };
 }
 
-export function isQuizPath(state: CcAgentFlowState): boolean {
-  return state.knowsTargetJob === false;
+/** Infer dream-job path when session state was restored without knowsTargetJob. */
+export function resolveKnowsTargetJob(state: CcAgentFlowState): boolean | null {
+  if (state.knowsTargetJob !== null) {
+    return state.knowsTargetJob;
+  }
+
+  if (state.targetJobUrl.trim()) {
+    return true;
+  }
+
+  if (state.flowStep === "quiz") {
+    return false;
+  }
+
+  return null;
 }
 
-const POST_PROFILE_STEPS: CcAgentStepId[] = ["vetting-result"];
+export function isQuizPath(state: CcAgentFlowState): boolean {
+  return resolveKnowsTargetJob(state) === false;
+}
+
+const POST_PROFILE_STEPS: CcAgentStepId[] = ["vetting-result", "journey"];
 
 export function getFlowStepSequence(state: CcAgentFlowState): CcAgentStepId[] {
-  if (state.knowsTargetJob === null) {
+  const knowsTargetJob = resolveKnowsTargetJob(state);
+
+  if (knowsTargetJob === null) {
     return ["target-job-url"];
   }
 
-  if (state.knowsTargetJob === false) {
+  if (knowsTargetJob === false) {
     return ["target-job-url", "quiz", "profile-upload", ...POST_PROFILE_STEPS];
   }
 
-  return ["target-job-url", "profile-upload", ...POST_PROFILE_STEPS];
+  return ["connect", ...POST_PROFILE_STEPS];
 }
 
 export function getTotalFlowSteps(state: CcAgentFlowState): number {
