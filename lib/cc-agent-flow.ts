@@ -31,7 +31,7 @@ export type CcAgentStepId =
 export const INTAKE_STEP_LABELS = ["Connect", "Your analysis", "Your Journey"] as const;
 
 export function getIntakeTopLevelStep(flowStep: CcAgentStepId): 1 | 2 | 3 {
-  if (flowStep === "journey" || flowStep === "search-filters") {
+  if (flowStep === "journey") {
     return 3;
   }
   if (flowStep === "vetting-result") {

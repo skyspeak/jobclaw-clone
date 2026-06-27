@@ -43,7 +43,7 @@ type ChatIntakeConversationProps = {
   onBack: () => void;
   onTopLevelStepClick: (topLevel: 1 | 2 | 3) => void;
   onNext: () => void;
-  onGenerate: () => void;
+  onGetHired?: () => void;
   onQuit?: () => void;
   isGenerating: boolean;
   isParsingProfile: boolean;
@@ -149,7 +149,7 @@ export function ChatIntakeConversation({
   onBack,
   onTopLevelStepClick,
   onNext,
-  onGenerate,
+  onGetHired,
   onQuit,
   isGenerating,
   isParsingProfile,
@@ -158,6 +158,7 @@ export function ChatIntakeConversation({
 }: ChatIntakeConversationProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isBusy = isGenerating || isParsingProfile || isRunningTriage;
+  const isAnalysisStep = flowStep === "vetting-result" || flowStep === "journey";
 
   const transcript = useMemo(
     () =>
@@ -233,7 +234,13 @@ export function ChatIntakeConversation({
         </div>
       </header>
 
-      <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div
+        ref={scrollContainerRef}
+        className={cn(
+          "min-h-0 overflow-y-auto overscroll-contain",
+          isAnalysisStep ? "max-h-[min(20dvh,11rem)] shrink-0" : "flex-1",
+        )}
+      >
         <div className="mx-auto w-full max-w-2xl space-y-1 px-4 py-6 sm:px-6">
           {transcript.map((message) =>
             message.role === "assistant" ? (
@@ -277,7 +284,16 @@ export function ChatIntakeConversation({
         </div>
       </div>
 
-      <div className="z-20 flex max-h-[min(58dvh,560px)] min-h-0 shrink-0 flex-col border-t border-border/60 bg-background/95 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div
+        className={cn(
+          "z-20 flex min-h-0 shrink-0 flex-col border-t border-border/60 bg-background/95 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+          flowStep === "vetting-result"
+            ? "max-h-[min(78dvh,780px)] flex-1"
+            : flowStep === "journey"
+              ? "max-h-[min(72dvh,700px)]"
+              : "max-h-[min(58dvh,560px)]",
+        )}
+      >
         <div className="mx-auto flex w-full max-w-2xl shrink-0 items-center px-4 pt-2 sm:px-6">
           <Button
             type="button"
@@ -299,7 +315,7 @@ export function ChatIntakeConversation({
             {answerError || globalError}
           </p>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           <IntakeChatComposer
           flowStep={flowStep}
           ccAgent={ccAgent}
@@ -311,7 +327,6 @@ export function ChatIntakeConversation({
           currentAnswer={currentAnswer}
           onCurrentAnswerChange={onCurrentAnswerChange}
           answerError={answerError}
-          prefsForm={prefsForm}
           linkedInUrl={linkedInUrl}
           onLinkedInUrlChange={onLinkedInUrlChange}
           resumeText={resumeText}
@@ -320,10 +335,9 @@ export function ChatIntakeConversation({
           isReadingResume={isReadingResume}
           profileCompleteForGenerate={profileCompleteForGenerate}
           profileIncompleteHint={profileIncompleteHint}
-          profileInsight={profileInsight}
           quizIndex={quizIndex}
           onNext={onNext}
-          onGenerate={onGenerate}
+          onGetHired={onGetHired}
           onQuit={onQuit}
           isBusy={isBusy}
           showAnswerError={false}

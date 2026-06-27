@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Share2, Target } from "lucide-react";
+import { ArrowRight, Share2 } from "lucide-react";
 
 import { IntakeGapParametersTable } from "@/app/components/IntakeGapParametersTable";
 import { IntakeVettingSourceLinks } from "@/app/components/IntakeCcAgentPanels";
@@ -198,14 +198,6 @@ export function IntakeBriefResults() {
         onShare={() => void handleShare()}
         shareNote={shareNote}
       />
-
-      <Button asChild size="lg" className="cta-glow h-14 w-full rounded-2xl text-base font-semibold sm:text-lg">
-        <Link href="/job-fit">
-          <Target className="size-5" />
-          Check fit for a job posting
-          <ArrowRight className="size-5 opacity-90" />
-        </Link>
-      </Button>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Button

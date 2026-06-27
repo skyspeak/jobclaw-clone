@@ -34,6 +34,7 @@ export type LeadInsert = {
   role_type?: string | null;
   industries?: string | null;
   linkedin?: string | null;
+  phone?: string | null;
   referral?: string | null;
 };
 

@@ -488,6 +488,15 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     finishQuit();
   }
 
+  async function handleGetHired() {
+    if (flowStep !== "vetting-result") {
+      return;
+    }
+
+    setAnswerError("");
+    router.push("/intake/get-hired");
+  }
+
   async function handleNext() {
     if (flowStep === "journey") {
       completeJourneyNavigation();
@@ -496,10 +505,6 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
 
     if (flowStep === "vetting-result") {
       setCcAgent((current) => ({ ...current, flowStep: "journey" }));
-      return;
-    }
-
-    if (flowStep === "search-filters") {
       return;
     }
 
@@ -588,13 +593,6 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
         return;
       }
       merged = { ...next, vettingResult: vetting };
-    }
-
-    if (next.flowStep === "search-filters" && !profileInsight && !ccAgent.skippedProfileUpload) {
-      const ok = await parseProfileForFilters();
-      if (!ok) {
-        return;
-      }
     }
 
     setWizardAnswers(nextWizardAnswers);
@@ -914,7 +912,7 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
           onBack={handleBack}
           onTopLevelStepClick={handleTopLevelStepClick}
           onNext={() => void handleNext()}
-          onGenerate={() => void handleGenerateBrief()}
+          onGetHired={() => void handleGetHired()}
           onQuit={handleQuitIntake}
           isGenerating={isGenerating}
           isParsingProfile={isParsingProfile}

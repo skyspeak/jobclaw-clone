@@ -13,6 +13,7 @@ const submitSchema = z.object({
   role_type: z.enum(ROLE_TYPES),
   industries: z.string().trim().max(500).optional().nullable(),
   linkedin: z.string().trim().max(300).optional().nullable(),
+  phone: z.string().trim().max(30).optional().nullable(),
   referral: z.string().trim().max(300).optional().nullable(),
 });
 
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
       ...parsed.data,
       industries: parsed.data.industries?.trim() || null,
       linkedin: parsed.data.linkedin || null,
+      phone: parsed.data.phone?.trim() || null,
       school: parsed.data.school || null,
       grad_year: parsed.data.grad_year || null,
       referral: parsed.data.referral?.trim() || null,

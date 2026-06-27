@@ -31,7 +31,7 @@ export const BROWSER_ONBOARDING_STORAGE_KEYS = [
   "dearcc.stay-relevant.contact.v1",
 ] as const;
 
-export const BROWSER_ONBOARDING_SESSION_KEYS = ["jobclaw.job-fit.jd.v1"] as const;
+export const BROWSER_ONBOARDING_SESSION_KEYS = [] as const;
 
 export type IntakeContactInfo = {
   raw: string;

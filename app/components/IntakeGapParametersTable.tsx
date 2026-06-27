@@ -1,10 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Download } from "lucide-react";
-import { toPng } from "html-to-image";
-
-import { Button } from "@/components/ui/button";
+import { IntakeGapShareSheet } from "@/app/components/IntakeGapShareSheet";
 import {
   coerceGapParameters,
   splitGapParametersToBars,
@@ -59,34 +55,8 @@ export function IntakeGapParametersTable({
   parameters,
   targetLabel,
 }: IntakeGapParametersTableProps) {
-  const captureRef = useRef<HTMLDivElement>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-
   const rows = coerceGapParameters(parameters);
   const { strengths, gaps } = splitGapParametersToBars(rows);
-
-  async function handleDownloadImage() {
-    if (!captureRef.current || rows.length === 0) {
-      return;
-    }
-
-    setIsDownloading(true);
-    try {
-      const dataUrl = await toPng(captureRef.current, {
-        cacheBust: true,
-        pixelRatio: 2,
-        backgroundColor: "#FDFBF7",
-      });
-      const anchor = document.createElement("a");
-      anchor.href = dataUrl;
-      anchor.download = `dearcc-gap-analysis-${new Date().toISOString().slice(0, 10)}.png`;
-      anchor.click();
-    } catch {
-      // silent — user can retry
-    } finally {
-      setIsDownloading(false);
-    }
-  }
 
   if (rows.length === 0) {
     return (
@@ -97,58 +67,46 @@ export function IntakeGapParametersTable({
   }
 
   return (
-    <div className="space-y-3">
-      <div
-        ref={captureRef}
-        className="overflow-hidden rounded-2xl border border-border/70 bg-[#FDFBF7] p-6 sm:p-8"
-      >
+    <div className="overflow-hidden rounded-2xl border border-border/70 bg-[#FDFBF7] p-6 sm:p-8">
+      <div className="mb-6 flex items-start justify-between gap-3">
         {targetLabel ? (
-          <p className="mb-6 text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Target: <span className="font-medium text-foreground">{targetLabel}</span>
           </p>
-        ) : null}
-
-        <div className="space-y-8">
-          {strengths.length > 0 ? (
-            <div className="space-y-5">
-              <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
-                What you already bring
-              </h2>
-              {strengths.map((item) => (
-                <GapSkillBarRow key={item.label} item={item} variant="strength" />
-              ))}
-            </div>
-          ) : null}
-
-          {gaps.length > 0 ? (
-            <div
-              className={cn(
-                "space-y-5",
-                strengths.length > 0 && "border-t border-border/60 pt-8",
-              )}
-            >
-              <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
-                What the role needed that did not show up
-              </h2>
-              {gaps.map((item) => (
-                <GapSkillBarRow key={item.label} item={item} variant="gap" />
-              ))}
-            </div>
-          ) : null}
-        </div>
+        ) : (
+          <span />
+        )}
+        <IntakeGapShareSheet parameters={parameters} targetLabel={targetLabel} />
       </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="rounded-xl"
-        disabled={isDownloading}
-        onClick={() => void handleDownloadImage()}
-      >
-        <Download className="mr-2 h-4 w-4" />
-        {isDownloading ? "Preparing image…" : "Download as image"}
-      </Button>
+      <div className="space-y-8">
+        {strengths.length > 0 ? (
+          <div className="space-y-5">
+            <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
+              What you already bring
+            </h2>
+            {strengths.map((item) => (
+              <GapSkillBarRow key={item.label} item={item} variant="strength" />
+            ))}
+          </div>
+        ) : null}
+
+        {gaps.length > 0 ? (
+          <div
+            className={cn(
+              "space-y-5",
+              strengths.length > 0 && "border-t border-border/60 pt-8",
+            )}
+          >
+            <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
+              What the role needed that did not show up
+            </h2>
+            {gaps.map((item) => (
+              <GapSkillBarRow key={item.label} item={item} variant="gap" />
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -8,10 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ADMIN_COOKIE_NAME, isValidAdminPassword } from "@/lib/admin";
 import { intakeQuestions } from "@/lib/jobclaw";
-import { AdminJobFitSubmissions } from "@/app/components/AdminJobFitSubmissions";
 import { AdminJobListings } from "@/app/components/AdminJobListings";
 import { AdminCoreDatabase } from "@/app/components/AdminCoreDatabase";
-import { listJobFitSubmissions } from "@/lib/job-fit-submissions";
 import { getDatabaseDiagnostics, getDatabaseErrorMessage } from "@/lib/db";
 import { getJobListingsStoreLabel, listJobListings } from "@/lib/job-listings";
 import { getSubmissionStoreLabel, listSubmissions } from "@/lib/submissions";
@@ -122,7 +120,6 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
 
   let submissions: IntakeSubmission[] = [];
   let jobListings: JobListing[] = [];
-  let jobFitSubmissions: Awaited<ReturnType<typeof listJobFitSubmissions>> = [];
   let coreData: AdminCoreData = {
     storeLabel: "Not configured",
     configured: false,
@@ -139,7 +136,6 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
   try {
     submissions = await listSubmissions();
     jobListings = await listJobListings({ includeInactive: true });
-    jobFitSubmissions = await listJobFitSubmissions();
   } catch (error) {
     console.error("Admin dashboard database error:", error);
     databaseError = getDatabaseErrorMessage(error);
@@ -229,8 +225,6 @@ export default async function AdminDashboardPage({ searchParams }: AdminDashboar
         </Card>
 
         <AdminJobListings initialListings={jobListings} storeLabel={jobListingsStoreLabel} />
-
-        <AdminJobFitSubmissions submissions={jobFitSubmissions} />
 
         <AdminCoreDatabase data={coreData} />
 

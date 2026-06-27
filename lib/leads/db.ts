@@ -93,6 +93,7 @@ function syncCandidate(input: LeadInsert) {
     email: input.email,
     name: input.name,
     linkedinUrl: input.linkedin ?? null,
+    phone: input.phone ?? null,
   });
 }
 

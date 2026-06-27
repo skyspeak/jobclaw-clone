@@ -2,6 +2,7 @@
 
 import type { ChangeEvent } from "react";
 
+import { IntakeAnalysisCompleteBanner } from "@/app/components/IntakeAnalysisCompleteBanner";
 import { IntakeGapParametersTable } from "@/app/components/IntakeGapParametersTable";
 import { IntakeOptionChips } from "@/app/components/IntakeOptionChips";
 import { IntakeProfileFields } from "@/app/components/IntakeProfileFields";
@@ -343,7 +344,8 @@ export function IntakeVettingResultPanel({
   resumeFileName: string;
 }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <IntakeAnalysisCompleteBanner />
       <IntakeGapParametersTable parameters={vetting.gapParameters ?? []} />
 
       <IntakeVettingSourceLinks

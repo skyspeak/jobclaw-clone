@@ -13,3 +13,4 @@ data/leads.db-wal
 data/leads.db-shm
 node_modules
 .vercel
+.env*

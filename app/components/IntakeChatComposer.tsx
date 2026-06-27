@@ -1,7 +1,6 @@
 "use client";
 
 import type { ChangeEvent, KeyboardEvent } from "react";
-import type { UseFormReturn } from "react-hook-form";
 import { ArrowRight, Loader2, Send } from "lucide-react";
 
 import {
@@ -13,12 +12,10 @@ import {
   IntakeVettingResultPanel,
 } from "@/app/components/IntakeCcAgentPanels";
 import { IntakeOptionChips } from "@/app/components/IntakeOptionChips";
-import { IntakePrefsFields } from "@/app/components/IntakePrefsFields";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { Button } from "@/components/ui/button";
 import type { CcAgentFlowState, CcAgentStepId } from "@/lib/cc-agent-flow";
-import { QUESTIONS, type PrefsValues } from "@/lib/intake-questions";
-import type { ParsedProfileInsight } from "@/lib/profile-parse";
+import { QUESTIONS } from "@/lib/intake-questions";
 import { cn } from "@/lib/utils";
 
 type IntakeChatComposerProps = {
@@ -32,7 +29,6 @@ type IntakeChatComposerProps = {
   currentAnswer: string;
   onCurrentAnswerChange: (value: string) => void;
   answerError: string;
-  prefsForm: UseFormReturn<PrefsValues>;
   linkedInUrl: string;
   onLinkedInUrlChange: (value: string) => void;
   resumeText: string;
@@ -41,10 +37,9 @@ type IntakeChatComposerProps = {
   isReadingResume: boolean;
   profileCompleteForGenerate: boolean;
   profileIncompleteHint: string;
-  profileInsight: ParsedProfileInsight | null;
   quizIndex: number;
   onNext: () => void;
-  onGenerate: () => void;
+  onGetHired?: () => void;
   onQuit?: () => void;
   isBusy: boolean;
   /** When false, parent renders answerError above the composer (pinned footer). */
@@ -62,7 +57,6 @@ export function IntakeChatComposer({
   currentAnswer,
   onCurrentAnswerChange,
   answerError,
-  prefsForm,
   linkedInUrl,
   onLinkedInUrlChange,
   resumeText,
@@ -71,10 +65,9 @@ export function IntakeChatComposer({
   isReadingResume,
   profileCompleteForGenerate,
   profileIncompleteHint,
-  profileInsight,
   quizIndex,
   onNext,
-  onGenerate,
+  onGetHired,
   onQuit,
   isBusy,
   showAnswerError = true,
@@ -95,15 +88,37 @@ export function IntakeChatComposer({
       ? "Become AI native by honing your skills"
       : "Continue";
 
+  const showStayRelevantCallout =
+    flowStep === "vetting-result" || flowStep === "journey";
+  const showStayRelevantFooter = flowStep === "journey";
+  const isExpandedAnalysisPanel = flowStep === "vetting-result" || flowStep === "journey";
+
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-2 px-4 pb-3 pt-1 sm:px-6">
+    <div
+      className={cn(
+        "mx-auto w-full max-w-2xl space-y-2 px-4 pb-3 pt-1 sm:px-6",
+        isExpandedAnalysisPanel && "flex min-h-0 flex-1 flex-col",
+      )}
+    >
       {showAnswerError && answerError ? (
         <p className="text-sm font-medium text-destructive" role="alert">
           {answerError}
         </p>
       ) : null}
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-muted/20 shadow-sm">
-        <div className="max-h-[min(40dvh,22rem)] overflow-y-auto overscroll-contain border-b border-border/40 px-4 py-3 sm:px-5">
+      <div
+        className={cn(
+          "flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-muted/20 shadow-sm",
+          isExpandedAnalysisPanel && "min-h-0 flex-1",
+        )}
+      >
+        <div
+          className={cn(
+            "overscroll-contain border-b border-border/40 px-4 py-3 sm:px-5",
+            isExpandedAnalysisPanel
+              ? "min-h-0 flex-1 overflow-y-auto"
+              : "max-h-[min(40dvh,22rem)] overflow-y-auto",
+          )}
+        >
           {flowStep === "connect" ? (
             <IntakeConnectPanel
               targetJobUrl={targetJobUrl}
@@ -203,34 +218,37 @@ export function IntakeChatComposer({
           {flowStep === "journey" && ccAgent.vettingResult ? (
             <IntakeJourneyPanel vetting={ccAgent.vettingResult} />
           ) : null}
-
-          {flowStep === "search-filters" ? (
-            <div className="space-y-3">
-              {profileInsight?.suggestedRoles?.length ? (
-                <p className="text-xs text-muted-foreground">
-                  Example roles: {profileInsight.suggestedRoles.join(" · ")}
-                </p>
-              ) : null}
-              <IntakePrefsFields prefsForm={prefsForm} isGenerating={isBusy} compact />
-            </div>
-          ) : null}
         </div>
 
         <div
           className={cn(
             "flex shrink-0 gap-2 px-4 py-3 sm:px-5",
-            flowStep === "journey" ? "flex-col items-stretch" : "items-center justify-end",
+            showStayRelevantCallout ? "flex-col items-stretch" : "items-center justify-end",
           )}
         >
-          {flowStep === "journey" ? (
+          {showStayRelevantCallout ? (
             <p className="text-center text-xs leading-relaxed text-muted-foreground">
               Continue and sign up to <span className="font-semibold text-foreground">Stay Relevant</span>
             </p>
           ) : null}
+          {flowStep === "vetting-result" ? (
+            <Button
+              type="button"
+              onClick={onGetHired}
+              disabled={isBusy}
+              className="cta-glow h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
+              data-testid="button-get-hired"
+            >
+              Get hired <ArrowRight className="ml-1.5 h-4 w-4" />
+            </Button>
+          ) : null}
+          {flowStep === "vetting-result" ? null : (
           <div
             className={cn(
               "flex gap-2",
-              flowStep === "journey" ? "w-full flex-col-reverse sm:flex-row sm:items-center sm:justify-between" : "w-full justify-end",
+              showStayRelevantFooter
+                ? "w-full flex-col-reverse sm:flex-row sm:items-center sm:justify-between"
+                : "w-full justify-end",
             )}
           >
           {flowStep === "quiz" ? (
@@ -244,24 +262,6 @@ export function IntakeChatComposer({
               data-testid="button-send"
             >
               <Send className="h-5 w-5" />
-            </Button>
-          ) : flowStep === "search-filters" ? (
-            <Button
-              type="button"
-              onClick={onGenerate}
-              disabled={isBusy || !profileCompleteForGenerate}
-              className="cta-glow h-11 rounded-xl bg-primary px-5 font-semibold text-primary-foreground hover:bg-primary/90"
-              data-testid="button-submit"
-            >
-              {isBusy ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating…
-                </>
-              ) : (
-                <>
-                  Generate brief <ArrowRight className="ml-1.5 h-4 w-4" />
-                </>
-              )}
             </Button>
           ) : (
             <>
@@ -302,6 +302,7 @@ export function IntakeChatComposer({
             </>
           )}
           </div>
+          )}
         </div>
       </div>
 

@@ -1,0 +1,28 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+
+import { IntakeGetHiredSignup } from "@/app/components/IntakeGetHiredSignup";
+
+export const metadata: Metadata = {
+  title: "Stay Relevant — dear[CC]",
+  description: "Sign up for weekly emails tuned to your skill gaps.",
+};
+
+export default function IntakeGetHiredPage() {
+  return (
+    <main className="min-h-[100dvh] brand-bg px-4 py-6 selection:bg-primary selection:text-primary-foreground sm:px-8">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 pb-24">
+        <header className="flex flex-col gap-4">
+          <Link
+            className="text-sm font-semibold tracking-wide text-foreground underline-offset-4 hover:underline"
+            href="/"
+          >
+            dear[CC]
+          </Link>
+        </header>
+
+        <IntakeGetHiredSignup />
+      </div>
+    </main>
+  );
+}

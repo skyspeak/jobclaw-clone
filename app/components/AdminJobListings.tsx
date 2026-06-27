@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -135,11 +134,7 @@ export function AdminJobListings({ initialListings, storeLabel }: AdminJobListin
       <CardHeader className="space-y-2 border-b border-border/60 p-8 md:p-10">
         <CardTitle className="text-xl tracking-tight">Job listings library</CardTitle>
         <CardDescription className="text-base leading-relaxed">
-          Curated postings for the job fit analyzer. Active listings appear in the picker on{" "}
-          <Link className="font-medium text-foreground underline-offset-4 hover:underline" href="/job-fit">
-            /job-fit
-          </Link>
-          .
+          Curated job postings stored for reference and admin use.
         </CardDescription>
         <p className="text-sm font-medium text-muted-foreground">
           Storage: <span className="text-card-foreground">{storeLabel}</span>
@@ -215,7 +210,7 @@ export function AdminJobListings({ initialListings, storeLabel }: AdminJobListin
               onChange={(e) => setForm((current) => ({ ...current, active: e.target.checked }))}
               disabled={isSaving}
             />
-            Show in job fit picker
+            Show in library
           </label>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <div className="flex flex-wrap gap-3">
@@ -265,12 +260,16 @@ export function AdminJobListings({ initialListings, storeLabel }: AdminJobListin
                     </td>
                     <td className="px-4 py-4 align-top">
                       <div className="flex flex-col gap-2">
-                        <Link
-                          className="font-medium text-foreground underline-offset-4 hover:underline"
-                          href={`/job-fit?listing=${listing.id}`}
-                        >
-                          Open in job fit
-                        </Link>
+                        {listing.sourceUrl.trim() ? (
+                          <a
+                            className="font-medium text-foreground underline-offset-4 hover:underline"
+                            href={listing.sourceUrl}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            View posting
+                          </a>
+                        ) : null}
                         <button
                           type="button"
                           className="w-fit text-left font-medium text-foreground underline-offset-4 hover:underline"
@@ -295,7 +294,7 @@ export function AdminJobListings({ initialListings, storeLabel }: AdminJobListin
             </table>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No job listings yet. Add one above to populate the job fit picker.</p>
+          <p className="text-sm text-muted-foreground">No job listings yet. Add one above to build your library.</p>
         )}
       </CardContent>
     </Card>
