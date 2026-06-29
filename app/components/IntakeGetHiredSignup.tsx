@@ -16,6 +16,7 @@ import {
   type IntakeWizardSession,
 } from "@/lib/intake-session";
 import { writeStayRelevantContact } from "@/lib/stay-relevant-contact";
+import type { NewsletterSubmitResult } from "@/lib/newsletter-signup-status";
 import { cn } from "@/lib/utils";
 
 function buildGapEmailSummary(session: IntakeWizardSession): string {
@@ -37,7 +38,7 @@ export function IntakeGetHiredSignup() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [stayRelevantOk, setStayRelevantOk] = useState<boolean | null>(null);
+  const [newsletter, setNewsletter] = useState<NewsletterSubmitResult | null>(null);
 
   const gapLabels = useMemo(() => {
     if (!session) return [];
@@ -116,7 +117,8 @@ export function IntakeGetHiredSignup() {
 
       const payload = (await response.json()) as {
         error?: string;
-        stayRelevant?: { ok: boolean };
+        newsletter?: NewsletterSubmitResult;
+        stayRelevant?: NewsletterSubmitResult;
       };
 
       if (!response.ok) {
@@ -139,7 +141,10 @@ export function IntakeGetHiredSignup() {
       };
       writeIntakeSession(updated);
       setSession(updated);
-      setStayRelevantOk(payload.stayRelevant?.ok ?? null);
+      setNewsletter(
+        payload.newsletter ??
+          payload.stayRelevant ?? { ok: false, reason: "network_error" },
+      );
       setIsComplete(true);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to save your signup.");
@@ -162,7 +167,7 @@ export function IntakeGetHiredSignup() {
   const canSubmit = hasValidPhone && hasValidEmail && contactConsent;
 
   if (isComplete) {
-    return <IntakeGetHiredConfirmationSplash stayRelevantOk={stayRelevantOk} />;
+    return <IntakeGetHiredConfirmationSplash newsletter={newsletter} />;
   }
 
   return (

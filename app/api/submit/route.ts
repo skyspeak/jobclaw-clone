@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getDatabaseErrorMessage } from "@/lib/db";
 import { insertLead } from "@/lib/leads/db";
 import { ROLE_TYPES } from "@/lib/leads/schema";
-import { enrollInStayRelevant } from "@/lib/stayrelevant-enroll";
+import { enrollInNewsletter } from "@/lib/newsletter/enroll";
 
 const submitSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -56,28 +56,46 @@ export async function POST(request: Request) {
       referral: leadFields.referral?.trim() || null,
     });
 
-    let stayRelevant: { ok: boolean; firstIssueSent?: boolean; skipped?: string } = {
+    let newsletter: {
+      ok: boolean;
+      firstIssueSent?: boolean;
+      skipped?: string;
+      reason?: string;
+      status?: number;
+    } = {
       ok: false,
     };
 
     if (newsletterConsent !== false) {
-      const enroll = await enrollInStayRelevant({
+      const enroll = await enrollInNewsletter({
         email: leadFields.email,
+        name: leadFields.name,
         linkedinUrl: leadFields.linkedin,
         role,
         industry: leadFields.industries,
         focusAreas: focusAreas ?? undefined,
         timezone,
-        sourceRef: leadFields.referral,
+        source: leadFields.referral,
       });
-      stayRelevant = {
-        ok: enroll.ok,
-        firstIssueSent: enroll.ok ? enroll.firstIssueSent : undefined,
-        skipped: enroll.ok ? enroll.skipped : undefined,
-      };
+      newsletter = enroll.ok
+        ? {
+            ok: true,
+            firstIssueSent: enroll.firstIssueSent,
+            skipped: enroll.skipped,
+          }
+        : {
+            ok: false,
+            reason: enroll.reason,
+            status: enroll.status,
+          };
+    } else {
+      newsletter = { ok: false, skipped: "consent_declined" };
     }
 
-    return NextResponse.json({ ok: true, id: lead.id, stayRelevant }, { status: 201 });
+    return NextResponse.json(
+      { ok: true, id: lead.id, newsletter, stayRelevant: newsletter },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("lead submit failed", error);
     const message = getDatabaseErrorMessage(error);

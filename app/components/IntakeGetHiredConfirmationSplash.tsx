@@ -19,6 +19,11 @@ import {
   buildIMessageShareUrl,
   buildWhatsAppShareUrl,
 } from "@/lib/gap-analysis-share";
+import {
+  newsletterSignupIsWarning,
+  newsletterSignupMessage,
+  type NewsletterSubmitResult,
+} from "@/lib/newsletter-signup-status";
 import { cn } from "@/lib/utils";
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -58,9 +63,9 @@ function ShareOptionButton({
 }
 
 export function IntakeGetHiredConfirmationSplash({
-  stayRelevantOk = null,
+  newsletter = null,
 }: {
-  stayRelevantOk?: boolean | null;
+  newsletter?: NewsletterSubmitResult | null;
 }) {
   const [visible, setVisible] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -104,6 +109,9 @@ export function IntakeGetHiredConfirmationSplash({
     window.location.href = url;
     setShareOpen(false);
   }
+
+  const newsletterMessage = newsletterSignupMessage(newsletter);
+  const newsletterWarning = newsletterSignupIsWarning(newsletter);
 
   return (
     <div
@@ -158,13 +166,17 @@ export function IntakeGetHiredConfirmationSplash({
           <p className="mt-3 text-sm text-muted-foreground/80">
             We&apos;ll be in touch with curated guidance tailored to you.
           </p>
-          {stayRelevantOk === true ? (
-            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              Check your inbox — your first StayRelevant issue is on the way (Sundays, ~15 min read).
-            </p>
-          ) : stayRelevantOk === false ? (
-            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              We saved your signup. Watch for StayRelevant in your inbox shortly.
+          {newsletterMessage ? (
+            <p
+              className={cn(
+                "mt-4 text-sm leading-relaxed",
+                newsletterWarning
+                  ? "rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-amber-950 dark:text-amber-100"
+                  : "text-muted-foreground",
+              )}
+              role={newsletterWarning ? "alert" : undefined}
+            >
+              {newsletterMessage}
             </p>
           ) : null}
         </div>

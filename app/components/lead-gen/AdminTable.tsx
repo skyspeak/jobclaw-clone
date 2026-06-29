@@ -28,7 +28,9 @@ export function AdminTable({ leads }: AdminTableProps) {
     const rows = q
       ? leads.filter(
           (lead) =>
-            lead.name.toLowerCase().includes(q) || lead.email.toLowerCase().includes(q),
+            lead.name.toLowerCase().includes(q) ||
+            lead.email.toLowerCase().includes(q) ||
+            (lead.phone ?? "").toLowerCase().includes(q),
         )
       : leads;
 
@@ -57,6 +59,7 @@ export function AdminTable({ leads }: AdminTableProps) {
     const headers = [
       "name",
       "email",
+      "phone",
       "school",
       "grad_year",
       "role_type",
@@ -71,6 +74,7 @@ export function AdminTable({ leads }: AdminTableProps) {
         [
           lead.name,
           lead.email,
+          lead.phone ?? "",
           lead.school ?? "",
           lead.grad_year ?? "",
           lead.role_type ?? "",
@@ -96,6 +100,7 @@ export function AdminTable({ leads }: AdminTableProps) {
   const columns: Array<{ key: SortKey; label: string }> = [
     { key: "name", label: "name" },
     { key: "email", label: "email" },
+    { key: "phone", label: "phone" },
     { key: "school", label: "school" },
     { key: "grad_year", label: "grad year" },
     { key: "role_type", label: "role type" },
@@ -110,7 +115,7 @@ export function AdminTable({ leads }: AdminTableProps) {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="search name or email"
+          placeholder="search name, email, or phone"
           className="w-full max-w-md rounded-lg border border-[#2a2a2a] bg-[#111111] px-3 py-2 text-sm text-[#f0f0f0] outline-none focus:border-[#e8ff47] sm:w-auto"
         />
         <button
@@ -148,6 +153,7 @@ export function AdminTable({ leads }: AdminTableProps) {
               >
                 <td className="px-3 py-2">{lead.name}</td>
                 <td className="px-3 py-2">{lead.email}</td>
+                <td className="px-3 py-2">{lead.phone ?? "—"}</td>
                 <td className="px-3 py-2">{lead.school ?? "—"}</td>
                 <td className="px-3 py-2">{lead.grad_year ?? "—"}</td>
                 <td className="px-3 py-2">{lead.role_type ?? "—"}</td>

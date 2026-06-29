@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS leads (
   created_at TEXT DEFAULT (datetime('now')),
   name       TEXT NOT NULL,
   email      TEXT NOT NULL,
+  phone      TEXT,
   school     TEXT,
   grad_year  TEXT,
   role_type  TEXT,
@@ -13,11 +14,14 @@ CREATE TABLE IF NOT EXISTS leads (
 );
 `;
 
+export const ALTER_LEADS_ADD_PHONE = `ALTER TABLE leads ADD COLUMN phone TEXT`;
+
 export type Lead = {
   id: number;
   created_at: string;
   name: string;
   email: string;
+  phone: string | null;
   school: string | null;
   grad_year: string | null;
   role_type: string | null;

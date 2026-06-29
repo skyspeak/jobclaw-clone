@@ -7,7 +7,12 @@ import { createClient, type Client } from "@libsql/client";
 import { upsertCandidate } from "@/lib/database/candidates";
 import { ensureCoreSchema } from "@/lib/database/core-schema";
 import { getDatabaseUrl, getSql } from "@/lib/db";
-import { CREATE_LEADS_TABLE, type Lead, type LeadInsert } from "@/lib/leads/schema";
+import {
+  ALTER_LEADS_ADD_PHONE,
+  CREATE_LEADS_TABLE,
+  type Lead,
+  type LeadInsert,
+} from "@/lib/leads/schema";
 
 const SQLITE_PATH = path.join(process.cwd(), "data", "leads.db");
 
@@ -20,6 +25,7 @@ type LeadRow = {
   created_at: Date | string;
   name: string;
   email: string;
+  phone: string | null;
   school: string | null;
   grad_year: string | null;
   role_type: string | null;
@@ -55,6 +61,21 @@ function getTursoClient(): Client {
   return tursoClient;
 }
 
+function ensureSqliteLeadsPhoneColumn(db: Database.Database): void {
+  const columns = db.prepare("PRAGMA table_info(leads)").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "phone")) {
+    db.exec(ALTER_LEADS_ADD_PHONE);
+  }
+}
+
+async function ensureTursoLeadsPhoneColumn(client: Client): Promise<void> {
+  try {
+    await client.execute(ALTER_LEADS_ADD_PHONE);
+  } catch {
+    // Column already exists.
+  }
+}
+
 async function ensureSchema(): Promise<void> {
   if (schemaReady) {
     return;
@@ -63,9 +84,13 @@ async function ensureSchema(): Promise<void> {
   if (usePostgres()) {
     await ensureCoreSchema();
   } else if (useTurso()) {
-    await getTursoClient().execute(CREATE_LEADS_TABLE);
+    const client = getTursoClient();
+    await client.execute(CREATE_LEADS_TABLE);
+    await ensureTursoLeadsPhoneColumn(client);
   } else {
-    getSqliteDb().exec(CREATE_LEADS_TABLE);
+    const db = getSqliteDb();
+    db.exec(CREATE_LEADS_TABLE);
+    ensureSqliteLeadsPhoneColumn(db);
   }
 
   schemaReady = true;
@@ -79,6 +104,7 @@ function rowToLead(row: Record<string, unknown> | LeadRow): Lead {
       createdAt instanceof Date ? createdAt.toISOString() : String(createdAt),
     name: String(row.name),
     email: String(row.email),
+    phone: row.phone != null ? String(row.phone) : null,
     school: row.school != null ? String(row.school) : null,
     grad_year: row.grad_year != null ? String(row.grad_year) : null,
     role_type: row.role_type != null ? String(row.role_type) : null,
@@ -103,6 +129,7 @@ async function insertLeadPostgres(input: LeadInsert): Promise<Lead> {
     insert into leads (
       name,
       email,
+      phone,
       school,
       grad_year,
       role_type,
@@ -112,6 +139,7 @@ async function insertLeadPostgres(input: LeadInsert): Promise<Lead> {
     ) values (
       ${input.name},
       ${input.email},
+      ${input.phone?.trim() || null},
       ${input.school ?? null},
       ${input.grad_year ?? null},
       ${input.role_type ?? null},
@@ -144,12 +172,13 @@ export async function insertLead(input: LeadInsert): Promise<Lead> {
 
   if (useTurso()) {
     const result = await getTursoClient().execute({
-      sql: `INSERT INTO leads (name, email, school, grad_year, role_type, industries, linkedin, referral)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      sql: `INSERT INTO leads (name, email, phone, school, grad_year, role_type, industries, linkedin, referral)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING *`,
       args: [
         input.name,
         input.email,
+        input.phone?.trim() || null,
         input.school ?? null,
         input.grad_year ?? null,
         input.role_type ?? null,
@@ -165,13 +194,14 @@ export async function insertLead(input: LeadInsert): Promise<Lead> {
   }
 
   const stmt = getSqliteDb().prepare(
-    `INSERT INTO leads (name, email, school, grad_year, role_type, industries, linkedin, referral)
-     VALUES (@name, @email, @school, @grad_year, @role_type, @industries, @linkedin, @referral)`,
+    `INSERT INTO leads (name, email, phone, school, grad_year, role_type, industries, linkedin, referral)
+     VALUES (@name, @email, @phone, @school, @grad_year, @role_type, @industries, @linkedin, @referral)`,
   );
 
   const info = stmt.run({
     name: input.name,
     email: input.email,
+    phone: input.phone?.trim() || null,
     school: input.school ?? null,
     grad_year: input.grad_year ?? null,
     role_type: input.role_type ?? null,

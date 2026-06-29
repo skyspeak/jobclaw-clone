@@ -20,12 +20,36 @@ export async function ensureCoreSchema() {
       created_at timestamptz not null default now(),
       name text not null,
       email text not null,
+      phone text,
       school text,
       grad_year text,
       role_type text,
       industries text,
       linkedin text,
       referral text
+    )
+  `;
+
+  await sql`
+    alter table leads add column if not exists phone text
+  `;
+
+  await sql`
+    create table if not exists newsletter_subscribers (
+      id bigserial primary key,
+      created_at timestamptz not null default now(),
+      email text not null unique,
+      name text,
+      role text,
+      industry text,
+      focus_areas text,
+      timezone text,
+      linkedin_url text,
+      source text,
+      unsubscribe_token uuid not null,
+      unsubscribed_at timestamptz,
+      welcome_sent_at timestamptz,
+      last_issue_sent_at timestamptz
     )
   `;
 
