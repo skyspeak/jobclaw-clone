@@ -88,6 +88,21 @@ export async function POST(request: Request) {
             reason: enroll.reason,
             status: enroll.status,
           };
+      // #region agent log
+      fetch("http://127.0.0.1:7404/ingest/846aff6a-131c-4797-a19f-d5f9dc56d30b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "248634" },
+        body: JSON.stringify({
+          sessionId: "248634",
+          runId: "pre-fix",
+          hypothesisId: "H4",
+          location: "app/api/submit/route.ts:newsletter-result",
+          message: "submit newsletter enroll result",
+          data: { ok: newsletter.ok, reason: newsletter.reason ?? null, status: newsletter.status ?? null },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
     } else {
       newsletter = { ok: false, skipped: "consent_declined" };
     }
@@ -98,6 +113,24 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("lead submit failed", error);
+    // #region agent log
+    fetch("http://127.0.0.1:7404/ingest/846aff6a-131c-4797-a19f-d5f9dc56d30b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "248634" },
+      body: JSON.stringify({
+        sessionId: "248634",
+        runId: "pre-fix",
+        hypothesisId: "H5",
+        location: "app/api/submit/route.ts:catch",
+        message: "submit route threw",
+        data: {
+          errorName: error instanceof Error ? error.name : "unknown",
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     const message = getDatabaseErrorMessage(error);
     return NextResponse.json(
       { error: message || "Unable to save your submission." },

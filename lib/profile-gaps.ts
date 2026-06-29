@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseGeminiJson } from "@/lib/gemini-json";
+
 import type { VettingResult } from "@/lib/cc-agent-flow";
 import type { IntakeAnswers } from "@/lib/jobclaw";
 import type { ParsedProfileInsight } from "@/lib/profile-parse";
@@ -154,15 +156,6 @@ async function callGemini(userText: string): Promise<string> {
     }
     throw err;
   }
-}
-
-function parseGeminiJson(text: string): unknown {
-  const cleaned = text
-    .trim()
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/, "")
-    .replace(/```\s*$/, "");
-  return JSON.parse(cleaned) as unknown;
 }
 
 function buildUserPrompt(input: ProfileGapInput): string {

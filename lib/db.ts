@@ -165,6 +165,7 @@ export function getSql() {
       prepare: isLocalhost && !usesPooler && !isSupabase,
       connect_timeout: 30,
       idle_timeout: 20,
+      onnotice: () => {},
     });
   }
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { tryParseGeminiJson } from "@/lib/gemini-json";
 import { senioritySchema, workModeSchema, type Seniority, type WorkMode } from "@/lib/jobclaw";
 
 const GEMINI_PRIMARY = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
@@ -15,7 +16,7 @@ Return ONLY valid JSON — no markdown, no commentary:
   "suggestedWorkMode": "Any" | "Remote" | "Hybrid" | "On-site",
   "suggestedLocation": "string (city/region or empty)",
   "suggestedRoles": ["3-5 realistic job titles — prefer Sales, Marketing, Forward Deployed Engineer, or Software Engineer when the profile fits"],
-  "filtersIntro": "1-2 sentences in second person explaining what you inferred and how filters were tailored (e.g. 'Based on your résumé, you look early-career in operations. I pre-filled entry-level filters and example roles below.')"
+  "filtersIntro": "1-2 short sentences in second person (max 200 characters; no unescaped quotes)"
 }`;
 
 export type ParsedProfileInsight = {
@@ -51,7 +52,10 @@ const parsedProfileSchema = z.object({
   filtersIntro: z.string(),
 });
 
-async function callGeminiModel(model: string, userText: string): Promise<string> {
+async function callGeminiModel(
+  model: string,
+  userText: string,
+): Promise<{ text: string; finishReason: string | null; model: string }> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set");
@@ -66,8 +70,8 @@ async function callGeminiModel(model: string, userText: string): Promise<string>
       systemInstruction: { parts: [{ text: PROFILE_PARSE_SYSTEM }] },
       contents: [{ role: "user", parts: [{ text: userText }] }],
       generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 2048,
+        temperature: 0.3,
+        maxOutputTokens: 4096,
         responseMimeType: "application/json",
       },
     }),
@@ -83,17 +87,25 @@ async function callGeminiModel(model: string, userText: string): Promise<string>
   }
 
   const json = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    candidates?: Array<{
+      finishReason?: string;
+      content?: { parts?: Array<{ text?: string }> };
+    }>;
   };
-  const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+  const candidate = json.candidates?.[0];
+  const text = candidate?.content?.parts?.[0]?.text;
   if (!text?.trim()) {
     throw new Error("Gemini returned no text content");
   }
 
-  return text;
+  return {
+    text,
+    finishReason: candidate?.finishReason ?? null,
+    model,
+  };
 }
 
-async function callGemini(userText: string): Promise<string> {
+async function callGemini(userText: string): Promise<{ text: string; finishReason: string | null; model: string }> {
   try {
     return await callGeminiModel(GEMINI_PRIMARY, userText);
   } catch (err) {
@@ -127,13 +139,113 @@ Infer seniority, example roles, location, and work mode. Write filtersIntro for 
 `.trim();
 }
 
-function parseGeminiJson(text: string): unknown {
-  const cleaned = text
-    .trim()
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/, "")
-    .replace(/```\s*$/, "");
-  return JSON.parse(cleaned) as unknown;
+function parseGeminiResponse(
+  raw: string,
+  meta: { model: string; finishReason: string | null },
+): ParsedProfileInsight | null {
+  const parsed = tryParseGeminiJson(raw);
+
+  if (!parsed.ok) {
+    // #region agent log
+    fetch("http://127.0.0.1:7404/ingest/846aff6a-131c-4797-a19f-d5f9dc56d30b", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "248634" },
+      body: JSON.stringify({
+        sessionId: "248634",
+        runId: "pre-fix",
+        hypothesisId: "GP1",
+        location: "lib/profile-parse.ts:parse-fail",
+        message: "Gemini JSON parse failed",
+        data: {
+          model: meta.model,
+          finishReason: meta.finishReason,
+          rawLength: parsed.rawLength,
+          preview: parsed.preview,
+          error: parsed.error,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    return null;
+  }
+
+  const validated = parsedProfileSchema.safeParse(parsed.value);
+  if (!validated.success) {
+    console.warn("Profile parse: Gemini schema validation failed", validated.error.flatten());
+    return null;
+  }
+
+  return validated.data;
+}
+
+export async function parseProfileWithGemini(
+  input: ProfileParseInput,
+): Promise<ParsedProfileInsight | null> {
+  if (!process.env.GEMINI_API_KEY?.trim()) {
+    return null;
+  }
+
+  if (!input.linkedInUrl?.trim() && !input.resumeText?.trim()) {
+    return null;
+  }
+
+  const userPrompt = buildUserPrompt(input);
+  const models = [GEMINI_PRIMARY, GEMINI_FALLBACK];
+
+  try {
+    for (let index = 0; index < models.length; index += 1) {
+      const model = models[index]!;
+      let response: { text: string; finishReason: string | null; model: string };
+
+      try {
+        response = index === 0 ? await callGemini(userPrompt) : await callGeminiModel(model, userPrompt);
+      } catch (error) {
+        const status = (error as { status?: number }).status;
+        if (index < models.length - 1 && (status === 429 || status === 503)) {
+          continue;
+        }
+        throw error;
+      }
+
+      const insight = parseGeminiResponse(response.text, {
+        model: response.model,
+        finishReason: response.finishReason,
+      });
+
+      if (insight) {
+        // #region agent log
+        fetch("http://127.0.0.1:7404/ingest/846aff6a-131c-4797-a19f-d5f9dc56d30b", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "248634" },
+          body: JSON.stringify({
+            sessionId: "248634",
+            runId: "pre-fix",
+            hypothesisId: "GP2",
+            location: "lib/profile-parse.ts:parse-ok",
+            message: "Gemini profile parse succeeded",
+            data: { model: response.model, finishReason: response.finishReason, attempt: index + 1 },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
+        return insight;
+      }
+
+      const shouldRetry = index < models.length - 1;
+
+      if (!shouldRetry) {
+        break;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.warn("Profile parse: Gemini call failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 export function parseProfileFallback(input: ProfileParseInput): ParsedProfileInsight {
@@ -196,36 +308,6 @@ export function parseProfileFallback(input: ProfileParseInput): ParsedProfileIns
     suggestedRoles,
     filtersIntro,
   };
-}
-
-export async function parseProfileWithGemini(
-  input: ProfileParseInput,
-): Promise<ParsedProfileInsight | null> {
-  if (!process.env.GEMINI_API_KEY?.trim()) {
-    return null;
-  }
-
-  if (!input.linkedInUrl?.trim() && !input.resumeText?.trim()) {
-    return null;
-  }
-
-  try {
-    const raw = await callGemini(buildUserPrompt(input));
-    const parsed = parseGeminiJson(raw);
-    const validated = parsedProfileSchema.safeParse(parsed);
-
-    if (!validated.success) {
-      console.warn("Profile parse: Gemini schema validation failed", validated.error.flatten());
-      return null;
-    }
-
-    return validated.data;
-  } catch (error) {
-    console.warn("Profile parse: Gemini call failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
-    return null;
-  }
 }
 
 export async function parseProfile(input: ProfileParseInput): Promise<ParsedProfileInsight> {
