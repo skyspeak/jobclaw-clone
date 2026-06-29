@@ -222,7 +222,7 @@ export function IntakeGetHiredSignup() {
               inputMode="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@school.edu"
+              placeholder="you@gmail.com"
               disabled={isSubmitting}
               required
               className="h-12 rounded-xl text-base sm:h-11"

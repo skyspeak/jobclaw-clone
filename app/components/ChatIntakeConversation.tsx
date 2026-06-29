@@ -158,14 +158,15 @@ export function ChatIntakeConversation({
 }: ChatIntakeConversationProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isBusy = isGenerating || isParsingProfile || isRunningTriage;
+  const isVettingResult = flowStep === "vetting-result";
   const isAnalysisStep = flowStep === "vetting-result" || flowStep === "journey";
   const [mobileTranscriptOpen, setMobileTranscriptOpen] = useState(false);
 
   useEffect(() => {
-    if (!isAnalysisStep) {
+    if (!isAnalysisStep || isVettingResult) {
       setMobileTranscriptOpen(false);
     }
-  }, [isAnalysisStep, flowStep]);
+  }, [isAnalysisStep, isVettingResult, flowStep]);
 
   const transcript = useMemo(
     () =>
@@ -224,7 +225,12 @@ export function ChatIntakeConversation({
   }, [transcript.length, liveUserInputs.length, flowStep, isBusy, quizIndex, scrollToLatest]);
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background selection:bg-primary selection:text-primary-foreground max-sm:overflow-y-auto sm:overflow-hidden">
+    <div
+      className={cn(
+        "flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background selection:bg-primary selection:text-primary-foreground",
+        isVettingResult ? "overflow-hidden" : "max-sm:overflow-y-auto sm:overflow-hidden",
+      )}
+    >
       <header className="sticky top-0 z-20 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur-md pt-[max(0px,env(safe-area-inset-top))]">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 px-3 py-2 sm:gap-3 sm:px-6 sm:py-3">
           <Link
@@ -241,7 +247,7 @@ export function ChatIntakeConversation({
         </div>
       </header>
 
-      {isAnalysisStep ? (
+      {isAnalysisStep && !isVettingResult ? (
         <button
           type="button"
           className="mx-auto flex min-h-11 w-full max-w-2xl shrink-0 touch-manipulation items-center justify-between border-b border-border/50 px-3 py-2 text-sm font-medium text-muted-foreground sm:hidden"
@@ -260,14 +266,16 @@ export function ChatIntakeConversation({
         ref={scrollContainerRef}
         className={cn(
           "min-h-0 overscroll-contain",
-          isAnalysisStep
-            ? cn(
-                "sm:max-h-[min(18dvh,10rem)] sm:shrink-0 sm:overflow-y-auto",
-                mobileTranscriptOpen
-                  ? "max-sm:max-h-[min(32dvh,16rem)] max-sm:shrink-0 max-sm:overflow-y-auto"
-                  : "max-sm:max-h-0 max-sm:overflow-hidden",
-              )
-            : "flex-1 overflow-y-auto max-sm:flex-none max-sm:overflow-visible",
+          isVettingResult
+            ? "hidden"
+            : isAnalysisStep
+              ? cn(
+                  "sm:max-h-[min(18dvh,10rem)] sm:shrink-0 sm:overflow-y-auto",
+                  mobileTranscriptOpen
+                    ? "max-sm:max-h-[min(32dvh,16rem)] max-sm:shrink-0 max-sm:overflow-y-auto"
+                    : "max-sm:max-h-0 max-sm:overflow-hidden",
+                )
+              : "flex-1 overflow-y-auto max-sm:flex-none max-sm:overflow-visible",
         )}
       >
         <div className="mx-auto w-full max-w-2xl space-y-1 px-3 py-4 sm:px-6 sm:py-6">
@@ -315,27 +323,32 @@ export function ChatIntakeConversation({
 
       <div
         className={cn(
-          "z-20 flex shrink-0 flex-col border-t border-border/60 bg-background/95 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]",
-          flowStep === "vetting-result"
-            ? "min-h-0 max-sm:flex-1 sm:max-h-[min(78dvh,780px)]"
-            : flowStep === "journey"
-              ? "min-h-0 max-sm:flex-1 sm:max-h-[min(72dvh,700px)]"
-              : "max-sm:max-h-none sm:max-h-[min(58dvh,560px)]",
+          "z-20 flex flex-col bg-background/95 backdrop-blur-md",
+          isVettingResult
+            ? "min-h-0 flex-1 overflow-hidden"
+            : cn(
+                "shrink-0 border-t border-border/60 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+                flowStep === "journey"
+                  ? "min-h-0 max-sm:flex-1 sm:max-h-[min(72dvh,700px)]"
+                  : "max-sm:max-h-none sm:max-h-[min(58dvh,560px)]",
+              ),
         )}
       >
-        <div className="mx-auto flex w-full max-w-2xl shrink-0 items-center px-3 pt-1.5 sm:px-6 sm:pt-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onBack}
-            disabled={flowStep === "connect" || flowStep === "target-job-url" || isBusy}
-            className="min-h-11 touch-manipulation rounded-lg px-2 text-muted-foreground"
-            data-testid="button-back"
-          >
-            <ArrowLeft className="mr-1 h-4 w-4" /> Back
-          </Button>
-        </div>
+        {!isVettingResult ? (
+          <div className="mx-auto flex w-full max-w-2xl shrink-0 items-center px-3 pt-1.5 sm:px-6 sm:pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              disabled={flowStep === "connect" || flowStep === "target-job-url" || isBusy}
+              className="min-h-11 touch-manipulation rounded-lg px-2 text-muted-foreground"
+              data-testid="button-back"
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" /> Back
+            </Button>
+          </div>
+        ) : null}
         {answerError || globalError ? (
           <p
             className="mx-auto w-full max-w-2xl shrink-0 px-3 pb-1 text-sm font-medium text-destructive sm:px-6"
@@ -347,7 +360,9 @@ export function ChatIntakeConversation({
         <div
           className={cn(
             "flex flex-col overscroll-contain",
-            isAnalysisStep ? "min-h-0 flex-1 overflow-hidden" : "max-sm:overflow-visible",
+            isVettingResult || isAnalysisStep
+              ? "min-h-0 flex-1 overflow-hidden"
+              : "max-sm:overflow-visible",
           )}
         >
           <IntakeChatComposer
@@ -373,6 +388,7 @@ export function ChatIntakeConversation({
           onNext={onNext}
           onGetHired={onGetHired}
           onQuit={onQuit}
+          onBack={onBack}
           isBusy={isBusy}
           showAnswerError={false}
         />

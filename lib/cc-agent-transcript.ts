@@ -7,7 +7,6 @@ import {
   QUIZ_PATH_INTRO,
 } from "@/lib/cc-agent-flow";
 import { QUESTIONS } from "@/lib/intake-questions";
-import { BRAND_NAME } from "@/lib/brand";
 
 export type TranscriptMessage = {
   id: string;
@@ -227,9 +226,8 @@ export function buildTranscript(input: {
     {
       id: "welcome",
       role: "assistant",
-      headline: BRAND_NAME,
       content:
-        "Hi — we'll triage your target, vet your profile, and route you into the right track toward proof-of-work and your first offer.",
+        "We'll look at your target role, compare your profile, and show where to focus to get hired.",
     },
   ];
 

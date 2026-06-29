@@ -178,18 +178,6 @@ export function readIntakeSession(): IntakeWizardSession {
       skippedProfileUpload: Boolean(parsed.ccAgent?.skippedProfileUpload),
     };
 
-    if (next.ccAgent.flowStep === ("hook" as CcAgentStepId)) {
-      next.ccAgent.flowStep = "connect";
-    }
-    if (next.ccAgent.flowStep === "role-suggestions") {
-      next.ccAgent.flowStep = "vetting-result";
-    }
-    if (
-      next.ccAgent.flowStep === "search-filters" ||
-      next.ccAgent.flowStep === ("nurture-track" as CcAgentStepId)
-    ) {
-      next.ccAgent.flowStep = "vetting-result";
-    }
     if (
       Boolean(parsed.ccAgent?.skippedProfileUpload) &&
       parsed.ccAgent?.knowsTargetJob == null &&
@@ -252,6 +240,11 @@ export function readIntakeSession(): IntakeWizardSession {
     if (next.ccAgent.knowsTargetJob === null && next.ccAgent.flowStep !== "connect" && next.ccAgent.flowStep !== "target-job-url") {
       next.ccAgent.flowStep = next.targetJobUrl.trim() ? "connect" : "target-job-url";
     }
+
+    next.ccAgent.flowStep = normalizeLegacyFlowStep(
+      next.ccAgent.flowStep,
+      next.ccAgent.vettingResult,
+    );
 
     return next;
   } catch {
@@ -325,6 +318,22 @@ export function hasMinimumProfileEvidence(
   return linkedInUrl.trim().length > 0 || resumeText.trim().length > 0;
 }
 
+function normalizeLegacyFlowStep(
+  step: CcAgentStepId,
+  vettingResult: CcAgentFlowState["vettingResult"],
+): CcAgentStepId {
+  if (
+    step === ("hook" as CcAgentStepId) ||
+    step === "search-filters" ||
+    step === "role-suggestions" ||
+    step === ("nurture-track" as CcAgentStepId)
+  ) {
+    return vettingResult ? "vetting-result" : "connect";
+  }
+
+  return step;
+}
+
 function legacyWizardStepToFlowStep(wizardStep: number): CcAgentStepId {
   if (wizardStep <= 4) {
     return "quiz";
@@ -332,7 +341,7 @@ function legacyWizardStepToFlowStep(wizardStep: number): CcAgentStepId {
   if (wizardStep === 5) {
     return "profile-upload";
   }
-  return "search-filters";
+  return "vetting-result";
 }
 
 export function hasResumeOrLinkedInInput(
