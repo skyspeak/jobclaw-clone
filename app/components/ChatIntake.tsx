@@ -878,12 +878,12 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
 
   if (!isHydrated) {
     return (
-      <div className="flex h-[100dvh] flex-col overflow-hidden brand-bg selection:bg-primary selection:text-primary-foreground" />
+      <div className="flex min-h-[100dvh] flex-col brand-bg selection:bg-primary selection:text-primary-foreground max-sm:overflow-y-auto sm:h-[100dvh] sm:overflow-hidden" />
     );
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden brand-bg selection:bg-primary selection:text-primary-foreground">
+    <div className="flex min-h-[100dvh] flex-col brand-bg selection:bg-primary selection:text-primary-foreground max-sm:overflow-y-auto sm:h-[100dvh] sm:overflow-hidden">
       {variant === "chat" ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <ChatIntakeConversation

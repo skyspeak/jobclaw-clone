@@ -38,7 +38,7 @@ export function IntakeOptionChips({
               onClick={() => onChange(appendChip(value, opt))}
               data-testid={`chip-q${stepIndex + 1}-${opt.replace(/\s+/g, "-").toLowerCase()}`}
               className={[
-                "inline-flex touch-manipulation items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-all",
+                "inline-flex min-h-11 touch-manipulation items-center gap-1.5 rounded-full border px-3.5 py-2.5 text-sm font-medium transition-all",
                 "active:scale-[0.97]",
                 isSelected
                   ? "border-primary bg-primary text-primary-foreground shadow-sm"

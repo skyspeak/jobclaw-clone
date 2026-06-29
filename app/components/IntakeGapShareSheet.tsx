@@ -115,7 +115,10 @@ export function IntakeGapShareSheet({
         type="button"
         variant="outline"
         size="sm"
-        className={cn("gap-2 rounded-xl", className)}
+        className={cn(
+          "min-h-11 touch-manipulation gap-2 rounded-xl text-base sm:text-sm",
+          className,
+        )}
         onClick={() => setOpen(true)}
         data-testid="button-share-gap-analysis"
       >
@@ -125,7 +128,7 @@ export function IntakeGapShareSheet({
 
       {open ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4 sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
           role="presentation"
           onClick={() => setOpen(false)}
         >
@@ -133,7 +136,7 @@ export function IntakeGapShareSheet({
             role="dialog"
             aria-labelledby="gap-share-title"
             aria-modal="true"
-            className="w-full max-w-md overflow-hidden rounded-t-3xl border border-border/70 bg-card shadow-2xl sm:rounded-3xl"
+            className="w-full max-w-md overflow-hidden rounded-t-3xl border border-border/70 bg-card shadow-2xl pb-[max(0px,env(safe-area-inset-bottom))] sm:rounded-3xl sm:pb-0"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-border/70 px-5 py-4 sm:px-6">
@@ -149,7 +152,7 @@ export function IntakeGapShareSheet({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 shrink-0 rounded-full"
+                className="size-11 shrink-0 touch-manipulation rounded-full"
                 aria-label="Close share sheet"
                 onClick={() => setOpen(false)}
               >
@@ -160,7 +163,7 @@ export function IntakeGapShareSheet({
             <div className="space-y-2 px-5 py-4 sm:px-6">
               <button
                 type="button"
-                className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-muted/15 px-4 py-3 text-left transition-colors hover:bg-muted/30"
+                className="flex min-h-14 w-full touch-manipulation items-center gap-3 rounded-2xl border border-border/70 bg-muted/15 px-4 py-3.5 text-left transition-colors active:bg-muted/40 hover:bg-muted/30"
                 onClick={() => openExternal(buildIMessageShareUrl(shareText))}
               >
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#34C759]/15 text-[#34C759]">
@@ -174,7 +177,7 @@ export function IntakeGapShareSheet({
 
               <button
                 type="button"
-                className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-muted/15 px-4 py-3 text-left transition-colors hover:bg-muted/30"
+                className="flex min-h-14 w-full touch-manipulation items-center gap-3 rounded-2xl border border-border/70 bg-muted/15 px-4 py-3.5 text-left transition-colors active:bg-muted/40 hover:bg-muted/30"
                 onClick={() => openExternal(buildWhatsAppShareUrl(shareText))}
               >
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#25D366]/15 text-[#25D366]">
@@ -189,7 +192,7 @@ export function IntakeGapShareSheet({
               {canNativeShare ? (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-muted/15 px-4 py-3 text-left transition-colors hover:bg-muted/30"
+                  className="flex min-h-14 w-full touch-manipulation items-center gap-3 rounded-2xl border border-border/70 bg-muted/15 px-4 py-3.5 text-left transition-colors active:bg-muted/40 hover:bg-muted/30"
                   onClick={() => void handleNativeShare()}
                 >
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -204,7 +207,7 @@ export function IntakeGapShareSheet({
 
               <button
                 type="button"
-                className="flex w-full items-center gap-3 rounded-2xl border border-border/70 bg-muted/15 px-4 py-3 text-left transition-colors hover:bg-muted/30"
+                className="flex min-h-14 w-full touch-manipulation items-center gap-3 rounded-2xl border border-border/70 bg-muted/15 px-4 py-3.5 text-left transition-colors active:bg-muted/40 hover:bg-muted/30"
                 onClick={() => void handleCopy()}
               >
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -218,11 +221,14 @@ export function IntakeGapShareSheet({
             </div>
 
             {status ? (
-              <p className="px-5 pb-4 text-sm text-muted-foreground sm:px-6" aria-live="polite">
+              <p
+                className="px-5 pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-muted-foreground sm:px-6 sm:pb-4"
+                aria-live="polite"
+              >
                 {status}
               </p>
             ) : (
-              <p className="px-5 pb-4 text-xs leading-relaxed text-muted-foreground sm:px-6">
+              <p className="px-5 pb-[max(1rem,env(safe-area-inset-bottom))] text-xs leading-relaxed text-muted-foreground sm:px-6 sm:pb-4">
                 Shares a summary of your strengths and gaps — not your résumé or LinkedIn.
               </p>
             )}

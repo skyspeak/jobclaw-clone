@@ -45,7 +45,7 @@ export function IntakeAnalysisCompleteBanner({ className }: { className?: string
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-1.5 font-serif text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+          <p className="flex flex-wrap items-center gap-1.5 font-serif text-base font-semibold tracking-tight text-foreground sm:text-xl">
             Your analysis is complete
             <Sparkles
               className={cn(

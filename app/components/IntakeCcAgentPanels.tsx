@@ -126,7 +126,7 @@ export function IntakeJourneyPanel({ vetting }: { vetting: VettingResult }) {
               key={sprint.id}
               href={href}
               className={cn(
-                "block rounded-2xl border p-4 transition-colors hover:bg-muted/30",
+                "block min-h-[3.5rem] touch-manipulation rounded-2xl border p-4 transition-colors active:bg-muted/40 hover:bg-muted/30",
                 isRecommended
                   ? "border-primary/40 bg-primary/[0.06]"
                   : "border-border/70 bg-card",
@@ -212,7 +212,7 @@ export function IntakeDreamJobPanel({
           type="url"
           inputMode="url"
           placeholder="https://…"
-          className="h-11 rounded-xl"
+          className="h-12 rounded-xl text-base sm:h-11"
           data-testid="input-target-job-url"
           value={targetJobUrl}
           disabled={noDreamJob}
@@ -226,7 +226,7 @@ export function IntakeDreamJobPanel({
           onClick={onNoDreamJob}
           data-testid="link-no-job-url"
           className={cn(
-            "text-xs underline underline-offset-2 transition-colors",
+            "inline-flex min-h-11 touch-manipulation items-center py-2 text-xs underline underline-offset-2 transition-colors",
             noDreamJob
               ? "font-medium text-foreground"
               : "text-muted-foreground hover:text-foreground",
@@ -264,7 +264,7 @@ export function IntakeRoleSuggestionsPanel({
             key={id}
             type="button"
             onClick={() => onSelectRole(id, CC_AGENT_ROLE_LABELS[id])}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`min-h-11 touch-manipulation rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
               selectedRoleId === id
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-card text-foreground hover:bg-muted"
@@ -287,7 +287,7 @@ export function IntakeRoleSuggestionsPanel({
             key={label}
             type="button"
             onClick={() => onSelectRole("long-tail", label)}
-            className="mr-2 rounded-full border border-dashed border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+            className="mr-2 min-h-11 touch-manipulation rounded-full border border-dashed border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
           >
             {label}
           </button>
@@ -344,7 +344,7 @@ export function IntakeVettingResultPanel({
   resumeFileName: string;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <IntakeAnalysisCompleteBanner />
       <IntakeGapParametersTable parameters={vetting.gapParameters ?? []} />
 
@@ -386,12 +386,12 @@ export function IntakeResumePanel(props: {
           id="intake-resume-upload-only"
           type="file"
           accept=".txt,.md,.rtf,.csv,.json"
-          className="h-11 cursor-pointer rounded-xl pt-2.5 file:mr-3"
+          className="h-12 cursor-pointer rounded-xl pt-2.5 text-base file:mr-3 sm:h-11"
           data-testid="input-resume-file"
           onChange={props.onResumeFile}
         />
         {props.resumeFileName ? (
-          <p className="text-xs text-muted-foreground">Uploaded: {props.resumeFileName}</p>
+          <p className="break-all text-xs text-muted-foreground">Uploaded: {props.resumeFileName}</p>
         ) : null}
         {props.isReadingResume ? <p className="text-sm text-muted-foreground">Reading file…</p> : null}
         {!hasResume ? (

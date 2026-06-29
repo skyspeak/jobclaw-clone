@@ -143,9 +143,9 @@ export function IntakeGetHiredSignup() {
   }
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-4">
-        <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+    <div className="space-y-6 sm:space-y-8">
+      <section className="space-y-3 sm:space-y-4">
+        <h1 className="font-serif text-2xl font-semibold tracking-tight text-foreground sm:text-4xl">
           DearCC helps you get hired
         </h1>
         <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -155,7 +155,7 @@ export function IntakeGetHiredSignup() {
 
       <form
         onSubmit={(event) => void handleSubmit(event)}
-        className="space-y-6 rounded-3xl border border-border/70 bg-card p-6 shadow-sm sm:p-8"
+        className="space-y-6 rounded-3xl border border-border/70 bg-card p-4 shadow-sm sm:p-8"
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
@@ -173,7 +173,7 @@ export function IntakeGetHiredSignup() {
               disabled={isSubmitting}
               required
               aria-required="true"
-              className="h-11 rounded-xl"
+              className="h-12 rounded-xl text-base sm:h-11"
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
@@ -188,7 +188,7 @@ export function IntakeGetHiredSignup() {
               placeholder="you@school.edu"
               disabled={isSubmitting}
               required
-              className="h-11 rounded-xl"
+              className="h-12 rounded-xl text-base sm:h-11"
             />
           </div>
         </div>
@@ -202,7 +202,9 @@ export function IntakeGetHiredSignup() {
         <Button
           type="submit"
           disabled={isSubmitting || !hasValidPhone || !hasValidEmail}
-          className={cn("cta-glow h-12 w-full rounded-2xl text-base font-semibold sm:w-auto sm:px-8")}
+          className={cn(
+            "cta-glow h-12 min-h-12 w-full touch-manipulation rounded-2xl text-base font-semibold sm:w-auto sm:px-8",
+          )}
         >
           {isSubmitting ? (
             <>
@@ -216,7 +218,11 @@ export function IntakeGetHiredSignup() {
         </Button>
       </form>
 
-      <Button asChild variant="ghost" className="h-10 rounded-xl px-0 text-muted-foreground">
+      <Button
+        asChild
+        variant="ghost"
+        className="min-h-11 touch-manipulation rounded-xl px-0 text-muted-foreground"
+      >
         <Link href="/intake">← Back to your analysis</Link>
       </Button>
     </div>

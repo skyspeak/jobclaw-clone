@@ -72,7 +72,7 @@ export const VoiceTextarea = forwardRef<HTMLTextAreaElement, VoiceTextareaProps>
           variant={isListening ? "default" : "outline"}
           size="icon"
           className={cn(
-            "absolute right-2 top-2 h-10 w-10 shrink-0 rounded-full border-border/70 sm:right-3 sm:top-3",
+            "absolute right-2 top-2 h-11 w-11 shrink-0 touch-manipulation rounded-full border-border/70 sm:right-3 sm:top-3",
             isListening && "border-primary/40 bg-primary text-primary-foreground",
           )}
           aria-label={isListening ? "Stop voice input" : micLabel}

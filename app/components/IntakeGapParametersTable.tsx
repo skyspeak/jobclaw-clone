@@ -67,22 +67,26 @@ export function IntakeGapParametersTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border/70 bg-[#FDFBF7] p-6 sm:p-8">
-      <div className="mb-6 flex items-start justify-between gap-3">
+    <div className="overflow-hidden rounded-2xl border border-border/70 bg-[#FDFBF7] p-4 sm:p-8">
+      <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
         {targetLabel ? (
           <p className="text-xs text-muted-foreground">
             Target: <span className="font-medium text-foreground">{targetLabel}</span>
           </p>
         ) : (
-          <span />
+          <span className="hidden sm:block" />
         )}
-        <IntakeGapShareSheet parameters={parameters} targetLabel={targetLabel} />
+        <IntakeGapShareSheet
+          parameters={parameters}
+          targetLabel={targetLabel}
+          className="w-full sm:ml-auto sm:w-auto"
+        />
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-6 sm:space-y-8">
         {strengths.length > 0 ? (
-          <div className="space-y-5">
-            <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
+          <div className="space-y-4 sm:space-y-5">
+            <h2 className="font-serif text-lg font-semibold tracking-tight text-foreground sm:text-xl">
               What you already bring
             </h2>
             {strengths.map((item) => (
@@ -94,11 +98,11 @@ export function IntakeGapParametersTable({
         {gaps.length > 0 ? (
           <div
             className={cn(
-              "space-y-5",
-              strengths.length > 0 && "border-t border-border/60 pt-8",
+              "space-y-4 sm:space-y-5",
+              strengths.length > 0 && "border-t border-border/60 pt-6 sm:pt-8",
             )}
           >
-            <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
+            <h2 className="font-serif text-lg font-semibold tracking-tight text-foreground sm:text-xl">
               What the role needed that did not show up
             </h2>
             {gaps.map((item) => (

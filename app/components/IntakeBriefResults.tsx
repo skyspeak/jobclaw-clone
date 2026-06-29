@@ -165,7 +165,7 @@ export function IntakeBriefResults() {
           </Link>
         </Button>
 
-        <Button asChild variant="outline" className="h-12 w-fit rounded-2xl border-border/70 bg-card">
+        <Button asChild variant="outline" className="min-h-11 touch-manipulation rounded-2xl border-border/70 bg-card">
           <Link href="/intake">← Back to intake</Link>
         </Button>
       </div>
@@ -302,8 +302,7 @@ function MyBriefCard({
         <Button
           type="button"
           variant="outline"
-          size="sm"
-          className="gap-2 rounded-xl"
+          className="min-h-11 touch-manipulation gap-2 rounded-xl"
           disabled={isLoading && !profile}
           onClick={onShare}
         >

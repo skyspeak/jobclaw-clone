@@ -34,7 +34,7 @@ export function IntakeProfileFields({
           inputMode="url"
           autoComplete="url"
           placeholder="https://www.linkedin.com/in/your-profile"
-          className="h-11 rounded-xl"
+          className="h-12 rounded-xl text-base sm:h-11"
           data-testid="input-linkedin-url"
           value={linkedInUrl}
           onChange={(e) => onLinkedInUrlChange(e.target.value)}
@@ -47,12 +47,12 @@ export function IntakeProfileFields({
           id="intake-resume-upload"
           type="file"
           accept=".txt,.md,.rtf,.csv,.json"
-          className="h-11 cursor-pointer rounded-xl pt-2.5 file:mr-3"
+          className="h-12 cursor-pointer rounded-xl pt-2.5 text-base file:mr-3 sm:h-11"
           data-testid="input-resume-file"
           onChange={onResumeFile}
         />
         {resumeFileName ? (
-          <p className="text-xs text-muted-foreground">Uploaded: {resumeFileName}</p>
+          <p className="break-all text-xs text-muted-foreground">Uploaded: {resumeFileName}</p>
         ) : null}
         {isReadingResume ? <p className="text-sm text-muted-foreground">Reading file…</p> : null}
         <p className="text-xs text-muted-foreground">

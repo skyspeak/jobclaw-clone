@@ -8,6 +8,7 @@ import {
   MessageCircle,
   Share2,
   Sparkles,
+  X,
   Youtube,
 } from "lucide-react";
 
@@ -43,7 +44,7 @@ function ShareOptionButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-1 items-center gap-3 rounded-2xl border border-border/70 bg-background/80 px-4 py-3.5 text-left transition-colors hover:border-[#2D6A4F]/30 hover:bg-muted/30"
+      className="flex min-h-14 flex-1 touch-manipulation items-center gap-3 rounded-2xl border border-border/70 bg-background/80 px-4 py-3.5 text-left transition-colors active:bg-muted/40 hover:border-[#2D6A4F]/30 hover:bg-muted/30"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted/60">
         {icon}
@@ -103,12 +104,12 @@ export function IntakeGetHiredConfirmationSplash() {
   return (
     <div
       className={cn(
-        "space-y-8 transition-all duration-700 ease-out",
+        "space-y-6 transition-all duration-700 ease-out sm:space-y-8",
         visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
       )}
     >
       <section
-        className="relative overflow-hidden rounded-3xl border border-[#2D6A4F]/20 bg-gradient-to-b from-[#2D6A4F]/10 via-card to-[#FDFBF7] px-6 py-10 text-center shadow-sm sm:px-10 sm:py-12"
+        className="relative overflow-hidden rounded-3xl border border-[#2D6A4F]/20 bg-gradient-to-b from-[#2D6A4F]/10 via-card to-[#FDFBF7] px-5 py-8 text-center shadow-sm sm:px-10 sm:py-12"
         role="status"
         aria-live="polite"
       >
@@ -143,10 +144,10 @@ export function IntakeGetHiredConfirmationSplash() {
             <Check className="size-8 stroke-[2.5]" aria-hidden />
           </div>
 
-          <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h1 className="font-serif text-2xl font-semibold tracking-tight text-foreground sm:text-4xl">
             Congratulations!
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground sm:mt-4 sm:text-lg">
             You have signed up to land your dream job.
           </p>
 
@@ -160,14 +161,14 @@ export function IntakeGetHiredConfirmationSplash() {
         <Button
           type="button"
           variant="outline"
-          className="h-12 w-full rounded-2xl border-border/70 bg-card text-base font-semibold"
+          className="h-12 min-h-12 w-full touch-manipulation rounded-2xl border-border/70 bg-card text-base font-semibold"
           onClick={() => setShareOpen(true)}
         >
           <Share2 className="mr-2 size-4" />
           Send this to a friend
         </Button>
 
-        <Button asChild size="lg" className="cta-glow h-12 w-full rounded-2xl text-base font-semibold">
+        <Button asChild size="lg" className="cta-glow h-12 min-h-12 w-full touch-manipulation rounded-2xl text-base font-semibold">
           <a href={BRAND_YOUTUBE_URL} rel="noreferrer" target="_blank">
             <Youtube className="mr-2 size-5" />
             Check out DearCC on YouTube
@@ -176,13 +177,13 @@ export function IntakeGetHiredConfirmationSplash() {
         </Button>
       </div>
 
-      <Button asChild variant="ghost" className="h-10 w-full rounded-xl text-muted-foreground">
+      <Button asChild variant="ghost" className="min-h-11 w-full touch-manipulation rounded-xl text-muted-foreground">
         <Link href="/">Back to home</Link>
       </Button>
 
       {shareOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4 sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
           role="presentation"
           onClick={() => setShareOpen(false)}
         >
@@ -190,19 +191,31 @@ export function IntakeGetHiredConfirmationSplash() {
             role="dialog"
             aria-labelledby="get-hired-share-title"
             aria-modal="true"
-            className="w-full max-w-md overflow-hidden rounded-t-3xl border border-border/70 bg-card shadow-2xl sm:rounded-3xl"
+            className="w-full max-w-md overflow-hidden rounded-t-3xl border border-border/70 bg-card pb-[max(0px,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl sm:pb-0"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="border-b border-border/70 px-5 py-4 sm:px-6">
-              <h2 id="get-hired-share-title" className="text-lg font-semibold tracking-tight text-foreground">
-                Send this to a friend
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Share DearCC so they can get the same tailored help.
-              </p>
+            <div className="flex items-start justify-between gap-4 border-b border-border/70 px-5 py-4 sm:px-6">
+              <div>
+                <h2 id="get-hired-share-title" className="text-lg font-semibold tracking-tight text-foreground">
+                  Send this to a friend
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Share DearCC so they can get the same tailored help.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-11 shrink-0 touch-manipulation rounded-full"
+                aria-label="Close share sheet"
+                onClick={() => setShareOpen(false)}
+              >
+                <X className="size-4" />
+              </Button>
             </div>
 
-            <div className="space-y-2 p-5 sm:p-6">
+            <div className="space-y-2 p-5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 sm:pb-6">
               <ShareOptionButton
                 label="iMessage"
                 sublabel="Send in Messages"

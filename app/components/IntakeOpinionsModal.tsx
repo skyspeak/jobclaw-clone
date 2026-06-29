@@ -78,7 +78,7 @@ export function IntakeOpinionsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-4 sm:items-center sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="intake-opinions-modal-title"
@@ -86,7 +86,7 @@ export function IntakeOpinionsModal({
     >
       <div
         className={cn(
-          "relative w-full max-w-md overflow-hidden rounded-3xl border border-border/70 bg-background shadow-2xl",
+          "relative w-full max-w-md overflow-hidden rounded-t-3xl border border-border/70 bg-background pb-[max(0px,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl sm:pb-0",
         )}
         onClick={(event) => event.stopPropagation()}
       >
@@ -103,7 +103,7 @@ export function IntakeOpinionsModal({
             type="button"
             variant="ghost"
             size="icon"
-            className="shrink-0 rounded-xl"
+            className="size-11 shrink-0 touch-manipulation rounded-xl"
             aria-label="Close"
             onClick={() => onOpenChange(false)}
           >
@@ -126,7 +126,7 @@ export function IntakeOpinionsModal({
               placeholder="you@university.edu"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="h-11 rounded-xl"
+              className="h-12 rounded-xl text-base sm:h-11"
               disabled={isSubmitting}
             />
           </div>
@@ -141,7 +141,7 @@ export function IntakeOpinionsModal({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="cta-glow h-11 flex-1 rounded-xl sm:min-w-[140px]"
+              className="cta-glow min-h-11 h-12 flex-1 touch-manipulation rounded-xl sm:min-w-[140px]"
             >
               {isSubmitting ? (
                 <>
@@ -155,7 +155,7 @@ export function IntakeOpinionsModal({
               type="button"
               variant="outline"
               disabled={isSubmitting}
-              className="h-11 rounded-xl sm:min-w-[120px]"
+              className="min-h-11 h-12 touch-manipulation rounded-xl sm:min-w-[120px]"
               onClick={onDecline}
             >
               No thanks

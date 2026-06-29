@@ -96,7 +96,7 @@ export function IntakeChatComposer({
   return (
     <div
       className={cn(
-        "mx-auto w-full max-w-2xl space-y-2 px-4 pb-3 pt-1 sm:px-6",
+        "mx-auto w-full max-w-2xl space-y-2 px-3 pb-2 pt-1 sm:px-6 sm:pb-3",
         isExpandedAnalysisPanel && "flex min-h-0 flex-1 flex-col",
       )}
     >
@@ -113,10 +113,10 @@ export function IntakeChatComposer({
       >
         <div
           className={cn(
-            "overscroll-contain border-b border-border/40 px-4 py-3 sm:px-5",
+            "overscroll-contain border-b border-border/40 px-3 py-3 sm:px-5",
             isExpandedAnalysisPanel
               ? "min-h-0 flex-1 overflow-y-auto"
-              : "max-h-[min(40dvh,22rem)] overflow-y-auto",
+              : "max-sm:max-h-none max-sm:overflow-visible sm:max-h-[min(40dvh,22rem)] sm:overflow-y-auto",
           )}
         >
           {flowStep === "connect" ? (
@@ -222,7 +222,7 @@ export function IntakeChatComposer({
 
         <div
           className={cn(
-            "flex shrink-0 gap-2 px-4 py-3 sm:px-5",
+            "flex shrink-0 gap-2 px-3 py-3 sm:px-5",
             showStayRelevantCallout ? "flex-col items-stretch" : "items-center justify-end",
           )}
         >
@@ -236,7 +236,7 @@ export function IntakeChatComposer({
               type="button"
               onClick={onGetHired}
               disabled={isBusy}
-              className="cta-glow h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
+              className="cta-glow h-12 min-h-12 w-full touch-manipulation rounded-xl bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"
               data-testid="button-get-hired"
             >
               Get hired <ArrowRight className="ml-1.5 h-4 w-4" />
@@ -257,7 +257,7 @@ export function IntakeChatComposer({
               size="icon"
               onClick={onNext}
               disabled={isBusy || !currentAnswer.trim()}
-              className="h-11 w-11 shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+              className="h-12 min-h-12 w-12 shrink-0 touch-manipulation rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
               aria-label="Send answer"
               data-testid="button-send"
             >
@@ -271,7 +271,7 @@ export function IntakeChatComposer({
                   variant="outline"
                   onClick={onQuit}
                   disabled={isBusy}
-                  className="h-11 rounded-xl sm:mr-auto"
+                  className="h-12 min-h-12 touch-manipulation rounded-xl sm:mr-auto"
                   data-testid="button-quit"
                 >
                   Quit
@@ -282,10 +282,10 @@ export function IntakeChatComposer({
                 onClick={onNext}
                 disabled={isBusy}
                 className={cn(
-                  "cta-glow h-11 rounded-xl bg-primary font-semibold text-primary-foreground hover:bg-primary/90",
+                  "cta-glow min-h-12 touch-manipulation rounded-xl bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90",
                   flowStep === "journey"
-                    ? "h-auto min-h-11 flex-1 px-4 py-2.5 text-left leading-snug sm:flex-initial"
-                    : "px-5",
+                    ? "h-auto flex-1 px-4 py-3 text-left leading-snug sm:flex-initial sm:py-2.5"
+                    : "h-12 px-5",
                 )}
                 data-testid="button-next"
               >
