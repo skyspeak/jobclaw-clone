@@ -44,7 +44,15 @@ export function Landing() {
       </main>
 
       <footer className="px-4 pb-6 text-center text-xs text-[var(--lg-muted)] sm:pb-8 sm:text-sm">
-        Free, forever. Built by New Work Foundation.
+        <p>Free, forever. Built by New Work Foundation.</p>
+        <p className="mt-2">
+          <Link
+            href="/privacy"
+            className="underline-offset-4 hover:text-[var(--lg-fg)] hover:underline"
+          >
+            Privacy &amp; consent
+          </Link>
+        </p>
       </footer>
     </div>
   );

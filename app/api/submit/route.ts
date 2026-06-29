@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getDatabaseErrorMessage } from "@/lib/db";
 import { insertLead } from "@/lib/leads/db";
 import { ROLE_TYPES } from "@/lib/leads/schema";
+import { enrollInStayRelevant } from "@/lib/stayrelevant-enroll";
 
 const submitSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -15,6 +16,10 @@ const submitSchema = z.object({
   linkedin: z.string().trim().max(300).optional().nullable(),
   phone: z.string().trim().max(30).optional().nullable(),
   referral: z.string().trim().max(300).optional().nullable(),
+  role: z.string().trim().max(200).optional().nullable(),
+  focusAreas: z.array(z.string().trim().max(100)).max(20).optional().nullable(),
+  timezone: z.string().trim().max(80).optional().nullable(),
+  newsletterConsent: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -33,17 +38,46 @@ export async function POST(request: Request) {
   }
 
   try {
+    const {
+      role,
+      focusAreas,
+      timezone,
+      newsletterConsent,
+      ...leadFields
+    } = parsed.data;
+
     const lead = await insertLead({
-      ...parsed.data,
-      industries: parsed.data.industries?.trim() || null,
-      linkedin: parsed.data.linkedin || null,
-      phone: parsed.data.phone?.trim() || null,
-      school: parsed.data.school || null,
-      grad_year: parsed.data.grad_year || null,
-      referral: parsed.data.referral?.trim() || null,
+      ...leadFields,
+      industries: leadFields.industries?.trim() || null,
+      linkedin: leadFields.linkedin || null,
+      phone: leadFields.phone?.trim() || null,
+      school: leadFields.school || null,
+      grad_year: leadFields.grad_year || null,
+      referral: leadFields.referral?.trim() || null,
     });
 
-    return NextResponse.json({ ok: true, id: lead.id }, { status: 201 });
+    let stayRelevant: { ok: boolean; firstIssueSent?: boolean; skipped?: string } = {
+      ok: false,
+    };
+
+    if (newsletterConsent !== false) {
+      const enroll = await enrollInStayRelevant({
+        email: leadFields.email,
+        linkedinUrl: leadFields.linkedin,
+        role,
+        industry: leadFields.industries,
+        focusAreas: focusAreas ?? undefined,
+        timezone,
+        sourceRef: leadFields.referral,
+      });
+      stayRelevant = {
+        ok: enroll.ok,
+        firstIssueSent: enroll.ok ? enroll.firstIssueSent : undefined,
+        skipped: enroll.ok ? enroll.skipped : undefined,
+      };
+    }
+
+    return NextResponse.json({ ok: true, id: lead.id, stayRelevant }, { status: 201 });
   } catch (error) {
     console.error("lead submit failed", error);
     const message = getDatabaseErrorMessage(error);

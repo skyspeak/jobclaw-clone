@@ -57,7 +57,11 @@ function ShareOptionButton({
   );
 }
 
-export function IntakeGetHiredConfirmationSplash() {
+export function IntakeGetHiredConfirmationSplash({
+  stayRelevantOk = null,
+}: {
+  stayRelevantOk?: boolean | null;
+}) {
   const [visible, setVisible] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -104,7 +108,7 @@ export function IntakeGetHiredConfirmationSplash() {
   return (
     <div
       className={cn(
-        "space-y-6 transition-all duration-700 ease-out sm:space-y-8",
+        "mx-auto flex w-full max-w-lg flex-1 flex-col justify-center space-y-6 transition-all duration-700 ease-out sm:space-y-8",
         visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
       )}
     >
@@ -154,6 +158,15 @@ export function IntakeGetHiredConfirmationSplash() {
           <p className="mt-3 text-sm text-muted-foreground/80">
             We&apos;ll be in touch with curated guidance tailored to you.
           </p>
+          {stayRelevantOk === true ? (
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              Check your inbox — your first StayRelevant issue is on the way (Sundays, ~15 min read).
+            </p>
+          ) : stayRelevantOk === false ? (
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              We saved your signup. Watch for StayRelevant in your inbox shortly.
+            </p>
+          ) : null}
         </div>
       </section>
 

@@ -14,3 +14,4 @@ data/leads.db-shm
 node_modules
 .vercel
 .env*
+!.env.example
