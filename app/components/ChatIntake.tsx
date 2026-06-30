@@ -41,6 +41,11 @@ import {
   type IntakeProfileDraft,
   type IntakeWizardSession,
 } from "@/lib/intake-session";
+import type { IntakePersonalizedRoadmap } from "@/lib/intake-roadmap";
+import {
+  buildGapEmailSummary,
+  submitRoadmapUnlock,
+} from "@/lib/intake-unlock-roadmap";
 import {
   readStayRelevantContactWithIntakeFallback,
   writeStayRelevantContact,
@@ -179,6 +184,9 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
   const [opinionsModalOpen, setOpinionsModalOpen] = useState(false);
+  const [unlockContactConsent, setUnlockContactConsent] = useState(false);
+  const [isUnlockingRoadmap, setIsUnlockingRoadmap] = useState(false);
+  const [unlockError, setUnlockError] = useState("");
 
   const prefsForm = useForm<PrefsValues>({
     resolver: zodResolver(prefsSchema),
@@ -191,6 +199,44 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     () => ccAgent.skippedProfileUpload || hasMinimumProfileEvidence(linkedInUrl, resumeText),
     [ccAgent.skippedProfileUpload, linkedInUrl, resumeText],
   );
+
+  const gapEmailSummary = useMemo(() => {
+    if (!ccAgent.vettingResult) {
+      return "";
+    }
+    const session: IntakeWizardSession = {
+      submissionId,
+      wizardStep,
+      wizardAnswers,
+      currentAnswer,
+      contact,
+      defaults,
+      result,
+      profileDraft,
+      generatedResume,
+      linkedInUrl,
+      resumeText,
+      resumeFileName,
+      ccAgent,
+      targetJobUrl,
+    };
+    return buildGapEmailSummary(session);
+  }, [
+    ccAgent,
+    contact,
+    currentAnswer,
+    defaults,
+    generatedResume,
+    linkedInUrl,
+    profileDraft,
+    result,
+    resumeFileName,
+    resumeText,
+    submissionId,
+    targetJobUrl,
+    wizardAnswers,
+    wizardStep,
+  ]);
 
   useEffect(() => {
     if (searchParams.get("reset") === "1") {
@@ -238,6 +284,11 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     setResumeText(session.resumeText);
     setResumeFileName(session.resumeFileName);
     prefsForm.reset(searchDefaultsToPrefsValues(session.defaults));
+
+    if (searchParams.get("unlock") === "1" && session.ccAgent.vettingResult && !session.ccAgent.roadmapUnlocked) {
+      setCcAgent((current) => ({ ...current, flowStep: "unlock-roadmap" }));
+    }
+
     setIsHydrated(true);
   }, [prefsForm, router, searchParams]);
 
@@ -488,20 +539,130 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
     finishQuit();
   }
 
-  async function handleGetHired() {
+  async function handleUnlockRoadmap() {
     if (flowStep !== "vetting-result") {
       return;
     }
 
     setAnswerError("");
-    router.push("/intake/get-hired");
+    setUnlockError("");
+    setCcAgent((current) => ({ ...current, flowStep: "unlock-roadmap" }));
+  }
+
+  async function handleUnlockRoadmapSubmit(consentOverride?: boolean) {
+    const consent = consentOverride ?? unlockContactConsent;
+
+    if (
+      (flowStep !== "vetting-result" && flowStep !== "unlock-roadmap") ||
+      !ccAgent.vettingResult
+    ) {
+      return;
+    }
+
+    const trimmedEmail = contact.email.trim();
+
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setUnlockError("Enter a valid email address.");
+      return;
+    }
+
+    if (!consent) {
+      setUnlockError("Please accept the terms and conditions.");
+      return;
+    }
+
+    setIsUnlockingRoadmap(true);
+    setUnlockError("");
+
+    const session: IntakeWizardSession = {
+      submissionId,
+      wizardStep,
+      wizardAnswers,
+      currentAnswer,
+      contact: { ...contact, email: trimmedEmail },
+      defaults,
+      result,
+      profileDraft,
+      generatedResume,
+      linkedInUrl,
+      resumeText,
+      resumeFileName,
+      ccAgent,
+      targetJobUrl,
+    };
+
+    try {
+      await submitRoadmapUnlock(session, trimmedEmail);
+
+      writeStayRelevantContact({
+        email: trimmedEmail,
+        name: contact.name.trim() || undefined,
+      });
+
+      setContact((current) => ({ ...current, email: trimmedEmail }));
+
+      const roadmapResponse = await fetch("/api/cc-agent/roadmap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vettingResult: ccAgent.vettingResult,
+          targetJobUrl,
+          linkedInUrl,
+          resumeText,
+        }),
+      });
+
+      const roadmapPayload = (await roadmapResponse.json()) as {
+        roadmap?: IntakePersonalizedRoadmap;
+        error?: string;
+      };
+
+      if (!roadmapResponse.ok || !roadmapPayload.roadmap) {
+        throw new Error(roadmapPayload.error || "Unable to build your roadmap.");
+      }
+
+      setCcAgent((current) => ({
+        ...current,
+        roadmapUnlocked: true,
+        personalizedRoadmap: roadmapPayload.roadmap ?? null,
+        flowStep: "roadmap",
+      }));
+      setUnlockContactConsent(true);
+    } catch (caught) {
+      setUnlockContactConsent(false);
+      setUnlockError(caught instanceof Error ? caught.message : "Unable to save your email.");
+    } finally {
+      setIsUnlockingRoadmap(false);
+    }
+  }
+
+  function handleUnlockContactConsentChange(checked: boolean) {
+    setUnlockContactConsent(checked);
+    if (unlockError) {
+      setUnlockError("");
+    }
+  }
+
+  function handleContactEmailChange(value: string) {
+    setContact((current) => ({ ...current, email: value }));
+    if (unlockError) {
+      setUnlockError("");
+    }
+  }
+
+  function handleRoadmapContactUpdate(patch: { name?: string; phone?: string }) {
+    setContact((current) => ({
+      ...current,
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.phone !== undefined ? { phone: patch.phone } : {}),
+    }));
   }
 
   async function handleNext() {
     if (flowStep === "search-filters") {
       setCcAgent((current) => ({
         ...current,
-        flowStep: current.vettingResult ? "vetting-result" : "connect",
+        flowStep: current.vettingResult ? "vetting-result" : "linkedin",
       }));
       return;
     }
@@ -559,7 +720,17 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
         targetJobUrl,
         wizardAnswers,
       );
-      setCcAgent({ ...next, targetJobUrl });
+      let merged: CcAgentFlowState = { ...next, targetJobUrl };
+
+      if (next.flowStep === "vetting-result" && !next.vettingResult) {
+        const vetting = await runTriage();
+        if (!vetting) {
+          return;
+        }
+        merged = { ...merged, vettingResult: vetting };
+      }
+
+      setCcAgent(merged);
       setCurrentAnswer(nextCurrentAnswer);
       return;
     }
@@ -621,12 +792,16 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
       return;
     }
     setAnswerError("");
+    if (topLevel === 3 && ccAgent.roadmapUnlocked) {
+      setCcAgent((current) => ({ ...current, flowStep: "roadmap" }));
+      return;
+    }
     const nextFlowStep = getFlowStepForIntakeTopLevel(topLevel, ccAgent);
     setCcAgent((current) => ({ ...current, flowStep: nextFlowStep }));
   }
 
   function handleBack() {
-    if (flowStep === "connect" || flowStep === "target-job-url") {
+    if (flowStep === "linkedin" || flowStep === "target-job-url") {
       return;
     }
 
@@ -920,7 +1095,19 @@ export function ChatIntake({ variant = "chat" }: ChatIntakeProps) {
           onBack={handleBack}
           onTopLevelStepClick={handleTopLevelStepClick}
           onNext={() => void handleNext()}
-          onGetHired={() => void handleGetHired()}
+          onUnlockRoadmap={() => void handleUnlockRoadmap()}
+          onUnlockRoadmapSubmit={() => void handleUnlockRoadmapSubmit()}
+          unlockEmail={contact.email}
+          onUnlockEmailChange={handleContactEmailChange}
+          unlockContactConsent={unlockContactConsent}
+          onUnlockContactConsentChange={handleUnlockContactConsentChange}
+          unlockError={unlockError}
+          gapEmailSummary={gapEmailSummary}
+          isUnlockingRoadmap={isUnlockingRoadmap}
+          roadmapContactEmail={contact.email}
+          roadmapContactName={contact.name}
+          roadmapContactPhone={contact.phone}
+          onRoadmapContactUpdate={handleRoadmapContactUpdate}
           onQuit={handleQuitIntake}
           isGenerating={isGenerating}
           isParsingProfile={isParsingProfile}

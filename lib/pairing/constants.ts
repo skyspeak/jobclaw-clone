@@ -54,3 +54,20 @@ export function aiTrackToPairingTrack(track: { id: string; slug?: string }): Pai
 export function pairingTrackToSprintSlug(track: PairingTrack): string {
   return track === "fde" ? "forward-deployed-engineer" : track;
 }
+
+/** Map cc-agent inferred role id → pairing queue track */
+export function roleIdToPairingTrack(roleId: string): PairingTrack | null {
+  switch (roleId) {
+    case "sales":
+      return "sales";
+    case "marketing":
+      return "marketing";
+    case "fde":
+      return "fde";
+    case "swe":
+    case "long-tail":
+      return "marketing";
+    default:
+      return null;
+  }
+}

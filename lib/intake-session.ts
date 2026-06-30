@@ -13,8 +13,17 @@ import {
 } from "@/lib/jobclaw";
 import type { GeneratedResume } from "@/lib/resume";
 import type { ResumeSnapshot } from "@/lib/submissions";
+import type { ProjectSprintSlug } from "@/lib/ai-tracks-data";
 
 export const INTAKE_WIZARD_STORAGE_KEY = "jobclaw.intake-wizard.v4";
+
+export type CollaborativePlanState = {
+  markedNodeIds: string[];
+  customNotes: string;
+  roadmapSlug: ProjectSprintSlug;
+  gapAnalysisEmailedAt?: string;
+  planCompletedAt?: string;
+};
 
 /** Prior wizard keys cleared on full browser reset. */
 export const LEGACY_INTAKE_WIZARD_KEYS = [
@@ -84,6 +93,7 @@ export type IntakeWizardSession = {
   /** dear[CC] flow (triage → vetting → nurture) */
   ccAgent: CcAgentFlowState;
   targetJobUrl: string;
+  collaborativePlan?: CollaborativePlanState;
 };
 
 const emptyContact: IntakeContactInfo = {
@@ -172,6 +182,9 @@ export function readIntakeSession(): IntakeWizardSession {
     next.resumeText = typeof parsed.resumeText === "string" ? parsed.resumeText : "";
     next.resumeFileName = typeof parsed.resumeFileName === "string" ? parsed.resumeFileName : "";
     next.targetJobUrl = typeof parsed.targetJobUrl === "string" ? parsed.targetJobUrl : "";
+    if (parsed.collaborativePlan && typeof parsed.collaborativePlan === "object") {
+      next.collaborativePlan = parsed.collaborativePlan;
+    }
     next.ccAgent = {
       ...defaultCcAgentFlowState(),
       ...(parsed.ccAgent && typeof parsed.ccAgent === "object" ? parsed.ccAgent : {}),
@@ -219,9 +232,15 @@ export function readIntakeSession(): IntakeWizardSession {
 
     if (
       next.ccAgent.knowsTargetJob !== false &&
-      (next.ccAgent.flowStep === "target-job-url" || next.ccAgent.flowStep === "profile-upload")
+      (next.ccAgent.flowStep === "target-job-url" ||
+        next.ccAgent.flowStep === "profile-upload" ||
+        next.ccAgent.flowStep === "connect")
     ) {
-      next.ccAgent.flowStep = "connect";
+      next.ccAgent.flowStep = next.linkedInUrl.trim() ? "target-job-url" : "linkedin";
+    }
+
+    if (next.ccAgent.flowStep === "connect") {
+      next.ccAgent.flowStep = next.linkedInUrl.trim() ? "target-job-url" : "linkedin";
     }
 
     if (next.ccAgent.knowsTargetJob === null && next.targetJobUrl.trim()) {
@@ -237,8 +256,14 @@ export function readIntakeSession(): IntakeWizardSession {
     ) {
       next.ccAgent.knowsTargetJob = false;
     }
-    if (next.ccAgent.knowsTargetJob === null && next.ccAgent.flowStep !== "connect" && next.ccAgent.flowStep !== "target-job-url") {
-      next.ccAgent.flowStep = next.targetJobUrl.trim() ? "connect" : "target-job-url";
+    if (next.ccAgent.knowsTargetJob === null && next.ccAgent.flowStep !== "linkedin" && next.ccAgent.flowStep !== "target-job-url") {
+      if (next.linkedInUrl.trim() && next.targetJobUrl.trim()) {
+        next.ccAgent.flowStep = "target-job-url";
+      } else if (next.linkedInUrl.trim()) {
+        next.ccAgent.flowStep = "target-job-url";
+      } else {
+        next.ccAgent.flowStep = "linkedin";
+      }
     }
 
     next.ccAgent.flowStep = normalizeLegacyFlowStep(
@@ -328,7 +353,7 @@ function normalizeLegacyFlowStep(
     step === "role-suggestions" ||
     step === ("nurture-track" as CcAgentStepId)
   ) {
-    return vettingResult ? "vetting-result" : "connect";
+    return vettingResult ? "vetting-result" : "linkedin";
   }
 
   return step;

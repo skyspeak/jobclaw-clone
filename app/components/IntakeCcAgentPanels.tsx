@@ -27,6 +27,44 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+export function IntakeLinkedInPanel({
+  linkedInUrl,
+  onLinkedInUrlChange,
+  skippedProfileUpload,
+  onSkipProfileUpload,
+}: {
+  linkedInUrl: string;
+  onLinkedInUrlChange: (value: string) => void;
+  skippedProfileUpload: boolean;
+  onSkipProfileUpload: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="intake-linkedin-url">LinkedIn profile URL</Label>
+        <Input
+          id="intake-linkedin-url"
+          type="url"
+          inputMode="url"
+          autoComplete="url"
+          placeholder="https://www.linkedin.com/in/your-profile"
+          className="h-12 rounded-xl text-base sm:h-11"
+          data-testid="input-linkedin-url"
+          value={linkedInUrl}
+          disabled={skippedProfileUpload}
+          onChange={(e) => onLinkedInUrlChange(e.target.value)}
+        />
+      </div>
+      <IntakeOptionChips
+        options={[PROFILE_SKIP_CHIP]}
+        value={skippedProfileUpload ? PROFILE_SKIP_CHIP : ""}
+        onChange={() => onSkipProfileUpload()}
+        stepIndex={0}
+      />
+    </div>
+  );
+}
+
 export function IntakeConnectPanel({
   targetJobUrl,
   onTargetJobUrlChange,

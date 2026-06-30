@@ -16,6 +16,7 @@ type PairingCohortModalProps = {
   trackTitle: string;
   pairingTrack: PairingTrack | null;
   initialEmail?: string;
+  initialUserId?: string;
 };
 
 export function PairingCohortModal({
@@ -24,6 +25,7 @@ export function PairingCohortModal({
   trackTitle,
   pairingTrack,
   initialEmail,
+  initialUserId,
 }: PairingCohortModalProps) {
   useEffect(() => {
     if (!open) {
@@ -88,10 +90,12 @@ export function PairingCohortModal({
             <PairingQueueContent
               initialTrack={pairingTrack}
               initialEmail={initialEmail}
+              initialUserId={initialUserId}
               lockTrack
               compact
               trackTitle={trackTitle}
               idPrefix="cohort-modal"
+              restoreSession={!initialUserId}
             />
           ) : (
             <div className="space-y-4">

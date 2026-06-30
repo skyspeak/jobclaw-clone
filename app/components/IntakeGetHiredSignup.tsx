@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 
-import { IntakeGetHiredConfirmationSplash } from "@/app/components/IntakeGetHiredConfirmationSplash";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +17,8 @@ import {
 import { writeStayRelevantContact } from "@/lib/stay-relevant-contact";
 import type { NewsletterSubmitResult } from "@/lib/newsletter-signup-status";
 import { cn } from "@/lib/utils";
+
+const NEWSLETTER_RESULT_KEY = "dearcc.signup-newsletter.v1";
 
 function buildGapEmailSummary(session: IntakeWizardSession): string {
   const parameters = session.ccAgent.vettingResult?.gapParameters ?? [];
@@ -37,8 +38,6 @@ export function IntakeGetHiredSignup() {
   const [contactConsent, setContactConsent] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [newsletter, setNewsletter] = useState<NewsletterSubmitResult | null>(null);
 
   const gapLabels = useMemo(() => {
     if (!session) return [];
@@ -138,14 +137,21 @@ export function IntakeGetHiredSignup() {
           email: trimmedEmail,
           phone: trimmedPhone,
         },
+        ccAgent: {
+          ...session.ccAgent,
+          roadmapUnlocked: true,
+        },
       };
       writeIntakeSession(updated);
-      setSession(updated);
-      setNewsletter(
-        payload.newsletter ??
-          payload.stayRelevant ?? { ok: false, reason: "network_error" },
-      );
-      setIsComplete(true);
+
+      const newsletterResult =
+        payload.newsletter ?? payload.stayRelevant ?? { ok: false, reason: "network_error" };
+
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(NEWSLETTER_RESULT_KEY, JSON.stringify(newsletterResult));
+      }
+
+      router.push("/intake/plan-together");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to save your signup.");
     } finally {
@@ -165,10 +171,6 @@ export function IntakeGetHiredSignup() {
   const hasValidPhone = phoneDigits.length >= 10;
   const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const canSubmit = hasValidPhone && hasValidEmail && contactConsent;
-
-  if (isComplete) {
-    return <IntakeGetHiredConfirmationSplash newsletter={newsletter} />;
-  }
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col">
@@ -290,6 +292,10 @@ export function IntakeGetHiredSignup() {
               </>
             )}
           </Button>
+
+          <p className="text-center text-xs text-muted-foreground">
+            Next: we&apos;ll co-build a plan tailored to your gaps
+          </p>
 
           <Button
             asChild

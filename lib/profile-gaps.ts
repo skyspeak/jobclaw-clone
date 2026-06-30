@@ -29,7 +29,7 @@ export type ProfileGapParameter = {
   keywords: string[];
 };
 
-const gapParameterSchema = z.object({
+export const gapParameterSchema = z.object({
   parameter: z.string().min(1).max(80),
   jobRequires: z.string().min(1).max(280),
   youHave: z.string().min(1).max(280),

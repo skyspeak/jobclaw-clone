@@ -8,7 +8,6 @@ import { ArrowRight, Share2 } from "lucide-react";
 import { IntakeGapParametersTable } from "@/app/components/IntakeGapParametersTable";
 import { IntakeVettingSourceLinks } from "@/app/components/IntakeCcAgentPanels";
 import { Button } from "@/components/ui/button";
-import { projectSprintPathForRoleId } from "@/lib/ai-tracks-data";
 import { wizardRowsToIntakeAnswers } from "@/lib/intake-questions";
 import type { SearchRequest } from "@/lib/jobclaw";
 import {
@@ -133,7 +132,9 @@ export function IntakeBriefResults() {
   }
 
   if (!hasBrief && vetting) {
-    const sprintHref = projectSprintPathForRoleId(vetting.inferredRoleId);
+    const unlockHref = session.ccAgent.roadmapUnlocked
+      ? "/intake/roadmap"
+      : "/intake/unlock-roadmap";
 
     return (
       <div className="flex flex-col gap-8">
@@ -145,8 +146,8 @@ export function IntakeBriefResults() {
             Become AI native by honing your skills
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-            You completed intake vetting. Use your gap breakdown below to pick a six-week project sprint
-            that builds proof-of-work for your target role.
+            Your personalized 6-week roadmap is ready. Enter your email to unlock a plan built around
+            the gaps below.
           </p>
           <div className="mt-6 space-y-6">
             <IntakeGapParametersTable parameters={vetting.gapParameters ?? []} />
@@ -159,8 +160,8 @@ export function IntakeBriefResults() {
         </section>
 
         <Button asChild size="lg" className="cta-glow h-14 w-full rounded-2xl text-base font-semibold sm:text-lg">
-          <Link href={sprintHref}>
-            Explore project sprints
+          <Link href={unlockHref}>
+            Get my personalized roadmap
             <ArrowRight className="size-5 opacity-90" />
           </Link>
         </Button>

@@ -27,7 +27,7 @@ export function IntakeStepNav({ flowStep, ccAgent, onStepClick }: IntakeStepNavP
         const isActive = stepNumber === activeTop;
         const isPast = stepNumber < activeTop;
         const canNavigate = canNavigateToIntakeTopLevel(stepNumber, ccAgent);
-        const mobileLabel = ["Connect", "Analysis", "Journey"][index] ?? label;
+        const mobileLabel = ["Connect", "Analysis", "Roadmap"][index] ?? label;
 
         return (
           <button

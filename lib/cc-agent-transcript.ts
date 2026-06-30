@@ -57,6 +57,13 @@ export function formatConnectUserMessage(input: {
   return [jobPart, profilePart].filter(Boolean).join("\n");
 }
 
+export function getLinkedInOpeningPrompt(): { title: string; body: string } {
+  return {
+    title: "First, what's your LinkedIn profile URL?",
+    body: "Hi! I'll compare your profile to a target role and show you exactly where to focus to get hired.\n\nI'll use it to understand your background before we look at a role together.",
+  };
+}
+
 /** User inputs for the active step — shown on the right before Continue. */
 export function buildLiveUserInputs(input: {
   flowStep: CcAgentStepId;
@@ -66,8 +73,9 @@ export function buildLiveUserInputs(input: {
   resumeFileName: string;
   resumeText: string;
   currentAnswer: string;
+  email?: string;
 }): TranscriptMessage[] {
-  const { flowStep, ccAgent, targetJobUrl, linkedInUrl, resumeFileName, resumeText, currentAnswer } =
+  const { flowStep, ccAgent, targetJobUrl, linkedInUrl, resumeFileName, resumeText, currentAnswer, email } =
     input;
   const messages: TranscriptMessage[] = [];
   const pendingUser = (id: string, content: string): TranscriptMessage => ({
@@ -116,8 +124,16 @@ export function buildLiveUserInputs(input: {
     }
   }
 
-  if (flowStep === "linkedin" && linkedInUrl.trim()) {
-    messages.push(pendingUser("live-linkedin", linkedInUrl.trim()));
+  if (flowStep === "linkedin") {
+    if (ccAgent.skippedProfileUpload) {
+      messages.push(pendingUser("live-no-profile", PROFILE_SKIP_CHIP));
+    } else if (linkedInUrl.trim()) {
+      messages.push(pendingUser("live-linkedin", linkedInUrl.trim()));
+    }
+  }
+
+  if (flowStep === "unlock-roadmap" && email?.trim()) {
+    messages.push(pendingUser("live-unlock-email", email.trim()));
   }
 
   if (flowStep === "resume") {
@@ -143,11 +159,12 @@ export function getActiveStepPrompt(
         title: "Connect your job and your profile",
         body: "Paste the listing you applied to and your LinkedIn URL so we can read the gap between them.",
       };
+    case "linkedin":
+      return getLinkedInOpeningPrompt();
     case "target-job-url":
       return {
-        title:
-          "What's the last job you applied to that you really wanted — but didn't get?",
-        body: "Paste the listing URL and we'll parse it for skills and gap analysis.",
+        title: "Now paste a job posting you're going after.",
+        body: "LinkedIn, Greenhouse, or company careers links work best—or tell me if you don't have one yet.",
       };
     case "profile-upload":
       return {
@@ -158,11 +175,6 @@ export function getActiveStepPrompt(
       return {
         title: "Upload your résumé",
         body: "Text-based files (.txt, .md, …) so we can build your skill graph.",
-      };
-    case "linkedin":
-      return {
-        title: "Add your LinkedIn profile",
-        body: "Used for location, network strength, and verification alongside your résumé.",
       };
     case "quiz": {
       const q = QUESTIONS[quizIndex];
@@ -178,6 +190,11 @@ export function getActiveStepPrompt(
       return {
         title: "Here's how your profile stacks up.",
         body: "Strengths you already bring and gaps the role needed that didn't show up.",
+      };
+    case "unlock-roadmap":
+      return {
+        title: "Your 6-week roadmap is ready — what's your email?",
+        body: "Enter it below and we'll unlock a plan built around the gaps we found.",
       };
     case "journey":
       return {
@@ -222,14 +239,7 @@ export function buildTranscript(input: {
   } = input;
   const sequence = getFlowStepSequence(ccAgent);
   const currentIndex = stepIndex(sequence, flowStep);
-  const messages: TranscriptMessage[] = [
-    {
-      id: "welcome",
-      role: "assistant",
-      content:
-        "We'll look at your target role, compare your profile, and show where to focus to get hired.",
-    },
-  ];
+  const messages: TranscriptMessage[] = [];
 
   const past = (step: CcAgentStepId) => {
     const idx = stepIndex(sequence, step);
@@ -238,6 +248,23 @@ export function buildTranscript(input: {
     }
     return currentIndex > idx;
   };
+
+  if (past("linkedin")) {
+    const linkedInPrompt = getLinkedInOpeningPrompt();
+    messages.push({
+      id: "asst-linkedin",
+      role: "assistant",
+      headline: linkedInPrompt.title,
+      content: linkedInPrompt.body,
+    });
+    messages.push({
+      id: "user-linkedin",
+      role: "user",
+      content: ccAgent.skippedProfileUpload
+        ? PROFILE_SKIP_CHIP
+        : linkedInUrl.trim() || "LinkedIn profile shared",
+    });
+  }
 
   if (past("target-job-url") && ccAgent.knowsTargetJob !== null) {
     messages.push({

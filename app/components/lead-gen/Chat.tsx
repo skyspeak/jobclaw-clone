@@ -280,7 +280,7 @@ export function Chat() {
   const showConfirmationActions = step === TOTAL_STEPS && !isTyping;
 
   const inputPlaceholder =
-    step === 4 ? "you@school.edu" : step === 2 ? "linkedin.com/in/you" : "type your reply…";
+    step === 4 ? "you@gmail.com" : step === 2 ? "linkedin.com/in/you" : "type your reply…";
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--lg-bg)] text-[var(--lg-fg)]">

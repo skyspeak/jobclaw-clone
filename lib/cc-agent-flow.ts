@@ -3,6 +3,7 @@
  * @see Product spec: dear[CC] — Land Your First Job
  */
 
+import type { IntakePersonalizedRoadmap } from "@/lib/intake-roadmap";
 import type { IntakeAnswers } from "@/lib/jobclaw";
 import type { ProfileGapParameter } from "@/lib/profile-gaps";
 import type { ParsedProfileInsight } from "@/lib/profile-parse";
@@ -25,16 +26,18 @@ export type CcAgentStepId =
   | "quiz"
   | "role-suggestions"
   | "vetting-result"
+  | "unlock-roadmap"
+  | "roadmap"
   | "journey"
   | "search-filters";
 
-export const INTAKE_STEP_LABELS = ["Connect", "Your analysis", "Your Journey"] as const;
+export const INTAKE_STEP_LABELS = ["Connect", "Your analysis", "Your roadmap"] as const;
 
 export function getIntakeTopLevelStep(flowStep: CcAgentStepId): 1 | 2 | 3 {
-  if (flowStep === "journey") {
+  if (flowStep === "roadmap" || flowStep === "journey") {
     return 3;
   }
-  if (flowStep === "vetting-result") {
+  if (flowStep === "vetting-result" || flowStep === "unlock-roadmap") {
     return 2;
   }
   return 1;
@@ -46,17 +49,21 @@ export function getFlowStepForIntakeTopLevel(
   state: CcAgentFlowState,
 ): CcAgentStepId {
   if (topLevel === 2) {
-    return "vetting-result";
+    return state.flowStep === "unlock-roadmap" ? "unlock-roadmap" : "vetting-result";
   }
   if (topLevel === 3) {
-    return "journey";
+    return state.personalizedRoadmap || state.roadmapUnlocked ? "roadmap" : "journey";
   }
 
   if (resolveKnowsTargetJob(state) !== false) {
-    return "connect";
+    if (state.flowStep === "linkedin" || state.flowStep === "target-job-url") {
+      return state.flowStep;
+    }
+    return "linkedin";
   }
 
   if (
+    state.flowStep === "linkedin" ||
     state.flowStep === "target-job-url" ||
     state.flowStep === "quiz" ||
     state.flowStep === "profile-upload"
@@ -64,13 +71,17 @@ export function getFlowStepForIntakeTopLevel(
     return state.flowStep;
   }
 
-  return "profile-upload";
+  return "linkedin";
 }
 
 export function canNavigateToIntakeTopLevel(
   topLevel: 1 | 2 | 3,
   state: CcAgentFlowState,
 ): boolean {
+  if (topLevel === 3 && state.roadmapUnlocked && state.vettingResult) {
+    return true;
+  }
+
   const maxUnlocked = getIntakeTopLevelStep(state.flowStep);
   if (topLevel > maxUnlocked) {
     return false;
@@ -106,6 +117,8 @@ export type CcAgentFlowState = {
   quizIndex: number;
   vettingResult: VettingResult | null;
   roleSuggestions: string[];
+  personalizedRoadmap: IntakePersonalizedRoadmap | null;
+  roadmapUnlocked: boolean;
 };
 
 export const CC_AGENT_ROLE_LABELS: Record<VettedRoleId, string> = {
@@ -155,10 +168,12 @@ export function defaultCcAgentFlowState(): CcAgentFlowState {
     skippedProfileUpload: false,
     targetJobUrl: "",
     selectedRoleId: "",
-    flowStep: "connect",
+    flowStep: "linkedin",
     quizIndex: 0,
     vettingResult: null,
     roleSuggestions: [],
+    personalizedRoadmap: null,
+    roadmapUnlocked: false,
   };
 }
 
@@ -189,14 +204,14 @@ export function getFlowStepSequence(state: CcAgentFlowState): CcAgentStepId[] {
   const knowsTargetJob = resolveKnowsTargetJob(state);
 
   if (knowsTargetJob === null) {
-    return ["target-job-url"];
+    return ["linkedin", "target-job-url"];
   }
 
   if (knowsTargetJob === false) {
-    return ["target-job-url", "quiz", "profile-upload", ...POST_PROFILE_STEPS];
+    return ["linkedin", "target-job-url", "quiz", "profile-upload", ...POST_PROFILE_STEPS];
   }
 
-  return ["connect", ...POST_PROFILE_STEPS];
+  return ["linkedin", "target-job-url", ...POST_PROFILE_STEPS];
 }
 
 export function getTotalFlowSteps(state: CcAgentFlowState): number {
@@ -238,6 +253,14 @@ export function getNextFlowStep(state: CcAgentFlowState): CcAgentStepId | null {
 }
 
 export function getPrevFlowStep(state: CcAgentFlowState): CcAgentStepId | null {
+  if (state.flowStep === "roadmap") {
+    return "vetting-result";
+  }
+
+  if (state.flowStep === "unlock-roadmap") {
+    return "vetting-result";
+  }
+
   if (state.flowStep === "quiz" && isQuizPath(state) && state.quizIndex > 0) {
     return "quiz";
   }

@@ -9,6 +9,22 @@ import { hasMinimumProfileEvidence, hasResumeOrLinkedInInput } from "@/lib/intak
 import { questionSchema } from "@/lib/intake-questions";
 
 
+export function isValidLinkedInUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return false;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return false;
+    }
+    return parsed.hostname.replace(/^www\./, "").includes("linkedin.com");
+  } catch {
+    return false;
+  }
+}
+
 export function isValidJobUrl(url: string): boolean {
   const trimmed = url.trim();
   if (!trimmed) {
@@ -86,10 +102,16 @@ export function canProceedFromStep(
       return { ok: true };
 
     case "linkedin":
-      if (!hasMinimumProfileEvidence(linkedInUrl, resumeText)) {
+      if (ccAgent.skippedProfileUpload) {
+        return { ok: true };
+      }
+      if (!linkedInUrl.trim()) {
+        return { ok: false, message: "Paste your LinkedIn profile URL to continue." };
+      }
+      if (!isValidLinkedInUrl(linkedInUrl)) {
         return {
           ok: false,
-          message: "Add your LinkedIn profile URL or ensure your résumé is uploaded.",
+          message: "That doesn't look like a LinkedIn URL. Try https://www.linkedin.com/in/your-name",
         };
       }
       return { ok: true };
@@ -103,6 +125,12 @@ export function canProceedFromStep(
     }
 
     case "vetting-result":
+      return { ok: true };
+
+    case "unlock-roadmap":
+      return { ok: true };
+
+    case "roadmap":
       return { ok: true };
 
     case "journey":
@@ -236,14 +264,21 @@ export function retreatCcAgentState(
       flowStep: prevStep,
       quizIndex: prevStep === "quiz" && wasQuiz ? 4 : prevStep === "quiz" ? 0 : ccAgent.quizIndex,
       skippedProfileUpload:
-        prevStep === "profile-upload" ? false : ccAgent.skippedProfileUpload,
+        prevStep === "profile-upload" || prevStep === "linkedin"
+          ? false
+          : ccAgent.skippedProfileUpload,
       knowsTargetJob:
-        prevStep === "target-job-url" || prevStep === "connect" ? null : ccAgent.knowsTargetJob,
+        prevStep === "linkedin" || prevStep === "target-job-url" || prevStep === "connect"
+          ? null
+          : ccAgent.knowsTargetJob,
     },
     nextCurrentAnswer:
       prevStep === "quiz"
         ? (wizardAnswers[wasQuiz ? 4 : 0] ?? "")
-        : prevStep === "profile-upload" || prevStep === "target-job-url" || prevStep === "connect"
+        : prevStep === "profile-upload" ||
+            prevStep === "linkedin" ||
+            prevStep === "target-job-url" ||
+            prevStep === "connect"
           ? ""
           : currentAnswer,
   };

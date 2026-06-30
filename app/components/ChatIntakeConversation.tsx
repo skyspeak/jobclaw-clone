@@ -4,15 +4,20 @@ import Link from "next/link";
 import type { ChangeEvent, ReactNode } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Bot, ChevronDown, Loader2 } from "lucide-react";
+import { ArrowLeft, Bot } from "lucide-react";
 
+import {
+  IntakeJourneyPanel,
+  IntakeVettingResultPanel,
+} from "@/app/components/IntakeCcAgentPanels";
 import { IntakeChatComposer } from "@/app/components/IntakeChatComposer";
+import { IntakeRoadmapFullView } from "@/app/components/IntakeRoadmapFullView";
 import { IntakeStepNav } from "@/app/components/IntakeStepNav";
 import { Button } from "@/components/ui/button";
 import { BRAND_NAME } from "@/lib/brand";
 import type { CcAgentFlowState, CcAgentStepId } from "@/lib/cc-agent-flow";
 import { isQuizPath, QUIZ_PATH_INTRO } from "@/lib/cc-agent-flow";
-import { buildLiveUserInputs, buildTranscript, getActiveStepPrompt } from "@/lib/cc-agent-transcript";
+import { buildTranscript, getActiveStepPrompt } from "@/lib/cc-agent-transcript";
 import { QUESTIONS, type PrefsValues } from "@/lib/intake-questions";
 import type { ParsedProfileInsight } from "@/lib/profile-parse";
 import { cn } from "@/lib/utils";
@@ -43,7 +48,19 @@ type ChatIntakeConversationProps = {
   onBack: () => void;
   onTopLevelStepClick: (topLevel: 1 | 2 | 3) => void;
   onNext: () => void;
-  onGetHired?: () => void;
+  onUnlockRoadmap?: () => void;
+  onUnlockRoadmapSubmit?: () => void;
+  unlockEmail?: string;
+  onUnlockEmailChange?: (value: string) => void;
+  unlockContactConsent?: boolean;
+  onUnlockContactConsentChange?: (value: boolean) => void;
+  unlockError?: string;
+  gapEmailSummary?: string;
+  isUnlockingRoadmap?: boolean;
+  roadmapContactEmail?: string;
+  roadmapContactName?: string;
+  roadmapContactPhone?: string;
+  onRoadmapContactUpdate?: (patch: { name?: string; phone?: string }) => void;
   onQuit?: () => void;
   isGenerating: boolean;
   isParsingProfile: boolean;
@@ -69,21 +86,29 @@ function AssistantBubble({
   children,
   hideLabel,
   className,
+  wide,
+  bare,
 }: {
   children: ReactNode;
   hideLabel?: boolean;
   className?: string;
+  wide?: boolean;
+  bare?: boolean;
 }) {
   return (
-    <div className={cn("flex gap-3 py-2", className)}>
+    <div className={cn("flex gap-3 py-1.5", className)}>
       <BotAvatar className="mt-0.5" />
-      <div className="min-w-0 max-w-[min(100%,36rem)] flex-1">
+      <div className={cn("min-w-0 flex-1", wide ? "max-w-full" : "max-w-[min(100%,36rem)]")}>
         {!hideLabel ? (
-          <p className="mb-1.5 text-xs font-semibold text-muted-foreground">{BRAND_NAME}</p>
+          <p className="mb-1 text-xs font-semibold text-muted-foreground">{BRAND_NAME}</p>
         ) : null}
-        <div className="rounded-2xl rounded-tl-md border border-border/60 bg-card px-3 py-3 text-sm leading-relaxed text-foreground shadow-sm sm:px-4 sm:text-[0.9375rem]">
-          {children}
-        </div>
+        {bare ? (
+          <div className="text-sm leading-relaxed text-foreground sm:text-[0.9375rem]">{children}</div>
+        ) : (
+          <div className="rounded-2xl rounded-tl-md border border-border/60 bg-card px-3 py-3 text-sm leading-relaxed text-foreground shadow-sm sm:px-4 sm:text-[0.9375rem]">
+            {children}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -97,10 +122,10 @@ function UserBubble({
   pending?: boolean;
 }) {
   return (
-    <div className="flex justify-end py-2 pl-6 sm:pl-16">
+    <div className="flex justify-end py-1.5 pl-8 sm:pl-16">
       <div
         className={cn(
-          "max-w-[min(100%,28rem)] rounded-2xl rounded-br-md px-3 py-3 text-sm leading-relaxed shadow-sm sm:px-4 sm:text-[0.9375rem]",
+          "max-w-[min(100%,28rem)] rounded-2xl rounded-br-md px-3 py-2.5 text-sm leading-relaxed shadow-sm sm:px-4 sm:text-[0.9375rem]",
           pending
             ? "border border-dashed border-primary/35 bg-primary/[0.07] text-foreground"
             : "border border-primary/25 bg-primary/15 text-foreground",
@@ -115,13 +140,22 @@ function UserBubble({
 function TypingIndicator() {
   return (
     <AssistantBubble>
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span className="text-sm">Thinking…</span>
+      <div className="flex items-center gap-1 py-1" aria-label="Typing">
+        {[0, 150, 300].map((delay) => (
+          <span
+            key={delay}
+            className="inline-block h-2 w-2 rounded-full bg-muted-foreground/70 animate-bounce"
+            style={{ animationDelay: `${delay}ms`, animationDuration: "0.9s" }}
+          />
+        ))}
       </div>
     </AssistantBubble>
   );
 }
+
+const TYPING_DELAY_MS = 1000;
+
+const FIRST_STEPS: CcAgentStepId[] = ["linkedin", "target-job-url"];
 
 export function ChatIntakeConversation({
   flowStep,
@@ -149,7 +183,19 @@ export function ChatIntakeConversation({
   onBack,
   onTopLevelStepClick,
   onNext,
-  onGetHired,
+  onUnlockRoadmap,
+  onUnlockRoadmapSubmit,
+  unlockEmail = "",
+  onUnlockEmailChange,
+  unlockContactConsent = false,
+  onUnlockContactConsentChange,
+  unlockError,
+  gapEmailSummary = "",
+  isUnlockingRoadmap = false,
+  roadmapContactEmail = "",
+  roadmapContactName = "",
+  roadmapContactPhone = "",
+  onRoadmapContactUpdate,
   onQuit,
   isGenerating,
   isParsingProfile,
@@ -157,16 +203,18 @@ export function ChatIntakeConversation({
   globalError,
 }: ChatIntakeConversationProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isBusy = isGenerating || isParsingProfile || isRunningTriage;
+  const isBusy = isGenerating || isParsingProfile || isRunningTriage || isUnlockingRoadmap;
   const isVettingResult = flowStep === "vetting-result";
-  const isAnalysisStep = flowStep === "vetting-result" || flowStep === "journey";
-  const [mobileTranscriptOpen, setMobileTranscriptOpen] = useState(false);
+  const isRoadmap = flowStep === "roadmap";
+  const isJourney = flowStep === "journey";
+  const canGoBack = !FIRST_STEPS.includes(flowStep) && !isBusy && !isRoadmap;
+  const [promptReady, setPromptReady] = useState(false);
 
   useEffect(() => {
-    if (!isAnalysisStep || isVettingResult) {
-      setMobileTranscriptOpen(false);
-    }
-  }, [isAnalysisStep, isVettingResult, flowStep]);
+    setPromptReady(false);
+    const timer = window.setTimeout(() => setPromptReady(true), TYPING_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [flowStep, quizIndex]);
 
   const transcript = useMemo(
     () =>
@@ -183,20 +231,6 @@ export function ChatIntakeConversation({
     [flowStep, ccAgent, targetJobUrl, linkedInUrl, resumeFileName, resumeText, wizardAnswers, quizIndex],
   );
 
-  const liveUserInputs = useMemo(
-    () =>
-      buildLiveUserInputs({
-        flowStep,
-        ccAgent,
-        targetJobUrl,
-        linkedInUrl,
-        resumeFileName,
-        resumeText,
-        currentAnswer,
-      }),
-    [flowStep, ccAgent, targetJobUrl, linkedInUrl, resumeFileName, resumeText, currentAnswer],
-  );
-
   const activePrompt = useMemo(() => {
     if (flowStep === "quiz") {
       const q = QUESTIONS[quizIndex];
@@ -211,6 +245,13 @@ export function ChatIntakeConversation({
     return getActiveStepPrompt(flowStep, profileInsight?.filtersIntro, quizIndex, ccAgent);
   }, [flowStep, quizIndex, profileInsight?.filtersIntro, ccAgent]);
 
+  const showActivePrompt =
+    promptReady &&
+    activePrompt.title &&
+    !isVettingResult &&
+    !isJourney &&
+    !isRoadmap;
+
   const scrollToLatest = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) {
@@ -222,23 +263,43 @@ export function ChatIntakeConversation({
   useEffect(() => {
     const frame = requestAnimationFrame(() => scrollToLatest());
     return () => cancelAnimationFrame(frame);
-  }, [transcript.length, liveUserInputs.length, flowStep, isBusy, quizIndex, scrollToLatest]);
+  }, [
+    transcript.length,
+    flowStep,
+    isBusy,
+    quizIndex,
+    promptReady,
+    scrollToLatest,
+  ]);
 
   return (
-    <div
-      className={cn(
-        "flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background selection:bg-primary selection:text-primary-foreground",
-        isVettingResult ? "overflow-hidden" : "max-sm:overflow-y-auto sm:overflow-hidden",
-      )}
-    >
-      <header className="sticky top-0 z-20 shrink-0 border-b border-border/60 bg-background/90 backdrop-blur-md pt-[max(0px,env(safe-area-inset-top))]">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 px-3 py-2 sm:gap-3 sm:px-6 sm:py-3">
-          <Link
-            className="text-sm font-semibold tracking-wide text-foreground underline-offset-4 hover:underline"
-            href="/"
-          >
-            {BRAND_NAME}
-          </Link>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background selection:bg-primary selection:text-primary-foreground">
+      <header className="sticky top-0 z-30 shrink-0 border-b border-border/60 bg-background/95 backdrop-blur-md pt-[max(0px,env(safe-area-inset-top))]">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 px-3 py-2 sm:gap-2.5 sm:px-6 sm:py-3">
+          <div className="flex items-center gap-1">
+            {canGoBack ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={onBack}
+                disabled={isBusy}
+                className="size-9 shrink-0 touch-manipulation rounded-lg text-muted-foreground"
+                data-testid="button-back"
+                aria-label="Back"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            ) : (
+              <div className="size-9 shrink-0" aria-hidden />
+            )}
+            <Link
+              className="text-sm font-semibold tracking-wide text-foreground underline-offset-4 hover:underline"
+              href="/"
+            >
+              {BRAND_NAME}
+            </Link>
+          </div>
           <IntakeStepNav
             flowStep={flowStep}
             ccAgent={ccAgent}
@@ -247,125 +308,120 @@ export function ChatIntakeConversation({
         </div>
       </header>
 
-      {isAnalysisStep && !isVettingResult ? (
-        <button
-          type="button"
-          className="mx-auto flex min-h-11 w-full max-w-2xl shrink-0 touch-manipulation items-center justify-between border-b border-border/50 px-3 py-2 text-sm font-medium text-muted-foreground sm:hidden"
-          onClick={() => setMobileTranscriptOpen((open) => !open)}
-          aria-expanded={mobileTranscriptOpen}
-        >
-          {mobileTranscriptOpen ? "Hide conversation" : "View conversation"}
-          <ChevronDown
-            className={cn("size-4 transition-transform", mobileTranscriptOpen && "rotate-180")}
-            aria-hidden
-          />
-        </button>
-      ) : null}
-
+      {isRoadmap ? (
+        <IntakeRoadmapFullView
+          roadmap={ccAgent.personalizedRoadmap}
+          vetting={ccAgent.vettingResult}
+          roleLabel={ccAgent.vettingResult?.inferredRoleLabel ?? "your target role"}
+          gapSummary={gapEmailSummary}
+          email={roadmapContactEmail}
+          contactName={roadmapContactName}
+          contactPhone={roadmapContactPhone}
+          onContactUpdate={onRoadmapContactUpdate}
+          isLoading={isUnlockingRoadmap}
+          error={unlockError}
+          className="flex-1"
+        />
+      ) : (
       <div
         ref={scrollContainerRef}
-        className={cn(
-          "min-h-0 overscroll-contain",
-          isVettingResult
-            ? "hidden"
-            : isAnalysisStep
-              ? cn(
-                  "sm:max-h-[min(18dvh,10rem)] sm:shrink-0 sm:overflow-y-auto",
-                  mobileTranscriptOpen
-                    ? "max-sm:max-h-[min(32dvh,16rem)] max-sm:shrink-0 max-sm:overflow-y-auto"
-                    : "max-sm:max-h-0 max-sm:overflow-hidden",
-                )
-              : "flex-1 overflow-y-auto max-sm:flex-none max-sm:overflow-visible",
-        )}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
       >
-        <div className="mx-auto w-full max-w-2xl space-y-1 px-3 py-4 sm:px-6 sm:py-6">
-          {transcript.map((message) =>
-            message.role === "assistant" ? (
-              <AssistantBubble key={message.id} hideLabel={Boolean(message.headline)}>
-                {message.headline ? (
-                  <>
-                    <p className="text-lg font-semibold tracking-tight text-foreground">
-                      {message.headline}
-                    </p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground sm:text-[0.9375rem]">
-                      {message.content}
-                    </p>
-                  </>
-                ) : (
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                )}
-              </AssistantBubble>
-            ) : (
-              <UserBubble key={message.id} pending={message.pending}>
-                <p className="whitespace-pre-wrap">{message.content}</p>
-              </UserBubble>
-            ),
-          )}
+        <div className="mx-auto w-full max-w-2xl space-y-0.5 px-3 py-4 sm:px-6 sm:py-5">
+          {!promptReady && !isVettingResult && !isJourney ? <TypingIndicator /> : null}
 
-          {activePrompt.title && flowStep !== "vetting-result" && flowStep !== "journey" ? (
+          {promptReady
+            ? transcript.map((message) =>
+                message.role === "assistant" ? (
+                  <AssistantBubble key={message.id} hideLabel={Boolean(message.headline)}>
+                    {message.headline ? (
+                      <>
+                        <p className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
+                          {message.headline}
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground sm:text-[0.9375rem]">
+                          {message.content}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    )}
+                  </AssistantBubble>
+                ) : (
+                  <UserBubble key={message.id} pending={message.pending}>
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  </UserBubble>
+                ),
+              )
+            : null}
+
+          {showActivePrompt ? (
             <AssistantBubble>
-              <p className="font-medium">{activePrompt.title}</p>
+              <p
+                className={cn(
+                  flowStep === "linkedin"
+                    ? "text-base font-semibold tracking-tight text-foreground sm:text-lg"
+                    : "font-medium",
+                )}
+              >
+                {activePrompt.title}
+              </p>
               {activePrompt.body ? (
-                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{activePrompt.body}</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground sm:text-[0.9375rem]">
+                  {activePrompt.body}
+                </p>
               ) : null}
             </AssistantBubble>
           ) : null}
 
-          {liveUserInputs.map((message) => (
-            <UserBubble key={message.id} pending>
-              <p className="whitespace-pre-wrap">{message.content}</p>
-            </UserBubble>
-          ))}
-
           {isBusy ? <TypingIndicator /> : null}
+
+          {isVettingResult && ccAgent.vettingResult ? (
+            <>
+              <AssistantBubble wide hideLabel>
+                <p className="font-medium">{getActiveStepPrompt("vetting-result").title}</p>
+                {getActiveStepPrompt("vetting-result").body ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {getActiveStepPrompt("vetting-result").body}
+                  </p>
+                ) : null}
+              </AssistantBubble>
+              <AssistantBubble wide bare hideLabel>
+                <IntakeVettingResultPanel
+                  vetting={ccAgent.vettingResult}
+                  targetJobUrl={targetJobUrl}
+                  linkedInUrl={linkedInUrl}
+                  resumeFileName={resumeFileName}
+                />
+              </AssistantBubble>
+              <AssistantBubble>
+                <p className="text-sm text-muted-foreground">
+                  Your personalized 6-week roadmap is ready. Enter your email below to unlock it.
+                </p>
+              </AssistantBubble>
+            </>
+          ) : null}
+
+          {isJourney && ccAgent.vettingResult ? (
+            <AssistantBubble wide bare hideLabel>
+              <IntakeJourneyPanel vetting={ccAgent.vettingResult} />
+            </AssistantBubble>
+          ) : null}
         </div>
       </div>
+      )}
 
-      <div
-        className={cn(
-          "z-20 flex flex-col bg-background/95 backdrop-blur-md",
-          isVettingResult
-            ? "min-h-0 flex-1 overflow-hidden"
-            : cn(
-                "shrink-0 border-t border-border/60 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
-                flowStep === "journey"
-                  ? "min-h-0 max-sm:flex-1 sm:max-h-[min(72dvh,700px)]"
-                  : "max-sm:max-h-none sm:max-h-[min(58dvh,560px)]",
-              ),
-        )}
-      >
-        {!isVettingResult ? (
-          <div className="mx-auto flex w-full max-w-2xl shrink-0 items-center px-3 pt-1.5 sm:px-6 sm:pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onBack}
-              disabled={flowStep === "connect" || flowStep === "target-job-url" || isBusy}
-              className="min-h-11 touch-manipulation rounded-lg px-2 text-muted-foreground"
-              data-testid="button-back"
-            >
-              <ArrowLeft className="mr-1 h-4 w-4" /> Back
-            </Button>
-          </div>
-        ) : null}
-        {answerError || globalError ? (
+      {!isRoadmap ? (
+      <footer className="sticky bottom-0 z-30 shrink-0 border-t border-border/60 bg-background/95 backdrop-blur-md pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        {answerError || globalError || unlockError ? (
           <p
-            className="mx-auto w-full max-w-2xl shrink-0 px-3 pb-1 text-sm font-medium text-destructive sm:px-6"
+            className="mx-auto w-full max-w-2xl px-3 pb-1 pt-2 text-sm font-medium text-destructive sm:px-6"
             role="alert"
           >
-            {answerError || globalError}
+            {answerError || globalError || unlockError}
           </p>
         ) : null}
-        <div
-          className={cn(
-            "flex flex-col overscroll-contain",
-            isVettingResult || isAnalysisStep
-              ? "min-h-0 flex-1 overflow-hidden"
-              : "max-sm:overflow-visible",
-          )}
-        >
-          <IntakeChatComposer
+        <IntakeChatComposer
           flowStep={flowStep}
           ccAgent={ccAgent}
           targetJobUrl={targetJobUrl}
@@ -386,14 +442,23 @@ export function ChatIntakeConversation({
           profileIncompleteHint={profileIncompleteHint}
           quizIndex={quizIndex}
           onNext={onNext}
-          onGetHired={onGetHired}
+          onUnlockRoadmap={onUnlockRoadmap}
+          onUnlockRoadmapSubmit={onUnlockRoadmapSubmit}
+          unlockEmail={unlockEmail}
+          onUnlockEmailChange={onUnlockEmailChange}
+          unlockContactConsent={unlockContactConsent}
+          onUnlockContactConsentChange={onUnlockContactConsentChange}
+          unlockError={unlockError}
+          gapEmailSummary={gapEmailSummary}
+          isUnlockingRoadmap={isUnlockingRoadmap}
           onQuit={onQuit}
           onBack={onBack}
           isBusy={isBusy}
           showAnswerError={false}
+          variant="chat"
         />
-        </div>
-      </div>
+      </footer>
+      ) : null}
     </div>
   );
 }

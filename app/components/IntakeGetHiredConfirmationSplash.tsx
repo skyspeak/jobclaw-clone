@@ -64,8 +64,14 @@ function ShareOptionButton({
 
 export function IntakeGetHiredConfirmationSplash({
   newsletter = null,
+  gapAnalysisSent = false,
+  email,
+  markedCount = 0,
 }: {
   newsletter?: NewsletterSubmitResult | null;
+  gapAnalysisSent?: boolean;
+  email?: string;
+  markedCount?: number;
 }) {
   const [visible, setVisible] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -166,6 +172,23 @@ export function IntakeGetHiredConfirmationSplash({
           <p className="mt-3 text-sm text-muted-foreground/80">
             We&apos;ll be in touch with curated guidance tailored to you.
           </p>
+          {gapAnalysisSent && email ? (
+            <p className="mt-3 text-sm font-medium text-[#2D6A4F]">
+              Your gap analysis is on its way to {email}.
+            </p>
+          ) : null}
+          {markedCount > 0 && !gapAnalysisSent ? (
+            <p className="mt-3 text-sm text-muted-foreground/80">
+              You marked {markedCount} priority {markedCount === 1 ? "area" : "areas"} — we&apos;ll
+              co-build from there.
+            </p>
+          ) : null}
+          {gapAnalysisSent && markedCount > 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground/80">
+              Your plan includes {markedCount} priority {markedCount === 1 ? "area" : "areas"} we&apos;ll
+              co-build together.
+            </p>
+          ) : null}
           {newsletterMessage ? (
             <p
               className={cn(
@@ -183,6 +206,13 @@ export function IntakeGetHiredConfirmationSplash({
       </section>
 
       <div className="space-y-4">
+        <Button asChild size="lg" className="cta-glow h-12 min-h-12 w-full touch-manipulation rounded-2xl text-base font-semibold">
+          <Link href="/intake/roadmap">
+            View your roadmap
+            <ArrowRight className="ml-1 size-4 opacity-90" />
+          </Link>
+        </Button>
+
         <Button
           type="button"
           variant="outline"

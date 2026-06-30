@@ -72,6 +72,20 @@ export function projectSprintPathForRoleId(roleId: string): string {
   }
 }
 
+export function sprintRoadmapSlugForRoleId(roleId: string): ProjectSprintSlug {
+  switch (roleId) {
+    case "sales":
+      return "sales";
+    case "marketing":
+      return "marketing";
+    case "fde":
+      return "forward-deployed-engineer";
+    case "swe":
+    default:
+      return "sales";
+  }
+}
+
 export const AI_PROJECT_SPRINTS_INTRO = {
   lead: `Three six-week sprints—pick the one that matches your target role.`,
   throughline: `Each sprint ends with something real you can share: a link, a deck, or a pipeline log.`,
